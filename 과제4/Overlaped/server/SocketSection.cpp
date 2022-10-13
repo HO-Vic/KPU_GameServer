@@ -68,7 +68,8 @@ void SocketSection::firstLocal()
 
 void processPacket(int id)
 {
-	switch (ClientSockets[id].recvWSABuf.buf[2])
+	cout << "processData Type" << (int)ClientSockets[id].recvWSABuf.buf[1] << endl;
+	switch (ClientSockets[id].recvWSABuf.buf[1])
 	{
 	case CS_LOGIN:
 	{
@@ -88,8 +89,10 @@ void processPacket(int id)
 	}
 	break;
 	default:
+		cout << "unknown Packet Recv" << endl;
 		break;
 	}
+	ClientSockets[id].doRecv();
 }
 
 void SocketSection::moveChessPiece(char& direction)
@@ -262,8 +265,7 @@ void CALLBACK recv_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED 
 			board[(int)(ClientSockets[id].clientInfo.pos.x + 3.5)][-(int)(ClientSockets[id].clientInfo.pos.z - 3.5)] = 0;
 			disconnect(id);
 		}
-	}
-
+	}	
 }
 
 void CALLBACK send_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags)

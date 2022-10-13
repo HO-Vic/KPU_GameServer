@@ -12,11 +12,11 @@ void readTriangleObj(const std::string objfilename, std::vector<glm::vec4>& vert
 	std::ifstream inFile(objfilename);
 
 	while (std::getline(inFile, line)) {
-		while (line.find("v ") != std::string::npos)
+		if (line[0] == 'v' && line[1] == ' ')
 			vertexNum++;
-		while (line.find("vn ") != std::string::npos)
+		else if (line[0] == 'v' && line[1] == 'n' && line[2] == ' ')
 			vertexNomalNum++;
-		while (line.find("vt ") != std::string::npos)
+		else if (line[0] == 'v' && line[1] == 't' && line[2] == ' ')
 			vertexTextureNum++;
 		//std::cout << line << std::endl;
 	}

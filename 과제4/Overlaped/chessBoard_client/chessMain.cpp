@@ -42,6 +42,7 @@ void drawChessPieceOtherClient(glm::vec3&);
 //
 void constructPacket(char* inputPacket, int inputSize);
 void proccessPacket(char* completePacket);
+void display_Err(int Errcode);
 
 void CALLBACK recv_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags);
 void CALLBACK send_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags);
@@ -111,9 +112,11 @@ int main(int argc, char** argv)
 {
 	wcout.imbue(std::locale("korean"));
 	string serverIp = "127.0.0.1";
-	cout << "서버 IP입력: ";
-	cin >> serverIp;
-
+	//cout << "서버 IP입력: ";
+	//cin >> serverIp;
+	string name;
+	cout << "이름 입력: ";
+	cin >> name;
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
 	glutInitWindowPosition(0, 0);
@@ -147,8 +150,12 @@ int main(int argc, char** argv)
 		cout << "connect Fail" << endl;
 	}
 
+	CS_LOGIN_PACKET loginPacket;
+	loginPacket.type = CS_LOGIN;
+	memcpy(loginPacket.name, name.c_str(), name.size());
+	loginPacket.size = sizeof(loginPacket);
+	doSend(reinterpret_cast<char*>(&loginPacket), loginPacket.size);
 	doRecv();
-
 	makeShaderID();
 
 	makeObj();
@@ -259,45 +266,37 @@ void specialkeycall(int key, int x, int y)
 {
 	WSABUF wsaBuf;
 
-	char* buf = new char[BUF_SIZE];
-	DWORD sendByte = 0;
-
 	CS_MOVE_PACKET directionPacket;
 	directionPacket.size = sizeof(CS_MOVE_PACKET);
 	directionPacket.type = CS_MOVE;
 
 	switch (key)
 	{
-	case GLUT_KEY_LEFT: 
+	case GLUT_KEY_LEFT:
 	{
-		directionPacket.direction = DIRECTION_LEFT;		
+		directionPacket.direction = DIRECTION_LEFT;
 		directionPacket.move_time = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();
-		memcpy(buf, &directionPacket, directionPacket.size);
-		doSend(buf, directionPacket.size);
-		cout << "DIRECTION_LEFT, SEND BYTE: " << sendByte << endl;
+		doSend(reinterpret_cast<char*>(&directionPacket), directionPacket.size);
+		cout << "DIRECTION_LEFT, SEND BYTE: " << endl;
 	}
-	
-		break;
+	break;
 	case GLUT_KEY_RIGHT:
 		directionPacket.direction = DIRECTION_RIGHT;
 		directionPacket.move_time = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();
-		memcpy(buf, &directionPacket, directionPacket.size);
-		doSend(buf, directionPacket.size);
-		cout << "DIRECTION_RIGHT, SEND BYTE: " << sendByte << endl;
+		doSend(reinterpret_cast<char*>(&directionPacket), directionPacket.size);
+		cout << "DIRECTION_RIGHT, SEND BYTE: " << endl;
 		break;
 	case GLUT_KEY_UP:
 		directionPacket.direction = DIRECTION_FRONT;
 		directionPacket.move_time = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();
-		memcpy(buf, &directionPacket, directionPacket.size);
-		doSend(buf, directionPacket.size);
-		cout << "DIRECTION_FRONT, SEND BYTE: " << sendByte << endl;
+		doSend(reinterpret_cast<char*>(&directionPacket), directionPacket.size);
+		cout << "DIRECTION_FRONT, SEND BYTE: " << endl;
 		break;
 	case GLUT_KEY_DOWN:
 		directionPacket.direction = DIRECTION_BACK;
 		directionPacket.move_time = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();
-		memcpy(buf, &directionPacket, directionPacket.size);
-		doSend(buf, directionPacket.size);
-		cout << "DIRECTION_BACK, SEND BYTE: " << sendByte << endl;
+		doSend(reinterpret_cast<char*>(&directionPacket), directionPacket.size);
+		cout << "DIRECTION_BACK, SEND BYTE: " << endl;
 		break;
 	default:
 		break;
@@ -553,7 +552,7 @@ void constructPacket(char* inputPacket, int inputSize)
 
 void proccessPacket(char* completePacket)
 {
-	switch (completePacket[4])
+	switch (completePacket[1])
 	{
 	case SC_LOGIN_INFO:
 	{
@@ -619,17 +618,16 @@ void doSend(char* sendPacket, int size)
 	EX_Over* newOver = new EX_Over();
 	ZeroMemory(&newOver->over, sizeof(newOver->over));
 
-
 	memcpy(newOver->Buf, sendPacket, size);
 
 	newOver->WSABuf.buf = newOver->Buf;
-	newOver->WSABuf.len = size + 1;
-	delete[] sendPacket;
+	newOver->WSABuf.len = size;
 
 	newOver->over.hEvent = reinterpret_cast<HANDLE>(newOver);
 
 	if (WSASend(mySocket, &newOver->WSABuf, 1, &newOver->WSABuf.len, 0, &newOver->over, send_Callback) != 0) {
 		cout << "specialKeyCall() - send fail" << endl;
+		display_Err(WSAGetLastError());
 	}
 
 	SleepEx(100, true);
@@ -647,6 +645,16 @@ void CALLBACK recv_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED 
 
 void CALLBACK send_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags)
 {
+	cout << "send Byte: " <<  cbTransferred << endl;
 	delete reinterpret_cast<EX_Over*>(lpOverlapped);
-	doRecv();
+}
+
+void display_Err(int Errcode)
+{
+	LPVOID lpMsgBuf;
+	FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+		NULL, Errcode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		(LPWSTR)&lpMsgBuf, 0, NULL);
+	wcout << "ErrorCode: " << Errcode << " - " << (WCHAR*)lpMsgBuf << endl;
+	LocalFree(lpMsgBuf);
 }
