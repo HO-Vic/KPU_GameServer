@@ -9,9 +9,10 @@
 서버와 클라이언트의 공유되는 내용들이 담겨져 있다.
 
 */
+#define SERVER_PORT 9000
 
 
-constexpr int PORT_NUM = 9000;
+//constexpr int PORT_NUM = 9000;
 constexpr int BUF_SIZE = 200;
 constexpr int NAME_SIZE = 20;
 

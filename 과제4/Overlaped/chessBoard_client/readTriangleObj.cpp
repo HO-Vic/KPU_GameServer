@@ -12,11 +12,11 @@ void readTriangleObj(const std::string objfilename, std::vector<glm::vec4>& vert
 	std::ifstream inFile(objfilename);
 
 	while (std::getline(inFile, line)) {
-		if (line[0] == 'v' && line[1] == ' ')
+		while (line.find("v ") != std::string::npos)
 			vertexNum++;
-		else if (line[0] == 'v' && line[1] == 'n' && line[2] == ' ')
+		while (line.find("vn ") != std::string::npos)
 			vertexNomalNum++;
-		else if (line[0] == 'v' && line[1] == 't' && line[2] == ' ')
+		while (line.find("vt ") != std::string::npos)
 			vertexTextureNum++;
 		//std::cout << line << std::endl;
 	}
@@ -72,17 +72,17 @@ void readTriangleObj(const std::string objfilename, std::vector<glm::vec4>& vert
 				inFile >> std::skipws >> tempC;
 				inFile >> std::skipws >> vertexTextureFaceNum[1];
 				inFile >> std::skipws >> tempC;
-				inFile >> std::skipws >> vertexNomalFaceNum[1];	
+				inFile >> std::skipws >> vertexNomalFaceNum[1];
 
 				inFile >> std::skipws >> vertexFaceNum[2];
 				inFile >> std::skipws >> tempC;
 				inFile >> std::skipws >> vertexTextureFaceNum[2];
 				inFile >> std::skipws >> tempC;
-				inFile >> std::skipws >> vertexNomalFaceNum[2];		
+				inFile >> std::skipws >> vertexNomalFaceNum[2];
 
-				glm::vec4 vertexFaceTemp = { vertexFaceNum[0], vertexFaceNum[1], vertexFaceNum[2], 1};
-				glm::vec4 vertexNomalFaceTemp = { vertexNomalFaceNum[0], vertexNomalFaceNum[1], vertexNomalFaceNum[2],1};
-				glm::vec4 vertexTextureFaceTemp = { vertexTextureFaceNum[0], vertexTextureFaceNum[1], vertexTextureFaceNum[2],1};
+				glm::vec4 vertexFaceTemp = { vertexFaceNum[0], vertexFaceNum[1], vertexFaceNum[2], 1 };
+				glm::vec4 vertexNomalFaceTemp = { vertexNomalFaceNum[0], vertexNomalFaceNum[1], vertexNomalFaceNum[2],1 };
+				glm::vec4 vertexTextureFaceTemp = { vertexTextureFaceNum[0], vertexTextureFaceNum[1], vertexTextureFaceNum[2],1 };
 				vertexFace.push_back(vertexFaceTemp);
 				vertexNomalFace.push_back(vertexNomalFaceTemp);
 				vertexTextureFace.push_back(vertexTextureFaceTemp);
@@ -109,5 +109,5 @@ void readTriangleObj(const std::string objfilename, std::vector<glm::vec4>& vert
 	delete[] vertexNomalData;
 	delete[] vertexTextureData;
 	inFile.close();
-	
+
 }

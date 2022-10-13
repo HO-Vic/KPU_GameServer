@@ -5,11 +5,10 @@
 #include<unordered_map>
 #include<WS2tcpip.h>
 #include"SocketSection.h"
-
+#include"protocol.h"
 #pragma comment(lib,"ws2_32")
 
 
-#define SERVER_PORT 9000
 
 using namespace std;
 

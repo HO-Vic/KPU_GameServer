@@ -10,19 +10,9 @@
 #include"readTriangleObj.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include"stb_image.h"
-
 #include<WS2tcpip.h>
 #include"protocol.h"
 #pragma comment(lib,"ws2_32")
-
-#define SERVER_PORT 9000
-
-#define DIRECTION_FRONT 0x10
-#define DIRECTION_BACK	0x11
-#define DIRECTION_LEFT	0x12
-#define DIRECTION_RIGHT 0x13
-
-#define BUF_SIZE 64
 
 using namespace std;
 
@@ -463,7 +453,7 @@ void drawChessBoard()
 	glm::mat4 chessBoardTrans = glm::mat4(1.0f);
 	unsigned int chessBoardNormalLocation = glGetUniformLocation(ShaderID, "normalTransform");
 	glUniformMatrix4fv(chessBoardNormalLocation, 1, GL_FALSE, glm::value_ptr(chessBoardTrans));
-	chessBoardTrans = glm::scale(chessBoardTrans, glm::vec3(8, 8, 8));
+	chessBoardTrans = glm::scale(chessBoardTrans, glm::vec3(16, 1, 16));
 	unsigned int chessBoardTransLocation = glGetUniformLocation(ShaderID, "modelTransform");
 	glUniformMatrix4fv(chessBoardTransLocation, 1, GL_FALSE, glm::value_ptr(chessBoardTrans));
 	glUniform1i(glGetUniformLocation(ShaderID, "textureC"), 0);
