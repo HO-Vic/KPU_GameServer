@@ -10,7 +10,7 @@ void disconnect(int id);
 void processPacket(int id);
 
 extern unordered_map<int, SocketSection> ClientSockets;
-extern int board[8][8];
+extern int board[400][400];
 
 SocketSection::SocketSection(int id, SOCKET& clientSocket) :clientSocket(clientSocket) {
 	clientInfo.id = id;
@@ -49,11 +49,13 @@ void SocketSection::firstLocal()
 	for (int i = 0; i < 8; i++) {
 		for (int j = 0; j < 8; j++) {
 			if (board[i][j] == 0) {
-				ChessPiecePosPacket sendPosPacket;
+				SC_MOVE_PLAYER_PACKET sendPosPacket;
 				board[i][j] = 1;
 				sendPosPacket.id = clientInfo.id;
-				clientInfo.pos = sendPosPacket.pos = glm::vec3(i - 3.5, 0, 3.5 - j);
-				sendPosPacket.type = s2cMovePacket;
+				clientInfo.pos = glm::vec3(i - 3.5, 0, 3.5 - j);
+				sendPosPacket.x = clientInfo.pos.x;
+				sendPosPacket.y = clientInfo.pos.z;
+				sendPosPacket.type = SC_MOVE_PLAYER;
 				sendPosPacket.size = sizeof(sendPosPacket);
 				memcpy(this->sendWSABuf.buf, &sendPosPacket, sendPosPacket.size);
 				this->sendWSABuf.len = sendPosPacket.size;
@@ -89,10 +91,11 @@ void SocketSection::moveChessPiece(WORD& direction)
 			board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5)] = 0;
 			board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5) + 1] = 1;
 			clientInfo.pos += glm::vec3(0, 0, -1);
-			ChessPiecePosPacket sendPacket;
-			sendPacket.pos = clientInfo.pos;
-			sendPacket.type = s2cMovePacket;
-			sendPacket.size = sizeof(ChessPiecePosPacket);
+			SC_MOVE_PLAYER_PACKET sendPacket;
+			sendPacket.x = clientInfo.pos.x;
+			sendPacket.y = clientInfo.pos.z;
+			sendPacket.type = SC_MOVE_PLAYER;
+			sendPacket.size = sizeof(SC_MOVE_PLAYER_PACKET);
 			ZeroMemory(sendWSABuf.buf, BUF_SIZE);
 			memcpy(sendBuf, &sendPacket, sendPacket.size);
 			sendWSABuf.len = sendPacket.size;
@@ -106,10 +109,11 @@ void SocketSection::moveChessPiece(WORD& direction)
 			board[(int)(clientInfo.pos.x + 3.5f)][-(int)(clientInfo.pos.z - 3.5)] = 0;
 			board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5) - 1] = 1;
 			clientInfo.pos += glm::vec3(0, 0, 1);
-			ChessPiecePosPacket sendPacket;
-			sendPacket.pos = clientInfo.pos;
-			sendPacket.type = s2cMovePacket;
-			sendPacket.size = sizeof(ChessPiecePosPacket);
+			SC_MOVE_PLAYER_PACKET sendPacket;
+			sendPacket.x = clientInfo.pos.x;
+			sendPacket.y = clientInfo.pos.z;
+			sendPacket.type = SC_MOVE_PLAYER;
+			sendPacket.size = sizeof(SC_MOVE_PLAYER_PACKET);
 			ZeroMemory(sendWSABuf.buf, BUF_SIZE);
 			memcpy(sendBuf, &sendPacket, sendPacket.size);
 			sendWSABuf.len = sendPacket.size;
@@ -123,10 +127,11 @@ void SocketSection::moveChessPiece(WORD& direction)
 			board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5)] = 0;
 			board[(int)(clientInfo.pos.x + 3.5) - 1][-(int)(clientInfo.pos.z - 3.5)] = 1;
 			clientInfo.pos += glm::vec3(-1, 0, 0);
-			ChessPiecePosPacket sendPacket;
-			sendPacket.pos = clientInfo.pos;
-			sendPacket.type = s2cMovePacket;
-			sendPacket.size = sizeof(ChessPiecePosPacket);
+			SC_MOVE_PLAYER_PACKET sendPacket;
+			sendPacket.x = clientInfo.pos.x;
+			sendPacket.y = clientInfo.pos.z;
+			sendPacket.type = SC_MOVE_PLAYER;
+			sendPacket.size = sizeof(SC_MOVE_PLAYER_PACKET);
 			ZeroMemory(sendWSABuf.buf, BUF_SIZE);
 			memcpy(sendBuf, &sendPacket, sendPacket.size);
 			sendWSABuf.len = sendPacket.size;
@@ -140,10 +145,11 @@ void SocketSection::moveChessPiece(WORD& direction)
 			board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5)] = 0;
 			board[(int)(clientInfo.pos.x + 3.5) + 1][-(int)(clientInfo.pos.z - 3.5)] = 1;
 			clientInfo.pos += glm::vec3(1, 0, 0);
-			ChessPiecePosPacket sendPacket;
-			sendPacket.pos = clientInfo.pos;
-			sendPacket.type = s2cMovePacket;
-			sendPacket.size = sizeof(ChessPiecePosPacket);
+			SC_MOVE_PLAYER_PACKET sendPacket;
+			sendPacket.x = clientInfo.pos.x;
+			sendPacket.y = clientInfo.pos.z;
+			sendPacket.type = SC_MOVE_PLAYER;
+			sendPacket.size = sizeof(SC_MOVE_PLAYER_PACKET);
 			ZeroMemory(sendWSABuf.buf, BUF_SIZE);
 			memcpy(sendBuf, &sendPacket, sendPacket.size);
 			sendWSABuf.len = sendPacket.size;

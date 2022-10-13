@@ -14,7 +14,7 @@
 using namespace std;
 
 unordered_map<int, SocketSection> ClientSockets;
-int board[8][8] = { 0 };
+int board[400][400] = { 0 };
 
 int main(int argc, char** argv)
 {	
