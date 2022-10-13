@@ -4,11 +4,10 @@
 #include<iostream>
 #include<unordered_map>
 #include<WS2tcpip.h>
+#include<chrono>
 #include"SocketSection.h"
 #include"protocol.h"
 #pragma comment(lib,"ws2_32")
-
-
 
 using namespace std;
 
@@ -51,7 +50,7 @@ int main(int argc, char** argv)
 	for(int i=0; ; ++i) {
 		int addrLen = sizeof(SOCKADDR_IN);
 		SOCKET clientSocket = WSAAccept(mainSocket, reinterpret_cast<sockaddr*>(&serverAddr), &addrLen, NULL, NULL);		
-		
+		cout << i << endl;
 		if (clientSocket == INVALID_SOCKET) {
 			cout << "Error: InvalidSocket" << endl;
 			display_Err(WSAGetLastError());

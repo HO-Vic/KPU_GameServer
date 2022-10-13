@@ -53,13 +53,13 @@ void SocketSection::firstLocal()
 		int x = uid(dre);
 		int y = uid(dre);
 
-		SC_MOVE_PLAYER_PACKET sendPosPacket;
+		SC_LOGIN_INFO_PACKET sendPosPacket;
 		board[x][y] = 1;
 		sendPosPacket.id = clientInfo.id;
 		clientInfo.pos = glm::vec3(x - 3.5, 0, 3.5 - y);
 		sendPosPacket.x = clientInfo.pos.x;
 		sendPosPacket.y = clientInfo.pos.z;
-		sendPosPacket.type = SC_MOVE_PLAYER;
+		sendPosPacket.type = SC_LOGIN_INFO;
 		sendPosPacket.size = sizeof(sendPosPacket);
 		memcpy(this->sendWSABuf.buf, &sendPosPacket, sendPosPacket.size);
 		this->sendWSABuf.len = sendPosPacket.size;
@@ -70,7 +70,7 @@ void processPacket(int id)
 {
 	switch (ClientSockets[id].recvWSABuf.buf[2])
 	{
-	case SC_LOGIN_INFO:
+	case CS_LOGIN:
 	{
 		cout << "type: SC_LOGIN_INFO, Recv Login Info Packet" << endl;
 		CS_LOGIN_PACKET* loginPacket = reinterpret_cast<CS_LOGIN_PACKET*>(ClientSockets[id].recvWSABuf.buf);
@@ -80,7 +80,7 @@ void processPacket(int id)
 		ClientSockets[id].prsentDiffChessPeice();
 	}
 	break;
-	case SC_MOVE_PLAYER:
+	case CS_MOVE:
 	{
 		cout << "type: SC_MOVE_PLAYER, Recv Direction Packet" << endl;
 		CS_MOVE_PACKET* directionPacket = reinterpret_cast<CS_MOVE_PACKET*>(ClientSockets[id].recvWSABuf.buf);

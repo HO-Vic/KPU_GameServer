@@ -1,6 +1,9 @@
 #include<iostream>
 #include<string>
 #include<unordered_map>
+#include<WS2tcpip.h>
+#include<chrono> 
+
 #include"Dependencies/glew.h"
 #include"Dependencies/freeglut.h"
 #include"include/glm/glm.hpp"
@@ -10,11 +13,11 @@
 #include"readTriangleObj.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include"stb_image.h"
-#include<WS2tcpip.h>
 #include"protocol.h"
 #pragma comment(lib,"ws2_32")
 
 using namespace std;
+using namespace chrono;
 
 //shader func
 void makeVertexShader();
@@ -93,6 +96,8 @@ float Yangle = 0;
 
 unsigned int textures[3] = { 0 };
 
+int myId = -1;
+
 /////////////////////
 SOCKET mySocket;
 unordered_map<int, glm::vec3>DiffClients;
@@ -163,7 +168,7 @@ int main(int argc, char** argv)
 
 void timercall(int value)
 {
-	
+
 	doRecv();
 	glutPostRedisplay();
 	glutTimerFunc(17, timercall, value);
@@ -257,32 +262,39 @@ void specialkeycall(int key, int x, int y)
 	char* buf = new char[BUF_SIZE];
 	DWORD sendByte = 0;
 
-	DirectionPacket directionPacket;
-	directionPacket.size = sizeof(DirectionPacket);
-	directionPacket.type = c2sDirectionPacket;
+	CS_MOVE_PACKET directionPacket;
+	directionPacket.size = sizeof(CS_MOVE_PACKET);
+	directionPacket.type = CS_MOVE;
 
 	switch (key)
 	{
-	case GLUT_KEY_LEFT:
-		directionPacket.direction = DIRECTION_LEFT;
+	case GLUT_KEY_LEFT: 
+	{
+		directionPacket.direction = DIRECTION_LEFT;		
+		directionPacket.move_time = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();
 		memcpy(buf, &directionPacket, directionPacket.size);
 		doSend(buf, directionPacket.size);
 		cout << "DIRECTION_LEFT, SEND BYTE: " << sendByte << endl;
+	}
+	
 		break;
 	case GLUT_KEY_RIGHT:
 		directionPacket.direction = DIRECTION_RIGHT;
+		directionPacket.move_time = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();
 		memcpy(buf, &directionPacket, directionPacket.size);
 		doSend(buf, directionPacket.size);
 		cout << "DIRECTION_RIGHT, SEND BYTE: " << sendByte << endl;
 		break;
 	case GLUT_KEY_UP:
 		directionPacket.direction = DIRECTION_FRONT;
+		directionPacket.move_time = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();
 		memcpy(buf, &directionPacket, directionPacket.size);
 		doSend(buf, directionPacket.size);
 		cout << "DIRECTION_FRONT, SEND BYTE: " << sendByte << endl;
 		break;
 	case GLUT_KEY_DOWN:
 		directionPacket.direction = DIRECTION_BACK;
+		directionPacket.move_time = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();
 		memcpy(buf, &directionPacket, directionPacket.size);
 		doSend(buf, directionPacket.size);
 		cout << "DIRECTION_BACK, SEND BYTE: " << sendByte << endl;
@@ -497,44 +509,44 @@ void drawChessPieceOtherClient(glm::vec3& pos)
 
 void constructPacket(char* inputPacket, int inputSize)
 {
-	cout << "input Size: " << inputSize << endl;
 	char* packetStart = inputPacket;
-	int restSize = inputSize;
-	int currentPacketLocal = 0;
+	short restSize = inputSize;
+	short currentPacketLocal = 0;
 	while (restSize != 0) {
-		cout << "restSize: " << restSize << endl;
-		if (inputSize - currentPacketLocal < 4) {
-			memcpy(prevPacket + prevPacketLastLocal, inputPacket + currentPacketLocal, inputSize - currentPacketLocal);
-			prevPacketLastLocal += inputSize - currentPacketLocal;
+		//cout << "restSize: " << restSize << endl;
+		if (inputSize - currentPacketLocal < 1) {
+			memcpy(prevPacket + prevPacketLastLocal, inputPacket + currentPacketLocal, inputSize - (int)currentPacketLocal);
+			prevPacketLastLocal += inputSize - (int)currentPacketLocal;
 			break;
 		}
-		if (prevPacketLastLocal < 4) {
-			int memSize = 4 - prevPacketLastLocal;
+		if (prevPacketLastLocal < 1) {
+			int memSize = 2 - prevPacketLastLocal;
 			memcpy(prevPacket + prevPacketLastLocal, inputPacket + currentPacketLocal, memSize);
 			currentPacketLocal += memSize;
 			prevPacketLastLocal += memSize;
 			restSize -= memSize;
 		}
-		int makePacketSize;
-		memcpy(&makePacketSize, prevPacket, 4);
+		unsigned char makePacketSize;
+		memcpy(&makePacketSize, prevPacket, 1);
 
-		if (restSize < makePacketSize - 4) {
+		if (restSize + prevPacketLastLocal < makePacketSize) {
 			memcpy(prevPacket + prevPacketLastLocal, inputPacket + currentPacketLocal, restSize);
-			currentPacketLocal += makePacketSize - 4;
-			prevPacketLastLocal += makePacketSize - 4;
+			currentPacketLocal += restSize;
+			prevPacketLastLocal += restSize;
 			restSize = 0;
 		}
 		else {
-			memcpy(prevPacket + prevPacketLastLocal, inputPacket + currentPacketLocal, makePacketSize - 4);
-			currentPacketLocal += makePacketSize - 4;
-			prevPacketLastLocal += makePacketSize - 4;
+			memcpy(prevPacket + prevPacketLastLocal, inputPacket + currentPacketLocal, (int)makePacketSize - prevPacketLastLocal);
+			restSize -= makePacketSize - prevPacketLastLocal;
+			currentPacketLocal += makePacketSize - prevPacketLastLocal;
+			prevPacketLastLocal += makePacketSize - prevPacketLastLocal;
 
 			char* procPacket = new char[makePacketSize];
+			ZeroMemory(procPacket, makePacketSize);
 			memcpy(procPacket, prevPacket, makePacketSize);
 			proccessPacket(procPacket);
 			ZeroMemory(prevPacket, BUF_SIZE);
 			prevPacketLastLocal = 0;
-			restSize -= makePacketSize - 4;
 		}
 	}
 }
@@ -543,26 +555,30 @@ void proccessPacket(char* completePacket)
 {
 	switch (completePacket[4])
 	{
-	case s2cMovePacket:
+	case SC_LOGIN_INFO:
 	{
-		cout << "prev Pos: " << chessPiecePos.x << ", " << chessPiecePos.y << ", " << chessPiecePos.z << endl;
-
-		ChessPiecePosPacket* recvpacket = reinterpret_cast<ChessPiecePosPacket*>(completePacket);
-		chessPiecePos = recvpacket->pos;
+		SC_LOGIN_INFO_PACKET* recvpacket = reinterpret_cast<SC_LOGIN_INFO_PACKET*>(completePacket);
+		chessPiecePos = { recvpacket->x, 0, recvpacket->y };
+		myId = recvpacket->id;
 	}
 	break;
-	case s2cDiffClientInfoPacket:
+	case SC_ADD_PLAYER:
 	{
-		ChessPiecePosPacket* recvpacket = reinterpret_cast<ChessPiecePosPacket*>(completePacket);
-		if (DiffClients.find(recvpacket->id) == DiffClients.end())
-			DiffClients.try_emplace(recvpacket->id, recvpacket->pos);
-		else DiffClients[recvpacket->id] = recvpacket->pos;
+		SC_ADD_PLAYER_PACKET* recvpacket = reinterpret_cast<SC_ADD_PLAYER_PACKET*>(completePacket);
+		DiffClients.try_emplace(recvpacket->id, glm::vec3{ recvpacket->x, 0 ,recvpacket->y });
 	}
 	break;
-	case s2cDisconnectCleintInfoPacket:
+	case SC_REMOVE_PLAYER:
 	{
-		ClientDisConnectPacket* recvpacket = reinterpret_cast<ClientDisConnectPacket*>(completePacket);
+		SC_REMOVE_PLAYER_PACKET* recvpacket = reinterpret_cast<SC_REMOVE_PLAYER_PACKET*>(completePacket);
 		DiffClients.erase(recvpacket->id);
+	}
+	break;
+	case SC_MOVE_PLAYER:
+	{
+		SC_MOVE_PLAYER_PACKET* recvpacket = reinterpret_cast<SC_MOVE_PLAYER_PACKET*>(completePacket);
+		chessPiecePos.x = recvpacket->x;
+		chessPiecePos.z = recvpacket->y;
 	}
 	break;
 	default:
@@ -621,7 +637,7 @@ void doSend(char* sendPacket, int size)
 
 void CALLBACK recv_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags)
 {
-	
+
 	if (cbTransferred != 0) {
 		constructPacket(reinterpret_cast<EX_Over*>(lpOverlapped)->Buf, cbTransferred);
 	}
