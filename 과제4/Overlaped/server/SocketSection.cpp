@@ -1,6 +1,6 @@
 #include<unordered_map>
+#include<random>
 #include"SocketSection.h"
-
 
 using namespace std;
 
@@ -46,24 +46,24 @@ void SocketSection::doSend()
 
 void SocketSection::firstLocal()
 {
-	for (int i = 0; i < 8; i++) {
-		for (int j = 0; j < 8; j++) {
-			if (board[i][j] == 0) {
-				SC_MOVE_PLAYER_PACKET sendPosPacket;
-				board[i][j] = 1;
-				sendPosPacket.id = clientInfo.id;
-				clientInfo.pos = glm::vec3(i - 3.5, 0, 3.5 - j);
-				sendPosPacket.x = clientInfo.pos.x;
-				sendPosPacket.y = clientInfo.pos.z;
-				sendPosPacket.type = SC_MOVE_PLAYER;
-				sendPosPacket.size = sizeof(sendPosPacket);
-				memcpy(this->sendWSABuf.buf, &sendPosPacket, sendPosPacket.size);
-				this->sendWSABuf.len = sendPosPacket.size;
-				doSend();
-				return;
-			}
-		}
-	}
+		std::random_device rd;
+		std::default_random_engine dre(rd());
+		std::uniform_int_distribution<int> uid(0, 399);
+
+		int x = uid(dre);
+		int y = uid(dre);
+
+		SC_MOVE_PLAYER_PACKET sendPosPacket;
+		board[x][y] = 1;
+		sendPosPacket.id = clientInfo.id;
+		clientInfo.pos = glm::vec3(x - 3.5, 0, 3.5 - y);
+		sendPosPacket.x = clientInfo.pos.x;
+		sendPosPacket.y = clientInfo.pos.z;
+		sendPosPacket.type = SC_MOVE_PLAYER;
+		sendPosPacket.size = sizeof(sendPosPacket);
+		memcpy(this->sendWSABuf.buf, &sendPosPacket, sendPosPacket.size);
+		this->sendWSABuf.len = sendPosPacket.size;
+		doSend();
 }
 
 void processPacket(int id)
