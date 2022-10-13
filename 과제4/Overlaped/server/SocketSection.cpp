@@ -1,6 +1,6 @@
 #include<unordered_map>
 #include"SocketSection.h"
-#include"protocol.h"
+
 
 using namespace std;
 
@@ -26,7 +26,7 @@ void SocketSection::doRecv()
 	overlapped.hEvent = reinterpret_cast<HANDLE>(clientInfo.id);
 	if (WSARecv(clientSocket, &recvWSABuf, 1, NULL, &flag, &overlapped, recv_Callback) != 0) {
 		if (WSAGetLastError() != WSA_IO_PENDING) {
-			cout << "ID: " << clientInfo.id << "	" << "doRecv() - Error" << endl;
+			//cout << "ID: " << clientInfo.id << "	" << "doRecv() - Error" << endl;
 			display_Err(WSAGetLastError());
 		}
 	}
@@ -68,12 +68,22 @@ void SocketSection::firstLocal()
 
 void processPacket(int id)
 {
-	switch (ClientSockets[id].recvWSABuf.buf[4])
+	switch (ClientSockets[id].recvWSABuf.buf[2])
 	{
-	case c2sDirectionPacket:
+	case SC_LOGIN_INFO:
 	{
-		cout << "type:0x00, Recv Direction Packet" << endl;
-		DirectionPacket* directionPacket = reinterpret_cast<DirectionPacket*>(ClientSockets[id].recvWSABuf.buf);
+		cout << "type: SC_LOGIN_INFO, Recv Login Info Packet" << endl;
+		CS_LOGIN_PACKET* loginPacket = reinterpret_cast<CS_LOGIN_PACKET*>(ClientSockets[id].recvWSABuf.buf);
+		memcpy(ClientSockets[id].clientInfo.name, loginPacket + 2, loginPacket->size - 2);
+		ClientSockets[id].firstLocal();
+		ClientSockets[id].spreadMyChessPeice();
+		ClientSockets[id].prsentDiffChessPeice();
+	}
+	break;
+	case SC_MOVE_PLAYER:
+	{
+		cout << "type: SC_MOVE_PLAYER, Recv Direction Packet" << endl;
+		CS_MOVE_PACKET* directionPacket = reinterpret_cast<CS_MOVE_PACKET*>(ClientSockets[id].recvWSABuf.buf);
 		ClientSockets[id].moveChessPiece(directionPacket->direction);
 	}
 	break;
@@ -82,7 +92,7 @@ void processPacket(int id)
 	}
 }
 
-void SocketSection::moveChessPiece(WORD& direction)
+void SocketSection::moveChessPiece(char& direction)
 {
 	switch (direction)
 	{
@@ -168,11 +178,13 @@ void SocketSection::spreadMyChessPeice()
 	for (auto& client : ClientSockets) {
 		if (client.first != clientInfo.id) {
 			//cout << "multiCast Client Info Id:" << client.first << endl;
-			ChessPiecePosPacket sendPakcet;
+			SC_ADD_PLAYER_PACKET sendPakcet;
 			sendPakcet.id = clientInfo.id;
-			sendPakcet.pos = clientInfo.pos;
-			sendPakcet.type = s2cDiffClientInfoPacket;
-			sendPakcet.size = sizeof(ChessPiecePosPacket);
+			sendPakcet.x = clientInfo.pos.x;
+			sendPakcet.y = clientInfo.pos.z;
+			memcpy(sendPakcet.name, clientInfo.name, NAME_SIZE);
+			sendPakcet.type = SC_ADD_PLAYER;
+			sendPakcet.size = sizeof(SC_ADD_PLAYER_PACKET);
 
 			ZeroMemory(client.second.sendBuf, BUF_SIZE);
 			memcpy(client.second.sendBuf, &sendPakcet, sendPakcet.size);
@@ -188,11 +200,13 @@ void SocketSection::prsentDiffChessPeice()
 	for (auto& client : ClientSockets) {
 		if (client.first != clientInfo.id) {
 			//cout << "presendDiffChessPeice[" << client.first << "]" << endl;
-			ChessPiecePosPacket sendPakcet;
+			SC_ADD_PLAYER_PACKET sendPakcet;
 			sendPakcet.id = client.first;
-			sendPakcet.pos = client.second.clientInfo.pos;
-			sendPakcet.type = s2cDiffClientInfoPacket;
-			sendPakcet.size = sizeof(ChessPiecePosPacket);
+			sendPakcet.x = clientInfo.pos.x;
+			sendPakcet.y = clientInfo.pos.z;
+			memcpy(sendPakcet.name, clientInfo.name, NAME_SIZE);
+			sendPakcet.type = SC_ADD_PLAYER;
+			sendPakcet.size = sizeof(SC_ADD_PLAYER_PACKET);
 
 			ZeroMemory(sendBuf, BUF_SIZE);
 			memcpy(sendBuf, &sendPakcet, sendPakcet.size);
@@ -203,14 +217,18 @@ void SocketSection::prsentDiffChessPeice()
 	}
 }
 
+void SocketSection::LoginClient()
+{
+}
+
 void disconnect(int id)
 {
 	for (auto& client : ClientSockets) {
 		if (client.first != id) {
-			ClientDisConnectPacket sendPakcet;
+			SC_REMOVE_PLAYER_PACKET sendPakcet;
 			sendPakcet.id = id;
-			sendPakcet.type = s2cDisconnectCleintInfoPacket;
-			sendPakcet.size = sizeof(ClientDisConnectPacket);
+			sendPakcet.type = SC_REMOVE_PLAYER;
+			sendPakcet.size = sizeof(SC_REMOVE_PLAYER_PACKET);
 
 			ZeroMemory(client.second.sendBuf, BUF_SIZE);
 			memcpy(client.second.sendBuf, &sendPakcet, sendPakcet.size);
@@ -251,7 +269,7 @@ void CALLBACK recv_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED 
 void CALLBACK send_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags)
 {
 	//cout << "send_Callback() - SendByte" << (int)cbTransferred << endl;
-	ClientSockets[reinterpret_cast<int>(lpOverlapped->hEvent)].doRecv();
+	//ClientSockets[reinterpret_cast<int>(lpOverlapped->hEvent)].doRecv();
 
 }
 

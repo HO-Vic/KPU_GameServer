@@ -2,7 +2,7 @@
 #include<winsock2.h>
 #include"include/glm/glm.hpp"
 #include<iostream>
-#define BUF_SIZE 32
+#include "protocol.h"
 
 #define DIRECTION_FRONT 0x10
 #define DIRECTION_BACK	0x11
@@ -16,6 +16,7 @@ struct ClientInfo
 	int id;
 	glm::vec3 pos;
 	glm::vec3 color;
+	char name[NAME_SIZE];
 };
 
 class SocketSection
@@ -44,9 +45,10 @@ public:
 	void doSend();
 
 	void firstLocal();
-	void moveChessPiece(WORD& direction);
+	void moveChessPiece(char& direction);
 	void spreadMyChessPeice();
 	void prsentDiffChessPeice();
+	void LoginClient();
 };
 
 void display_Err(int Errcode);

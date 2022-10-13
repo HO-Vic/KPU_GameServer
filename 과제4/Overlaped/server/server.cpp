@@ -59,9 +59,7 @@ int main(int argc, char** argv)
 			continue;
 		}
 		ClientSockets.try_emplace(i, i, clientSocket);
-		ClientSockets[i].firstLocal();
-		ClientSockets[i].spreadMyChessPeice();
-		ClientSockets[i].prsentDiffChessPeice();
+		ClientSockets[i].doRecv();
 		
 	}
 	closesocket(mainSocket);
