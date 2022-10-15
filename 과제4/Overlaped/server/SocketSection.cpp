@@ -1,5 +1,6 @@
 #include<unordered_map>
 #include<random>
+#include<chrono>
 #include"SocketSection.h"
 
 using namespace std;
@@ -10,7 +11,6 @@ void disconnect(int id);
 void processPacket(int id);
 
 extern unordered_map<int, SocketSection> ClientSockets;
-extern int board[400][400];
 
 SocketSection::SocketSection(int id, SOCKET& clientSocket) :clientSocket(clientSocket) {
 	clientInfo.id = id;
@@ -46,24 +46,23 @@ void SocketSection::doSend()
 
 void SocketSection::firstLocal()
 {
-		std::random_device rd;
-		std::default_random_engine dre(rd());
-		std::uniform_int_distribution<int> uid(0, 399);
+	std::random_device rd;
+	std::default_random_engine dre(rd());
+	std::uniform_int_distribution<int> uid(-199, 199);
 
-		int x = uid(dre);
-		int y = uid(dre);
+	int x = uid(dre);
+	int y = uid(dre);
 
-		SC_LOGIN_INFO_PACKET sendPosPacket;
-		board[x][y] = 1;
-		sendPosPacket.id = clientInfo.id;
-		clientInfo.pos = glm::vec3(x - 3.5, 0, 3.5 - y);
-		sendPosPacket.x = clientInfo.pos.x;
-		sendPosPacket.y = clientInfo.pos.z;
-		sendPosPacket.type = SC_LOGIN_INFO;
-		sendPosPacket.size = sizeof(sendPosPacket);
-		memcpy(this->sendWSABuf.buf, &sendPosPacket, sendPosPacket.size);
-		this->sendWSABuf.len = sendPosPacket.size;
-		doSend();
+	SC_LOGIN_INFO_PACKET sendPosPacket;
+	sendPosPacket.id = clientInfo.id;
+	clientInfo.pos = glm::vec3(x, 0, y);
+	sendPosPacket.x = clientInfo.pos.x;
+	sendPosPacket.y = clientInfo.pos.z;
+	sendPosPacket.type = SC_LOGIN_INFO;
+	sendPosPacket.size = sizeof(sendPosPacket);
+	memcpy(this->sendWSABuf.buf, &sendPosPacket, sendPosPacket.size);
+	this->sendWSABuf.len = sendPosPacket.size;
+	doSend();
 }
 
 void processPacket(int id)
@@ -100,74 +99,111 @@ void SocketSection::moveChessPiece(char& direction)
 	switch (direction)
 	{
 	case DIRECTION_FRONT:
-		if (clientInfo.pos.z > -3.5f) {
-			board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5)] = 0;
-			board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5) + 1] = 1;
+		if (clientInfo.pos.z > -199) {
+			/*board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5)] = 0;
+			board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5) + 1] = 1;*/
 			clientInfo.pos += glm::vec3(0, 0, -1);
 			SC_MOVE_PLAYER_PACKET sendPacket;
 			sendPacket.x = clientInfo.pos.x;
 			sendPacket.y = clientInfo.pos.z;
 			sendPacket.type = SC_MOVE_PLAYER;
+			sendPacket.id = clientInfo.id;
+			sendPacket.move_time = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now().time_since_epoch()).count();
 			sendPacket.size = sizeof(SC_MOVE_PLAYER_PACKET);
 			ZeroMemory(sendWSABuf.buf, BUF_SIZE);
 			memcpy(sendBuf, &sendPacket, sendPacket.size);
 			sendWSABuf.len = sendPacket.size;
 			doSend();
-			spreadMyChessPeice();
+			for (auto& client : ClientSockets) {
+				if (client.first != clientInfo.id) {
+					ZeroMemory(client.second.sendBuf, BUF_SIZE);
+					memcpy(client.second.sendBuf, &sendPacket, sendPacket.size);
+					client.second.sendWSABuf.len = sendPacket.size;
+					client.second.doSend();
+				}
+			}
 		}
 		else doRecv();
 		break;
 	case DIRECTION_BACK:
-		if (clientInfo.pos.z < 3.5f) {
-			board[(int)(clientInfo.pos.x + 3.5f)][-(int)(clientInfo.pos.z - 3.5)] = 0;
-			board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5) - 1] = 1;
+		if (clientInfo.pos.z < 200) {
+			/*board[(int)(clientInfo.pos.x + 3.5f)][-(int)(clientInfo.pos.z - 3.5)] = 0;
+			board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5) - 1] = 1;*/
 			clientInfo.pos += glm::vec3(0, 0, 1);
 			SC_MOVE_PLAYER_PACKET sendPacket;
 			sendPacket.x = clientInfo.pos.x;
 			sendPacket.y = clientInfo.pos.z;
 			sendPacket.type = SC_MOVE_PLAYER;
+			sendPacket.id = clientInfo.id;
+			sendPacket.move_time = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now().time_since_epoch()).count();
 			sendPacket.size = sizeof(SC_MOVE_PLAYER_PACKET);
 			ZeroMemory(sendWSABuf.buf, BUF_SIZE);
 			memcpy(sendBuf, &sendPacket, sendPacket.size);
 			sendWSABuf.len = sendPacket.size;
 			doSend();
-			spreadMyChessPeice();
+			for (auto& client : ClientSockets) {
+				if (client.first != clientInfo.id) {
+					ZeroMemory(client.second.sendBuf, BUF_SIZE);
+					memcpy(client.second.sendBuf, &sendPacket, sendPacket.size);
+					client.second.sendWSABuf.len = sendPacket.size;
+					client.second.doSend();
+				}
+			}
 		}
 		else doRecv();
 		break;
 	case DIRECTION_LEFT:
-		if (clientInfo.pos.x > -3.5f) {
-			board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5)] = 0;
-			board[(int)(clientInfo.pos.x + 3.5) - 1][-(int)(clientInfo.pos.z - 3.5)] = 1;
+		if (clientInfo.pos.x > -199) {
+			/*board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5)] = 0;
+			board[(int)(clientInfo.pos.x + 3.5) - 1][-(int)(clientInfo.pos.z - 3.5)] = 1;*/
 			clientInfo.pos += glm::vec3(-1, 0, 0);
 			SC_MOVE_PLAYER_PACKET sendPacket;
 			sendPacket.x = clientInfo.pos.x;
 			sendPacket.y = clientInfo.pos.z;
 			sendPacket.type = SC_MOVE_PLAYER;
+			sendPacket.id = clientInfo.id;
+			sendPacket.move_time = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now().time_since_epoch()).count();
 			sendPacket.size = sizeof(SC_MOVE_PLAYER_PACKET);
 			ZeroMemory(sendWSABuf.buf, BUF_SIZE);
 			memcpy(sendBuf, &sendPacket, sendPacket.size);
 			sendWSABuf.len = sendPacket.size;
 			doSend();
-			spreadMyChessPeice();
+			for (auto& client : ClientSockets) {
+				if (client.first != clientInfo.id) {
+					ZeroMemory(client.second.sendBuf, BUF_SIZE);
+					memcpy(client.second.sendBuf, &sendPacket, sendPacket.size);
+					client.second.sendWSABuf.len = sendPacket.size;
+					client.second.doSend();
+				}
+			}
 		}
 		else doRecv();
 		break;
 	case DIRECTION_RIGHT:
-		if (clientInfo.pos.x < 3.5f) {
-			board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5)] = 0;
-			board[(int)(clientInfo.pos.x + 3.5) + 1][-(int)(clientInfo.pos.z - 3.5)] = 1;
+		if (clientInfo.pos.x < 200) {
+			/*board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5)] = 0;
+			board[(int)(clientInfo.pos.x + 3.5) + 1][-(int)(clientInfo.pos.z - 3.5)] = 1;*/
 			clientInfo.pos += glm::vec3(1, 0, 0);
 			SC_MOVE_PLAYER_PACKET sendPacket;
 			sendPacket.x = clientInfo.pos.x;
 			sendPacket.y = clientInfo.pos.z;
+			sendPacket.id = clientInfo.id;
 			sendPacket.type = SC_MOVE_PLAYER;
+			sendPacket.move_time = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now().time_since_epoch()).count();
 			sendPacket.size = sizeof(SC_MOVE_PLAYER_PACKET);
 			ZeroMemory(sendWSABuf.buf, BUF_SIZE);
 			memcpy(sendBuf, &sendPacket, sendPacket.size);
 			sendWSABuf.len = sendPacket.size;
 			doSend();
-			spreadMyChessPeice();
+			//spreadMyChessPeice();
+			for (auto& client : ClientSockets) {
+				if (client.first != clientInfo.id) {
+					ZeroMemory(client.second.sendBuf, BUF_SIZE);
+					memcpy(client.second.sendBuf, &sendPacket, sendPacket.size);
+					client.second.sendWSABuf.len = sendPacket.size;
+					client.second.doSend();
+				}
+			}
 		}
 		else doRecv();
 		break;
@@ -262,10 +298,10 @@ void CALLBACK recv_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED 
 		else if (dwError == WSAECONNRESET) {
 			cout << "removePlayer ID: " << id << endl;
 			//ClientSockets[recvOverlapped->clientInfo.id].disconnect();
-			board[(int)(ClientSockets[id].clientInfo.pos.x + 3.5)][-(int)(ClientSockets[id].clientInfo.pos.z - 3.5)] = 0;
+			//board[(int)(ClientSockets[id].clientInfo.pos.x + 3.5)][-(int)(ClientSockets[id].clientInfo.pos.z - 3.5)] = 0;
 			disconnect(id);
 		}
-	}	
+	}
 }
 
 void CALLBACK send_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags)

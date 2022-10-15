@@ -4,7 +4,6 @@
 #include<iostream>
 #include<unordered_map>
 #include<WS2tcpip.h>
-#include<chrono>
 #include"SocketSection.h"
 #include"protocol.h"
 #pragma comment(lib,"ws2_32")
@@ -12,7 +11,6 @@
 using namespace std;
 
 unordered_map<int, SocketSection> ClientSockets;
-int board[400][400] = { 0 };
 
 int main(int argc, char** argv)
 {	

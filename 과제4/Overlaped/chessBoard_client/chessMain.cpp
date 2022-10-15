@@ -119,7 +119,7 @@ int main(int argc, char** argv)
 	cin >> name;
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
-	glutInitWindowPosition(0, 0);
+	glutInitWindowPosition(2200, 200);
 	glutInitWindowSize(Wwidth, Wheight);
 	glutCreateWindow("chess Board");
 
@@ -190,19 +190,41 @@ void DrawSceneCall()
 
 	//카메라
 	glm::mat4 cameraRevoluMatrix = glm::mat4(1.0f);
-	cameraRevoluMatrix = glm::rotate(cameraRevoluMatrix, glm::radians(cameraRevolu), glm::vec3(0, 1, 0));
-	glm::vec3 newCameraPos = glm::vec3(cameraRevoluMatrix * glm::vec4(cameraPos, 1));
-	glm::vec3 objCenter = glm::vec3(0.0f, 0.0f, 0.0f);
-	glm::vec3 cameraDir = glm::normalize(newCameraPos - objCenter);//n
-	glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+	//cameraRevoluMatrix = glm::rotate(cameraRevoluMatrix, glm::radians(cameraRevolu), glm::vec3(0, 1, 0));
+	//glm::vec3 newCameraPos = glm::vec3(cameraRevoluMatrix * glm::vec4(cameraPos, 1));
+
+	glm::vec3 ResChessPiecePos;
+	ResChessPiecePos.y = 0;
+	if (chessPiecePos.x < -191) {
+		ResChessPiecePos.x = chessPiecePos.x + 192;
+	}
+	else if (chessPiecePos.x > 192) {
+		ResChessPiecePos.x = chessPiecePos.x - 192;
+	}
+	else if ((int)(chessPiecePos.x + chessPiecePos.z) % 2 == 0) ResChessPiecePos.x = 0;
+	else ResChessPiecePos.x = 1;
+
+	if (chessPiecePos.z < -191) {
+		ResChessPiecePos.z = chessPiecePos.z + 192;
+	}
+	else if (chessPiecePos.z > 192) {
+		ResChessPiecePos.z = chessPiecePos.z - 192;
+	}
+	else ResChessPiecePos.z = 0;
+
+
+	cameraPos = ResChessPiecePos + glm::vec3(0.0f, 8.0f * tanf(glm::radians(55.0f)), 00.0f);
+	//glm::vec3 objCenter = glm::vec3(0.0f, 0.0f, 0.0f);
+	glm::vec3 cameraDir = glm::normalize(glm::vec3(0.0f, -1.0f, 0.0f));//n
+	glm::vec3 up = glm::vec3(0.0f, 0.0f, -1.0f);
 	glm::vec3 cameraRight = glm::cross(up, cameraDir);//v
 	glm::vec3 cameraUp = glm::cross(cameraDir, cameraRight);
 	glm::mat4 cameraView = glm::mat4(1.0f);
-	cameraView = glm::lookAt(newCameraPos, -cameraDir, cameraUp);
+	cameraView = glm::lookAt(cameraPos, ResChessPiecePos, cameraUp);
 	unsigned int cameraViewLocation = glGetUniformLocation(ShaderID, "viewTransform");
 	glUniformMatrix4fv(cameraViewLocation, 1, GL_FALSE, glm::value_ptr(cameraView));
 	unsigned int cameraPosLocation = glGetUniformLocation(ShaderID, "cameraPos");
-	glUniform3fv(cameraPosLocation, 1, glm::value_ptr(newCameraPos));
+	glUniform3fv(cameraPosLocation, 1, glm::value_ptr(cameraPos));
 
 	//카메라#
 
@@ -464,7 +486,8 @@ void drawChessBoard()
 	glm::mat4 chessBoardTrans = glm::mat4(1.0f);
 	unsigned int chessBoardNormalLocation = glGetUniformLocation(ShaderID, "normalTransform");
 	glUniformMatrix4fv(chessBoardNormalLocation, 1, GL_FALSE, glm::value_ptr(chessBoardTrans));
-	chessBoardTrans = glm::scale(chessBoardTrans, glm::vec3(16, 1, 16));
+	chessBoardTrans = glm::translate(chessBoardTrans, glm::vec3(0.5f, 0, 0.5f));
+	chessBoardTrans = glm::scale(chessBoardTrans, glm::vec3(16, 16, 16));
 	unsigned int chessBoardTransLocation = glGetUniformLocation(ShaderID, "modelTransform");
 	glUniformMatrix4fv(chessBoardTransLocation, 1, GL_FALSE, glm::value_ptr(chessBoardTrans));
 	glUniform1i(glGetUniformLocation(ShaderID, "textureC"), 0);
@@ -480,8 +503,27 @@ void drawChessPiece()
 	glm::mat4 chessPieceTrans = glm::mat4(1.0f);
 	unsigned int chessPieceNormalLocation = glGetUniformLocation(ShaderID, "normalTransform");
 	glUniformMatrix4fv(chessPieceNormalLocation, 1, GL_FALSE, glm::value_ptr(chessPieceTrans));
-	chessPieceTrans = glm::scale(chessPieceTrans, glm::vec3(1, 1, 1));
-	chessPieceTrans = glm::translate(chessPieceTrans, chessPiecePos);
+	glm::vec3 ResChessPiecePos;
+	ResChessPiecePos.y = 0;
+	if (chessPiecePos.x < -191) {
+		ResChessPiecePos.x = chessPiecePos.x + 192;
+	}
+	else if (chessPiecePos.x > 192) {
+		ResChessPiecePos.x = chessPiecePos.x - 192;
+	}
+	else if ((int)(chessPiecePos.x + chessPiecePos.z) % 2 == 0) ResChessPiecePos.x = 0;
+	else ResChessPiecePos.x = 1;
+
+	if (chessPiecePos.z < -191) {
+		ResChessPiecePos.z = chessPiecePos.z + 192;
+	}
+	else if (chessPiecePos.z > 192) {
+		ResChessPiecePos.z = chessPiecePos.z - 192;
+	}
+	else ResChessPiecePos.z = 0;
+
+
+	chessPieceTrans = glm::translate(chessPieceTrans, ResChessPiecePos);
 	unsigned int chessPieceTransLocation = glGetUniformLocation(ShaderID, "modelTransform");
 	glUniformMatrix4fv(chessPieceTransLocation, 1, GL_FALSE, glm::value_ptr(chessPieceTrans));
 	glUniform1i(glGetUniformLocation(ShaderID, "textureC"), 1);
@@ -497,8 +539,35 @@ void drawChessPieceOtherClient(glm::vec3& pos)
 	glm::mat4 chessPieceTrans = glm::mat4(1.0f);
 	unsigned int chessPieceNormalLocation = glGetUniformLocation(ShaderID, "normalTransform");
 	glUniformMatrix4fv(chessPieceNormalLocation, 1, GL_FALSE, glm::value_ptr(chessPieceTrans));
-	chessPieceTrans = glm::scale(chessPieceTrans, glm::vec3(1, 1, 1));
-	chessPieceTrans = glm::translate(chessPieceTrans, pos);
+
+	glm::vec3 ResChessPiecePos;
+	ResChessPiecePos.y = 0;
+	if (chessPiecePos.x < -191) {
+		ResChessPiecePos.x = chessPiecePos.x + 192;
+	}
+	else if (chessPiecePos.x > 192) {
+		ResChessPiecePos.x = chessPiecePos.x - 192;
+	}
+	else if ((int)(chessPiecePos.x + chessPiecePos.z) % 2 == 0) ResChessPiecePos.x = 0;
+	else ResChessPiecePos.x = 1;
+
+	if (chessPiecePos.z < -191) {
+		ResChessPiecePos.z = chessPiecePos.z + 192;
+	}
+	else if (chessPiecePos.z > 192) {
+		ResChessPiecePos.z = chessPiecePos.z - 192;
+	}
+	else ResChessPiecePos.z = 0;
+
+
+	glm::vec3 renderPos = { 0,-100,0 };
+	if (abs(chessPiecePos.x - pos.x) < 16 && abs(chessPiecePos.z - pos.z) < 16) {
+		renderPos.x = ResChessPiecePos.x + pos.x - chessPiecePos.x;
+		renderPos.z = ResChessPiecePos.z + pos.z - chessPiecePos.z;
+		renderPos.y = 0;
+	}
+
+	chessPieceTrans = glm::translate(chessPieceTrans, renderPos);
 	unsigned int chessPieceTransLocation = glGetUniformLocation(ShaderID, "modelTransform");
 	glUniformMatrix4fv(chessPieceTransLocation, 1, GL_FALSE, glm::value_ptr(chessPieceTrans));
 	glUniform1i(glGetUniformLocation(ShaderID, "textureC"), 2);
@@ -558,6 +627,7 @@ void proccessPacket(char* completePacket)
 	{
 		SC_LOGIN_INFO_PACKET* recvpacket = reinterpret_cast<SC_LOGIN_INFO_PACKET*>(completePacket);
 		chessPiecePos = { recvpacket->x, 0, recvpacket->y };
+		cout << "pos: " << chessPiecePos.x << " , " << chessPiecePos.z << endl;
 		myId = recvpacket->id;
 	}
 	break;
@@ -576,8 +646,14 @@ void proccessPacket(char* completePacket)
 	case SC_MOVE_PLAYER:
 	{
 		SC_MOVE_PLAYER_PACKET* recvpacket = reinterpret_cast<SC_MOVE_PLAYER_PACKET*>(completePacket);
-		chessPiecePos.x = recvpacket->x;
-		chessPiecePos.z = recvpacket->y;
+		if (recvpacket->id == myId) {
+			chessPiecePos.x = recvpacket->x;
+			chessPiecePos.z = recvpacket->y;
+			cout << "pos: " << chessPiecePos.x << " , " << chessPiecePos.z << endl;
+		}
+		else {
+			DiffClients[recvpacket->id].x = recvpacket->x;
+		}	DiffClients[recvpacket->id].z = recvpacket->y;
 	}
 	break;
 	default:
@@ -645,7 +721,7 @@ void CALLBACK recv_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED 
 
 void CALLBACK send_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags)
 {
-	cout << "send Byte: " <<  cbTransferred << endl;
+	cout << "send Byte: " << cbTransferred << endl;
 	delete reinterpret_cast<EX_Over*>(lpOverlapped);
 }
 
