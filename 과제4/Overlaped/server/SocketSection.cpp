@@ -30,6 +30,7 @@ void SocketSection::doRecv()
 			display_Err(WSAGetLastError());
 		}
 	}
+	SleepEx(100, true);
 }
 
 void SocketSection::doSend()
@@ -37,10 +38,11 @@ void SocketSection::doSend()
 	overlapped.hEvent = reinterpret_cast<HANDLE>(clientInfo.id);
 	if (WSASend(clientSocket, &sendWSABuf, 1, &sendByte, 0, &overlapped, send_Callback) != 0) {
 		if (WSAGetLastError() != WSA_IO_PENDING) {
-			cout << "doSend() - send fail" << endl;
+			//cout << "doSend() - send fail" << endl;
 			display_Err(WSAGetLastError());
 		}
 	}
+	SleepEx(100, true);
 	//cout << "SendByte: " << sendByte << endl;
 }
 
@@ -67,12 +69,12 @@ void SocketSection::firstLocal()
 
 void processPacket(int id)
 {
-	cout << "processData Type" << (int)ClientSockets[id].recvWSABuf.buf[1] << endl;
+	//cout << "processData Type" << (int)ClientSockets[id].recvWSABuf.buf[1] << endl;
 	switch (ClientSockets[id].recvWSABuf.buf[1])
 	{
 	case CS_LOGIN:
 	{
-		cout << "type: SC_LOGIN_INFO, Recv Login Info Packet" << endl;
+		//cout << "type: SC_LOGIN_INFO, Recv Login Info Packet" << endl;
 		CS_LOGIN_PACKET* loginPacket = reinterpret_cast<CS_LOGIN_PACKET*>(ClientSockets[id].recvWSABuf.buf);
 		memcpy(ClientSockets[id].clientInfo.name, loginPacket + 2, loginPacket->size - 2);
 		ClientSockets[id].firstLocal();
@@ -82,16 +84,15 @@ void processPacket(int id)
 	break;
 	case CS_MOVE:
 	{
-		cout << "type: SC_MOVE_PLAYER, Recv Direction Packet" << endl;
+		//cout << "type: SC_MOVE_PLAYER, Recv Direction Packet" << endl;
 		CS_MOVE_PACKET* directionPacket = reinterpret_cast<CS_MOVE_PACKET*>(ClientSockets[id].recvWSABuf.buf);
 		ClientSockets[id].moveChessPiece(directionPacket->direction);
 	}
 	break;
 	default:
-		cout << "unknown Packet Recv" << endl;
+		//cout << "unknown Packet Recv" << endl;
 		break;
 	}
-	ClientSockets[id].doRecv();
 }
 
 void SocketSection::moveChessPiece(char& direction)
@@ -123,7 +124,6 @@ void SocketSection::moveChessPiece(char& direction)
 				}
 			}
 		}
-		else doRecv();
 		break;
 	case DIRECTION_BACK:
 		if (clientInfo.pos.z < 200) {
@@ -150,7 +150,6 @@ void SocketSection::moveChessPiece(char& direction)
 				}
 			}
 		}
-		else doRecv();
 		break;
 	case DIRECTION_LEFT:
 		if (clientInfo.pos.x > -199) {
@@ -177,7 +176,6 @@ void SocketSection::moveChessPiece(char& direction)
 				}
 			}
 		}
-		else doRecv();
 		break;
 	case DIRECTION_RIGHT:
 		if (clientInfo.pos.x < 200) {
@@ -205,7 +203,6 @@ void SocketSection::moveChessPiece(char& direction)
 				}
 			}
 		}
-		else doRecv();
 		break;
 	default:
 		break;
@@ -238,7 +235,7 @@ void SocketSection::prsentDiffChessPeice()
 {
 	for (auto& client : ClientSockets) {
 		if (client.first != clientInfo.id) {
-			//cout << "presendDiffChessPeice[" << client.first << "]" << endl;
+		//	cout << "presendDiffChessPeice[" << client.first << "]" << endl;
 			SC_ADD_PLAYER_PACKET sendPakcet;
 			sendPakcet.id = client.first;
 			sendPakcet.x = clientInfo.pos.x;
@@ -296,12 +293,14 @@ void CALLBACK recv_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED 
 			processPacket(id);
 		}
 		else if (dwError == WSAECONNRESET) {
-			cout << "removePlayer ID: " << id << endl;
+			//cout << "removePlayer ID: " << id << endl;
 			//ClientSockets[recvOverlapped->clientInfo.id].disconnect();
 			//board[(int)(ClientSockets[id].clientInfo.pos.x + 3.5)][-(int)(ClientSockets[id].clientInfo.pos.z - 3.5)] = 0;
 			disconnect(id);
+			return;
 		}
 	}
+	ClientSockets[id].doRecv();
 }
 
 void CALLBACK send_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags)

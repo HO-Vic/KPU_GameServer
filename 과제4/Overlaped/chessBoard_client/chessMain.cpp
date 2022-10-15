@@ -155,7 +155,7 @@ int main(int argc, char** argv)
 	memcpy(loginPacket.name, name.c_str(), name.size());
 	loginPacket.size = sizeof(loginPacket);
 	doSend(reinterpret_cast<char*>(&loginPacket), loginPacket.size);
-	doRecv();
+	//doRecv();
 	makeShaderID();
 
 	makeObj();
@@ -175,7 +175,6 @@ int main(int argc, char** argv)
 
 void timercall(int value)
 {
-
 	doRecv();
 	glutPostRedisplay();
 	glutTimerFunc(17, timercall, value);
@@ -254,7 +253,8 @@ void DrawSceneCall()
 	drawChessPiece();
 	for (auto& client : DiffClients) {
 		//cout << "client[" << client.first << "]" << endl;
-		drawChessPieceOtherClient(client.second);
+		if (client.first != myId)
+			drawChessPieceOtherClient(client.second);
 	}
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -299,26 +299,26 @@ void specialkeycall(int key, int x, int y)
 		directionPacket.direction = DIRECTION_LEFT;
 		directionPacket.move_time = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();
 		doSend(reinterpret_cast<char*>(&directionPacket), directionPacket.size);
-		cout << "DIRECTION_LEFT, SEND BYTE: " << endl;
+		cout << "DIRECTION_LEFT" << endl;
 	}
 	break;
 	case GLUT_KEY_RIGHT:
 		directionPacket.direction = DIRECTION_RIGHT;
 		directionPacket.move_time = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();
 		doSend(reinterpret_cast<char*>(&directionPacket), directionPacket.size);
-		cout << "DIRECTION_RIGHT, SEND BYTE: " << endl;
+		cout << "DIRECTION_RIGHT" << endl;
 		break;
 	case GLUT_KEY_UP:
 		directionPacket.direction = DIRECTION_FRONT;
 		directionPacket.move_time = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();
 		doSend(reinterpret_cast<char*>(&directionPacket), directionPacket.size);
-		cout << "DIRECTION_FRONT, SEND BYTE: " << endl;
+		cout << "DIRECTION_FRONT: " << endl;
 		break;
 	case GLUT_KEY_DOWN:
 		directionPacket.direction = DIRECTION_BACK;
 		directionPacket.move_time = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();
 		doSend(reinterpret_cast<char*>(&directionPacket), directionPacket.size);
-		cout << "DIRECTION_BACK, SEND BYTE: " << endl;
+		cout << "DIRECTION_BACK: " << endl;
 		break;
 	default:
 		break;
@@ -627,7 +627,7 @@ void proccessPacket(char* completePacket)
 	{
 		SC_LOGIN_INFO_PACKET* recvpacket = reinterpret_cast<SC_LOGIN_INFO_PACKET*>(completePacket);
 		chessPiecePos = { recvpacket->x, 0, recvpacket->y };
-		cout << "pos: " << chessPiecePos.x << " , " << chessPiecePos.z << endl;
+		cout << "Login pos: " << chessPiecePos.x << " , " << chessPiecePos.z << endl;
 		myId = recvpacket->id;
 	}
 	break;
@@ -635,12 +635,14 @@ void proccessPacket(char* completePacket)
 	{
 		SC_ADD_PLAYER_PACKET* recvpacket = reinterpret_cast<SC_ADD_PLAYER_PACKET*>(completePacket);
 		DiffClients.try_emplace(recvpacket->id, glm::vec3{ recvpacket->x, 0 ,recvpacket->y });
+		cout << "ADD Player: " << recvpacket->id << endl;
 	}
 	break;
 	case SC_REMOVE_PLAYER:
 	{
 		SC_REMOVE_PLAYER_PACKET* recvpacket = reinterpret_cast<SC_REMOVE_PLAYER_PACKET*>(completePacket);
 		DiffClients.erase(recvpacket->id);
+		cout << "RMV Player: " << recvpacket->id << endl;
 	}
 	break;
 	case SC_MOVE_PLAYER:
@@ -675,7 +677,6 @@ void doRecv()
 	newOver->over.hEvent = reinterpret_cast<HANDLE>(newOver);
 
 	if (WSARecv(mySocket, &newOver->WSABuf, 1, &recvByte, &flag, &newOver->over, recv_Callback) != 0 && WSAGetLastError() != WSA_IO_PENDING) {
-		cout << "timerCall() - recv Fail" << endl;
 		LPVOID lpMsgBuf;
 		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
 			NULL, WSAGetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
@@ -686,7 +687,7 @@ void doRecv()
 			exit(0);
 		}
 	}
-	SleepEx(100, true);
+	SleepEx(100, TRUE);
 }
 
 void doSend(char* sendPacket, int size)
@@ -706,12 +707,11 @@ void doSend(char* sendPacket, int size)
 		display_Err(WSAGetLastError());
 	}
 
-	SleepEx(100, true);
+	SleepEx(100, TRUE);
 }
 
 void CALLBACK recv_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags)
 {
-
 	if (cbTransferred != 0) {
 		constructPacket(reinterpret_cast<EX_Over*>(lpOverlapped)->Buf, cbTransferred);
 	}

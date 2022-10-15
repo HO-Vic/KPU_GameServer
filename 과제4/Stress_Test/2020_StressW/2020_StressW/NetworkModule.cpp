@@ -19,7 +19,7 @@ using namespace chrono;
 
 extern HWND		hWnd;
 
-const static int MAX_TEST = 4;					// 최대 동접 수 (한 번에 제작이 아닌 하나씩 증가)
+const static int MAX_TEST = 400;					// 최대 동접 수 (한 번에 제작이 아닌 하나씩 증가)
 const static int MAX_CLIENTS = MAX_TEST * 2;	// Dummy Client 보다 많은 Client 컨테이너 크기가 필요
 const static int INVALID_ID = -1;
 const static int MAX_PACKET_SIZE = 255;
