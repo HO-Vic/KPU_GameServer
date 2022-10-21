@@ -1,18 +1,36 @@
-constexpr int PORT_NUM = 4000;
-constexpr int BUF_SIZE = 200; 
+#pragma once
+#include<wtypes.h>
+
+/*
+
+서버와 클라이언트의 공유되는 내용들이 담겨져 있다.
+
+*/
+#define PORT_NUM 4000
+
+
+//constexpr int PORT_NUM = 9000;
+constexpr int BUF_SIZE = 200;
 constexpr int NAME_SIZE = 20;
 
-constexpr int W_WIDTH = 8;
-constexpr int W_HEIGHT = 8;
+constexpr int W_WIDTH = 400;
+constexpr int W_HEIGHT = 400;
 
-// Packet ID
+// Packet ID, 서버 해석 패킷
 constexpr char CS_LOGIN = 0;
 constexpr char CS_MOVE = 1;
 
+// 클라 해석 패킷
 constexpr char SC_LOGIN_INFO = 2;
 constexpr char SC_ADD_PLAYER = 3;
 constexpr char SC_REMOVE_PLAYER = 4;
 constexpr char SC_MOVE_PLAYER = 5;
+
+/*
+
+총 6개의 패킷으로 서버와 클라가 통신
+
+*/
 
 #pragma pack (push, 1)
 struct CS_LOGIN_PACKET {
@@ -25,6 +43,7 @@ struct CS_MOVE_PACKET {
 	unsigned char size;
 	char	type;
 	char	direction;  // 0 : UP, 1 : DOWN, 2 : LEFT, 3 : RIGHT
+	unsigned int move_time;
 };
 
 struct SC_LOGIN_INFO_PACKET {
@@ -53,6 +72,7 @@ struct SC_MOVE_PLAYER_PACKET {
 	char	type;
 	short	id;
 	short	x, y;
+	unsigned int move_time;
 };
 
 #pragma pack (pop)

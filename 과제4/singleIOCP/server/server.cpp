@@ -1,15 +1,22 @@
 #include <iostream>
 #include <array>
 #include <WS2tcpip.h>
-#include <MSWSock.h>
+#include <MSWSock.h> 
+#include<random>
+#include<chrono>
 #include "protocol.h"
 
 #pragma comment(lib, "WS2_32.lib")
 #pragma comment(lib, "MSWSock.lib")
 using namespace std;
-constexpr int MAX_USER = 10;
+using namespace chrono;
+constexpr int MAX_USER = 700;
 
-enum COMP_TYPE  { OP_ACCEPT, OP_RECV, OP_SEND };//iocp에서 gqcs 구분을 위한 타입 구분
+random_device rd;
+default_random_engine dre(rd());
+uniform_int_distribution<int> uid(0, W_WIDTH);
+
+enum COMP_TYPE { OP_ACCEPT, OP_RECV, OP_SEND };//iocp에서 gqcs 구분을 위한 타입 구분
 class OVER_EXP { // 
 public:
 	WSAOVERLAPPED _over;
@@ -33,10 +40,10 @@ public:
 	}
 };
 
-class SESSION {	
+class SESSION {
 	OVER_EXP _recv_over;
 
-public:	
+public:
 	bool in_use;
 	int _id;
 	SOCKET _socket;
@@ -49,7 +56,8 @@ public:
 	{
 		_id = -1;
 		_socket = 0;
-		x = y = 0;
+		x = 0;
+		y = 0;
 		_name[0] = 0;
 		in_use = false; // 빈자리인지 아닌지 판단할 객체
 		_prev_remain = 0;
@@ -63,13 +71,12 @@ public:
 		memset(&_recv_over._over, 0, sizeof(_recv_over._over));
 		_recv_over._wsabuf.len = BUF_SIZE - _prev_remain;
 		_recv_over._wsabuf.buf = _recv_over._send_buf + _prev_remain;
-		WSARecv(_socket, &_recv_over._wsabuf, 1, 0, &recv_flag, 
-			& _recv_over._over, 0);
+		WSARecv(_socket, &_recv_over._wsabuf, 1, 0, &recv_flag, &_recv_over._over, 0);
 	}
 
-	void do_send(void *packet)
+	void do_send(void* packet)
 	{
-		OVER_EXP* sdata = new OVER_EXP{ reinterpret_cast<char *>(packet) };
+		OVER_EXP* sdata = new OVER_EXP{ reinterpret_cast<char*>(packet) };
 		WSASend(_socket, &sdata->_wsabuf, 1, 0, 0, &sdata->_over, 0);
 	}
 	void send_login_info_packet()
@@ -78,6 +85,8 @@ public:
 		p.id = _id;
 		p.size = sizeof(SC_LOGIN_INFO_PACKET);
 		p.type = SC_LOGIN_INFO;
+		x = uid(dre);
+		y = uid(dre);
 		p.x = x;
 		p.y = y;
 		do_send(&p);
@@ -95,6 +104,7 @@ void SESSION::send_move_packet(int c_id)
 	p.type = SC_MOVE_PLAYER;
 	p.x = clients[c_id].x;
 	p.y = clients[c_id].y;
+	p.move_time = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();
 	do_send(&p);
 }
 
@@ -111,32 +121,31 @@ void process_packet(int c_id, char* packet)
 	switch (packet[1]) {
 	case CS_LOGIN: {
 		CS_LOGIN_PACKET* p = reinterpret_cast<CS_LOGIN_PACKET*>(packet);
-		strcpy_s(clients[c_id]._name, p->name);
+		memcpy(clients[c_id]._name, p->name, strlen(p->name));
 		clients[c_id].send_login_info_packet();
 
+		SC_ADD_PLAYER_PACKET add_packet;
+		add_packet.id = c_id;
+		memcpy(add_packet.name, p->name, strlen(p->name));
+		add_packet.size = sizeof(add_packet);
+		add_packet.type = SC_ADD_PLAYER;
+		add_packet.x = clients[c_id].x;
+		add_packet.y = clients[c_id].y;
 		for (auto& pl : clients) {
-			if (false == pl.in_use) continue;
-			if (pl._id == c_id) continue;
-			SC_ADD_PLAYER_PACKET add_packet;
-			add_packet.id = c_id;
-			strcpy_s(add_packet.name, p->name);
-			add_packet.size = sizeof(add_packet);
-			add_packet.type = SC_ADD_PLAYER;
-			add_packet.x = clients[c_id].x;
-			add_packet.y = clients[c_id].y;
+			if (false == pl.in_use || pl._id == c_id) continue;
 			pl.do_send(&add_packet);
 		}
+
 		for (auto& pl : clients) {
-			if (false == pl.in_use) continue;
-			if (pl._id == c_id) continue;
-			SC_ADD_PLAYER_PACKET add_packet;
-			add_packet.id = pl._id;
-			strcpy_s(add_packet.name, pl._name);
-			add_packet.size = sizeof(add_packet);
-			add_packet.type = SC_ADD_PLAYER;
-			add_packet.x = pl.x;
-			add_packet.y = pl.y;
-			clients[c_id].do_send(&add_packet);
+			if (false == pl.in_use || pl._id == c_id) continue;
+			SC_ADD_PLAYER_PACKET diff_add_packet;
+			diff_add_packet.id = pl._id;
+			memcpy(diff_add_packet.name, p->name, strlen(p->name));
+			diff_add_packet.size = sizeof(diff_add_packet);
+			diff_add_packet.type = SC_ADD_PLAYER;
+			diff_add_packet.x = pl.x;
+			diff_add_packet.y = pl.y;
+			clients[c_id].do_send(&diff_add_packet);
 		}
 		break;
 	}
@@ -152,7 +161,7 @@ void process_packet(int c_id, char* packet)
 		}
 		clients[c_id].x = x;
 		clients[c_id].y = y;
-		for (auto &pl : clients) 
+		for (auto& pl : clients)
 			if (true == pl.in_use)
 				pl.send_move_packet(c_id);
 		break;
@@ -162,13 +171,13 @@ void process_packet(int c_id, char* packet)
 
 void disconnect(int c_id)
 {
+	SC_REMOVE_PLAYER_PACKET p;
+	p.id = c_id;
+	p.size = sizeof(p);
+	p.type = SC_REMOVE_PLAYER;
 	for (auto& pl : clients) {
 		if (pl.in_use == false) continue;
-		if (pl._id == c_id) continue;
-		SC_REMOVE_PLAYER_PACKET p;
-		p.id = c_id;
-		p.size = sizeof(p);
-		p.type = SC_REMOVE_PLAYER;
+		if (pl._id == c_id) continue;		
 		pl.do_send(&p);
 	}
 	closesocket(clients[c_id]._socket);
@@ -205,7 +214,7 @@ int main()
 		ULONG_PTR key;
 		WSAOVERLAPPED* over = nullptr;
 		BOOL ret = GetQueuedCompletionStatus(h_iocp, &num_bytes, &key, &over, INFINITE);
-		OVER_EXP* ex_over = reinterpret_cast<OVER_EXP *>(over);
+		OVER_EXP* ex_over = reinterpret_cast<OVER_EXP*>(over);
 		if (FALSE == ret) {
 			if (ex_over->_comp_type == OP_ACCEPT) cout << "Accept Error";
 			else {
@@ -218,6 +227,7 @@ int main()
 
 		switch (ex_over->_comp_type) {
 		case OP_ACCEPT: {
+			//cout << "Accept" << endl;
 			int client_id = get_new_client_id();
 			if (client_id != -1) {
 				clients[client_id].in_use = true;
@@ -227,8 +237,7 @@ int main()
 				clients[client_id]._name[0] = 0;
 				clients[client_id]._prev_remain = 0;
 				clients[client_id]._socket = c_socket;
-				CreateIoCompletionPort(reinterpret_cast<HANDLE>(c_socket),
-					h_iocp, client_id, 0);
+				CreateIoCompletionPort(reinterpret_cast<HANDLE>(c_socket), h_iocp, client_id, 0);//iocp에 소켓 연결
 				clients[client_id].do_recv();
 				c_socket = WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
 			}
@@ -240,6 +249,7 @@ int main()
 			break;
 		}
 		case OP_RECV: {
+			//cout << "Recv" << endl;
 			int remain_data = num_bytes + clients[key]._prev_remain;
 			char* p = ex_over->_send_buf;
 			while (remain_data > 0) {
@@ -259,6 +269,7 @@ int main()
 			break;
 		}
 		case OP_SEND:
+			//cout << "Send" << endl;
 			delete ex_over;
 			break;
 		}
