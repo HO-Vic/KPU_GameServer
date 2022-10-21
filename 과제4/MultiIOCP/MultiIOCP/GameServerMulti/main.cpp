@@ -5,13 +5,19 @@
 #include<thread>
 #include<vector>
 #include<mutex>
-
+#include<random>
+#include<chrono>
 #include "protocol.h"
 
 #pragma comment(lib, "WS2_32.lib")
 #pragma comment(lib, "MSWSock.lib")
 using namespace std;
-constexpr int MAX_USER = 10;
+using namespace chrono;
+constexpr int MAX_USER = 2000;
+
+random_device rd;
+default_random_engine dre(rd());
+uniform_int_distribution<int> uid(0, 400);
 
 enum COMP_TYPE { OP_ACCEPT, OP_RECV, OP_SEND };//iocp에서 gqgs 구분을 위한 타입 구분
 class OVER_EXP { // 
@@ -62,6 +68,8 @@ public:
 	char	_name[NAME_SIZE]; // data race
 
 	int		_prev_remain; // 패킷 재조립을 위한 - 조각난 패킷 있음? // no data race
+	
+	
 public:
 	SESSION() :_state(ST_FREE)
 	{
@@ -100,8 +108,8 @@ public:
 		p.id = _id;
 		p.size = sizeof(SC_LOGIN_INFO_PACKET);
 		p.type = SC_LOGIN_INFO;
-		p.x = x;
-		p.y = y;
+		p.x = uid(dre);
+		p.y = uid(dre);
 		do_send(&p);
 	}
 	void send_move_packet(int c_id);
@@ -121,12 +129,7 @@ array<SESSION, MAX_USER> clients; // data race //이새키가 젤 문제임
 //
 //
 //
-//
 
-
-
-
-//미친 전역변수
 
 HANDLE h_iocp; // no data race
 
@@ -134,7 +137,7 @@ HANDLE h_iocp; // no data race
 SOCKET g_c_socket;
 SOCKET g_s_socket; // no data race
 
-OVER_EXP g_a_over; // no data race //왜? accept는 혼자..?? 더 알아봐야 될듯
+OVER_EXP g_a_over; // no data race
 
 
 
@@ -149,6 +152,7 @@ void SESSION::send_move_packet(int c_id)
 	p.type = SC_MOVE_PLAYER;
 	p.x = clients[c_id].x;
 	p.y = clients[c_id].y;
+	p.move_time = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();
 	do_send(&p);
 }
 
@@ -167,7 +171,7 @@ void process_packet(int c_id, char* packet)
 	switch (packet[1]) {
 	case CS_LOGIN: {
 		CS_LOGIN_PACKET* p = reinterpret_cast<CS_LOGIN_PACKET*>(packet);
-		strcpy_s(clients[c_id]._name, p->name);
+		memcpy(clients[c_id]._name, p->name, NAME_SIZE);
 		clients[c_id].send_login_info_packet();
 
 		{
@@ -175,35 +179,34 @@ void process_packet(int c_id, char* packet)
 			clients[c_id]._state = ST_INGAME;
 		}
 
+		SC_ADD_PLAYER_PACKET add_packet;
+		add_packet.id = c_id;
+		strcpy_s(add_packet.name, p->name);
+		add_packet.size = sizeof(add_packet);
+		add_packet.type = SC_ADD_PLAYER;
+		add_packet.x = clients[c_id].x;
+		add_packet.y = clients[c_id].y;
 		for (auto& pl : clients) {
 			{
 				lock_guard<mutex> ll(pl._c_mutex);
-				if (ST_INGAME != pl._state) continue;
-			}
-			if (pl._id == c_id) continue;
-			SC_ADD_PLAYER_PACKET add_packet;
-			add_packet.id = c_id;
-			strcpy_s(add_packet.name, p->name);
-			add_packet.size = sizeof(add_packet);
-			add_packet.type = SC_ADD_PLAYER;
-			add_packet.x = clients[c_id].x;
-			add_packet.y = clients[c_id].y;
+				if (ST_INGAME != pl._state || pl._id == c_id) continue;
+			}			
 			pl.do_send(&add_packet);
 		}
+
 		for (auto& pl : clients) {
 			{
 				lock_guard<mutex> ll(pl._c_mutex);
-				if (ST_INGAME != pl._state) continue;
-			}
-			if (pl._id == c_id) continue;
-			SC_ADD_PLAYER_PACKET add_packet;
-			add_packet.id = pl._id;
-			strcpy_s(add_packet.name, pl._name);
-			add_packet.size = sizeof(add_packet);
-			add_packet.type = SC_ADD_PLAYER;
-			add_packet.x = pl.x;
-			add_packet.y = pl.y;
-			clients[c_id].do_send(&add_packet);
+				if (ST_INGAME != pl._state || pl._id == c_id) continue;
+			}			
+			SC_ADD_PLAYER_PACKET diffAdd_packet;
+			diffAdd_packet.id = pl._id;
+			strcpy_s(diffAdd_packet.name, pl._name);
+			diffAdd_packet.size = sizeof(diffAdd_packet);
+			diffAdd_packet.type = SC_ADD_PLAYER;
+			diffAdd_packet.x = pl.x;
+			diffAdd_packet.y = pl.y;
+			clients[c_id].do_send(&diffAdd_packet);
 		}
 		break;
 	}
@@ -233,16 +236,15 @@ void process_packet(int c_id, char* packet)
 
 void disconnect(int c_id)
 {
+	SC_REMOVE_PLAYER_PACKET p;
+	p.id = c_id;
+	p.size = sizeof(p);
+	p.type = SC_REMOVE_PLAYER;
 	for (auto& pl : clients) {
 		{
 			lock_guard<mutex> ll(pl._c_mutex);
-			if (ST_INGAME != pl._state) continue;
-		}
-		if (pl._id == c_id) continue;
-		SC_REMOVE_PLAYER_PACKET p;
-		p.id = c_id;
-		p.size = sizeof(p);
-		p.type = SC_REMOVE_PLAYER;
+			if (ST_INGAME != pl._state || pl._id == c_id) continue;
+		}		
 		pl.do_send(&p);
 	}
 	closesocket(clients[c_id]._socket);
@@ -281,9 +283,6 @@ int main()
 	for (auto& th : worker_threads)
 		th.join();
 
-
-
-
 	closesocket(g_s_socket);
 	WSACleanup();
 }
@@ -320,8 +319,7 @@ void worker_thread() {
 				clients[client_id]._name[0] = 0;
 				clients[client_id]._prev_remain = 0;
 				clients[client_id]._socket = g_c_socket;
-				CreateIoCompletionPort(reinterpret_cast<HANDLE>(g_c_socket),
-					h_iocp, client_id, 0);
+				CreateIoCompletionPort(reinterpret_cast<HANDLE>(g_c_socket), h_iocp, client_id, 0);
 				clients[client_id].do_recv();
 				g_c_socket = WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
 			}
