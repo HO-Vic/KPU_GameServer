@@ -8,38 +8,46 @@ using namespace std;
 void CALLBACK recv_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags);
 void CALLBACK send_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags);
 void disconnect(int id);
-void processPacket(int id);
 
 extern unordered_map<int, SocketSection> ClientSockets;
 
 SocketSection::SocketSection(int id, SOCKET& clientSocket) :clientSocket(clientSocket) {
 	clientInfo.id = id;
 	ZeroMemory(&recvWSABuf, sizeof(WSABUF));
-	ZeroMemory(&sendWSABuf, sizeof(WSABUF));
-	sendWSABuf.buf = sendBuf;		sendWSABuf.len = BUF_SIZE;
 	recvWSABuf.buf = recvBuf;		recvWSABuf.len = BUF_SIZE;
 }
 
 void SocketSection::doRecv()
 {
+	//cout << "doRecv() " << clientInfo.id << endl;
 	DWORD flag = 0x0;
 	overlapped.hEvent = reinterpret_cast<HANDLE>(clientInfo.id);
+	if (ClientSockets.find(clientInfo.id) == ClientSockets.end()) return;
 	if (WSARecv(clientSocket, &recvWSABuf, 1, NULL, &flag, &overlapped, recv_Callback) != 0) {
 		if (WSAGetLastError() != WSA_IO_PENDING) {
 			//cout << "ID: " << clientInfo.id << "	" << "doRecv() - Error" << endl;
+			cout << "Fail id: " << clientInfo.id << endl;
 			display_Err(WSAGetLastError());
+			disconnect(clientInfo.id);
 		}
 	}
 	SleepEx(100, true);
 }
 
-void SocketSection::doSend()
+void SocketSection::doSend(void* packet)
 {
-	overlapped.hEvent = reinterpret_cast<HANDLE>(clientInfo.id);
-	if (WSASend(clientSocket, &sendWSABuf, 1, &sendByte, 0, &overlapped, send_Callback) != 0) {
+	//cout << "doSend() " << clientInfo.id << endl;
+	OverlappedEx* sendOver = new OverlappedEx;
+	sendOver->over.hEvent = reinterpret_cast<HANDLE>(clientInfo.id);
+	memcpy(sendOver->IOCP_buf, packet, reinterpret_cast<char*>(packet)[0]);
+	sendOver->wsabuf.buf = reinterpret_cast<char*>(sendOver->IOCP_buf);
+	sendOver->wsabuf.len = reinterpret_cast<char*>(packet)[0];
+	if (WSASend(clientSocket, &sendOver->wsabuf, 1, nullptr, 0, &sendOver->over, send_Callback) != 0) {
 		if (WSAGetLastError() != WSA_IO_PENDING) {
-			//cout << "doSend() - send fail" << endl;
+			if (ClientSockets.find(clientInfo.id) == ClientSockets.end()) return;
+			cout << "Fail id: " << clientInfo.id << endl;
 			display_Err(WSAGetLastError());
+			disconnect(clientInfo.id);
 		}
 	}
 	SleepEx(100, true);
@@ -62,41 +70,45 @@ void SocketSection::firstLocal()
 	sendPosPacket.y = clientInfo.pos.z;
 	sendPosPacket.type = SC_LOGIN_INFO;
 	sendPosPacket.size = sizeof(sendPosPacket);
-	memcpy(this->sendWSABuf.buf, &sendPosPacket, sendPosPacket.size);
-	this->sendWSABuf.len = sendPosPacket.size;
-	doSend();
+	doSend(&sendPosPacket);
 }
 
-void processPacket(int id)
+void SocketSection::processPacket(char* completePacket)
 {
 	//cout << "processData Type" << (int)ClientSockets[id].recvWSABuf.buf[1] << endl;
-	switch (ClientSockets[id].recvWSABuf.buf[1])
+	switch (completePacket[1])
 	{
 	case CS_LOGIN:
 	{
 		//cout << "type: SC_LOGIN_INFO, Recv Login Info Packet" << endl;
-		CS_LOGIN_PACKET* loginPacket = reinterpret_cast<CS_LOGIN_PACKET*>(ClientSockets[id].recvWSABuf.buf);
-		memcpy(ClientSockets[id].clientInfo.name, loginPacket + 2, loginPacket->size - 2);
-		ClientSockets[id].firstLocal();
-		ClientSockets[id].spreadMyChessPeice();
-		ClientSockets[id].prsentDiffChessPeice();
+		CS_LOGIN_PACKET* loginPacket = reinterpret_cast<CS_LOGIN_PACKET*>(completePacket);
+		memcpy(clientInfo.name, loginPacket + 2, loginPacket->size - 2);
+		firstLocal();
+		spreadMyChessPeice();
+		prsentDiffChessPeice();
 	}
 	break;
 	case CS_MOVE:
 	{
 		//cout << "type: SC_MOVE_PLAYER, Recv Direction Packet" << endl;
-		CS_MOVE_PACKET* directionPacket = reinterpret_cast<CS_MOVE_PACKET*>(ClientSockets[id].recvWSABuf.buf);
-		ClientSockets[id].moveChessPiece(directionPacket->direction);
+		CS_MOVE_PACKET* directionPacket = reinterpret_cast<CS_MOVE_PACKET*>(completePacket);
+		moveChessPiece(directionPacket->direction);
 	}
 	break;
 	default:
-		//cout << "unknown Packet Recv" << endl;
+		cout << "unknown Packet Recv" << endl;
 		break;
 	}
+	delete[] completePacket;
 }
 
 void SocketSection::moveChessPiece(char& direction)
 {
+	SC_MOVE_PLAYER_PACKET sendPacket;
+	sendPacket.type = SC_MOVE_PLAYER;
+	sendPacket.id = clientInfo.id;
+	sendPacket.size = sizeof(SC_MOVE_PLAYER_PACKET);
+
 	switch (direction)
 	{
 	case DIRECTION_FRONT:
@@ -104,24 +116,12 @@ void SocketSection::moveChessPiece(char& direction)
 			/*board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5)] = 0;
 			board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5) + 1] = 1;*/
 			clientInfo.pos += glm::vec3(0, 0, -1);
-			SC_MOVE_PLAYER_PACKET sendPacket;
 			sendPacket.x = clientInfo.pos.x;
 			sendPacket.y = clientInfo.pos.z;
-			sendPacket.type = SC_MOVE_PLAYER;
-			sendPacket.id = clientInfo.id;
 			sendPacket.move_time = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now().time_since_epoch()).count();
-			sendPacket.size = sizeof(SC_MOVE_PLAYER_PACKET);
-			ZeroMemory(sendWSABuf.buf, BUF_SIZE);
-			memcpy(sendBuf, &sendPacket, sendPacket.size);
-			sendWSABuf.len = sendPacket.size;
-			doSend();
 			for (auto& client : ClientSockets) {
-				if (client.first != clientInfo.id) {
-					ZeroMemory(client.second.sendBuf, BUF_SIZE);
-					memcpy(client.second.sendBuf, &sendPacket, sendPacket.size);
-					client.second.sendWSABuf.len = sendPacket.size;
-					client.second.doSend();
-				}
+				if (client.second.recvWSABuf.buf == nullptr) continue;
+				client.second.doSend(&sendPacket);
 			}
 		}
 		break;
@@ -130,24 +130,12 @@ void SocketSection::moveChessPiece(char& direction)
 			/*board[(int)(clientInfo.pos.x + 3.5f)][-(int)(clientInfo.pos.z - 3.5)] = 0;
 			board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5) - 1] = 1;*/
 			clientInfo.pos += glm::vec3(0, 0, 1);
-			SC_MOVE_PLAYER_PACKET sendPacket;
 			sendPacket.x = clientInfo.pos.x;
 			sendPacket.y = clientInfo.pos.z;
-			sendPacket.type = SC_MOVE_PLAYER;
-			sendPacket.id = clientInfo.id;
 			sendPacket.move_time = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now().time_since_epoch()).count();
-			sendPacket.size = sizeof(SC_MOVE_PLAYER_PACKET);
-			ZeroMemory(sendWSABuf.buf, BUF_SIZE);
-			memcpy(sendBuf, &sendPacket, sendPacket.size);
-			sendWSABuf.len = sendPacket.size;
-			doSend();
 			for (auto& client : ClientSockets) {
-				if (client.first != clientInfo.id) {
-					ZeroMemory(client.second.sendBuf, BUF_SIZE);
-					memcpy(client.second.sendBuf, &sendPacket, sendPacket.size);
-					client.second.sendWSABuf.len = sendPacket.size;
-					client.second.doSend();
-				}
+				if (client.second.recvWSABuf.buf == nullptr) continue;
+				client.second.doSend(&sendPacket);
 			}
 		}
 		break;
@@ -156,24 +144,12 @@ void SocketSection::moveChessPiece(char& direction)
 			/*board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5)] = 0;
 			board[(int)(clientInfo.pos.x + 3.5) - 1][-(int)(clientInfo.pos.z - 3.5)] = 1;*/
 			clientInfo.pos += glm::vec3(-1, 0, 0);
-			SC_MOVE_PLAYER_PACKET sendPacket;
 			sendPacket.x = clientInfo.pos.x;
 			sendPacket.y = clientInfo.pos.z;
-			sendPacket.type = SC_MOVE_PLAYER;
-			sendPacket.id = clientInfo.id;
 			sendPacket.move_time = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now().time_since_epoch()).count();
-			sendPacket.size = sizeof(SC_MOVE_PLAYER_PACKET);
-			ZeroMemory(sendWSABuf.buf, BUF_SIZE);
-			memcpy(sendBuf, &sendPacket, sendPacket.size);
-			sendWSABuf.len = sendPacket.size;
-			doSend();
 			for (auto& client : ClientSockets) {
-				if (client.first != clientInfo.id) {
-					ZeroMemory(client.second.sendBuf, BUF_SIZE);
-					memcpy(client.second.sendBuf, &sendPacket, sendPacket.size);
-					client.second.sendWSABuf.len = sendPacket.size;
-					client.second.doSend();
-				}
+				if (client.second.recvWSABuf.buf == nullptr) continue;
+				client.second.doSend(&sendPacket);
 			}
 		}
 		break;
@@ -182,25 +158,12 @@ void SocketSection::moveChessPiece(char& direction)
 			/*board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5)] = 0;
 			board[(int)(clientInfo.pos.x + 3.5) + 1][-(int)(clientInfo.pos.z - 3.5)] = 1;*/
 			clientInfo.pos += glm::vec3(1, 0, 0);
-			SC_MOVE_PLAYER_PACKET sendPacket;
 			sendPacket.x = clientInfo.pos.x;
 			sendPacket.y = clientInfo.pos.z;
-			sendPacket.id = clientInfo.id;
-			sendPacket.type = SC_MOVE_PLAYER;
 			sendPacket.move_time = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now().time_since_epoch()).count();
-			sendPacket.size = sizeof(SC_MOVE_PLAYER_PACKET);
-			ZeroMemory(sendWSABuf.buf, BUF_SIZE);
-			memcpy(sendBuf, &sendPacket, sendPacket.size);
-			sendWSABuf.len = sendPacket.size;
-			doSend();
-			//spreadMyChessPeice();
 			for (auto& client : ClientSockets) {
-				if (client.first != clientInfo.id) {
-					ZeroMemory(client.second.sendBuf, BUF_SIZE);
-					memcpy(client.second.sendBuf, &sendPacket, sendPacket.size);
-					client.second.sendWSABuf.len = sendPacket.size;
-					client.second.doSend();
-				}
+				if (client.second.recvWSABuf.buf == nullptr) continue;
+				client.second.doSend(&sendPacket);
 			}
 		}
 		break;
@@ -211,45 +174,32 @@ void SocketSection::moveChessPiece(char& direction)
 
 void SocketSection::spreadMyChessPeice()
 {
+	SC_ADD_PLAYER_PACKET sendPakcet;
+	sendPakcet.id = clientInfo.id;
+	sendPakcet.x = clientInfo.pos.x;
+	sendPakcet.y = clientInfo.pos.z;
+	memcpy(sendPakcet.name, clientInfo.name, NAME_SIZE);
+	sendPakcet.type = SC_ADD_PLAYER;
+	sendPakcet.size = sizeof(SC_ADD_PLAYER_PACKET);
 	for (auto& client : ClientSockets) {
-		if (client.first != clientInfo.id) {
-			//cout << "multiCast Client Info Id:" << client.first << endl;
-			SC_ADD_PLAYER_PACKET sendPakcet;
-			sendPakcet.id = clientInfo.id;
-			sendPakcet.x = clientInfo.pos.x;
-			sendPakcet.y = clientInfo.pos.z;
-			memcpy(sendPakcet.name, clientInfo.name, NAME_SIZE);
-			sendPakcet.type = SC_ADD_PLAYER;
-			sendPakcet.size = sizeof(SC_ADD_PLAYER_PACKET);
-
-			ZeroMemory(client.second.sendBuf, BUF_SIZE);
-			memcpy(client.second.sendBuf, &sendPakcet, sendPakcet.size);
-
-			client.second.sendWSABuf.len = sendPakcet.size;
-			client.second.doSend();
-		}
+		if (client.first == clientInfo.id) continue;
+		client.second.doSend(&sendPakcet);
 	}
 }
 
 void SocketSection::prsentDiffChessPeice()
 {
 	for (auto& client : ClientSockets) {
-		if (client.first != clientInfo.id) {
+		if (client.first == clientInfo.id || client.second.recvWSABuf.buf == nullptr) continue;
 		//	cout << "presendDiffChessPeice[" << client.first << "]" << endl;
-			SC_ADD_PLAYER_PACKET sendPakcet;
-			sendPakcet.id = client.first;
-			sendPakcet.x = clientInfo.pos.x;
-			sendPakcet.y = clientInfo.pos.z;
-			memcpy(sendPakcet.name, clientInfo.name, NAME_SIZE);
-			sendPakcet.type = SC_ADD_PLAYER;
-			sendPakcet.size = sizeof(SC_ADD_PLAYER_PACKET);
-
-			ZeroMemory(sendBuf, BUF_SIZE);
-			memcpy(sendBuf, &sendPakcet, sendPakcet.size);
-
-			sendWSABuf.len = sendPakcet.size;
-			doSend();
-		}
+		SC_ADD_PLAYER_PACKET sendPakcet;
+		sendPakcet.id = client.first;
+		sendPakcet.x = clientInfo.pos.x;
+		sendPakcet.y = clientInfo.pos.z;
+		memcpy(sendPakcet.name, clientInfo.name, NAME_SIZE);
+		sendPakcet.type = SC_ADD_PLAYER;
+		sendPakcet.size = sizeof(SC_ADD_PLAYER_PACKET);
+		doSend(&sendPakcet);
 	}
 }
 
@@ -260,18 +210,14 @@ void SocketSection::LoginClient()
 void disconnect(int id)
 {
 	for (auto& client : ClientSockets) {
-		if (client.first != id) {
-			SC_REMOVE_PLAYER_PACKET sendPakcet;
-			sendPakcet.id = id;
-			sendPakcet.type = SC_REMOVE_PLAYER;
-			sendPakcet.size = sizeof(SC_REMOVE_PLAYER_PACKET);
-
-			ZeroMemory(client.second.sendBuf, BUF_SIZE);
-			memcpy(client.second.sendBuf, &sendPakcet, sendPakcet.size);
-			client.second.sendWSABuf.len = sendPakcet.size;
-			client.second.doSend();
-		}
+		if (client.first != id || client.second.recvWSABuf.buf == nullptr) continue;
+		SC_REMOVE_PLAYER_PACKET sendPakcet;
+		sendPakcet.id = id;
+		sendPakcet.type = SC_REMOVE_PLAYER;
+		sendPakcet.size = sizeof(SC_REMOVE_PLAYER_PACKET);
+		client.second.doSend(&sendPakcet);
 	}
+	cout << "disconect id: " << id << endl;
 	ClientSockets.erase(id);
 }
 
@@ -290,10 +236,11 @@ void CALLBACK recv_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED 
 	int id = reinterpret_cast<int>(lpOverlapped->hEvent);
 	if (ClientSockets.find(id) != ClientSockets.end()) {
 		if (dwError == 0) {
-			processPacket(id);
+			ClientSockets[id].constructPacket(ClientSockets[id].recvBuf, (unsigned char)cbTransferred);
+			ZeroMemory(ClientSockets[id].recvBuf, BUF_SIZE);
 		}
 		else if (dwError == WSAECONNRESET) {
-			//cout << "removePlayer ID: " << id << endl;
+			//cout << "disconnect ID: " << id << endl;
 			//ClientSockets[recvOverlapped->clientInfo.id].disconnect();
 			//board[(int)(ClientSockets[id].clientInfo.pos.x + 3.5)][-(int)(ClientSockets[id].clientInfo.pos.z - 3.5)] = 0;
 			disconnect(id);
@@ -307,6 +254,7 @@ void CALLBACK send_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED 
 {
 	//cout << "send_Callback() - SendByte" << (int)cbTransferred << endl;
 	//ClientSockets[reinterpret_cast<int>(lpOverlapped->hEvent)].doRecv();
+	delete lpOverlapped;
 
 }
 
@@ -318,4 +266,42 @@ void display_Err(int Errcode)
 		(LPWSTR)&lpMsgBuf, 0, NULL);
 	wcout << "ErrorCode: " << Errcode << " - " << (WCHAR*)lpMsgBuf << endl;
 	LocalFree(lpMsgBuf);
+}
+
+void SocketSection::constructPacket(char* inputPacket, unsigned char inputSize)
+{
+	char* packetStart = inputPacket;
+	unsigned char restSize = inputSize + prevPacketLastLocal;
+	unsigned char currentPacketLocal = 0;
+	unsigned char makePacketSize = 0;
+
+
+
+	while (restSize > 0) {
+		if (prevPacketLastLocal != 0)
+			makePacketSize = prevPacket[0];
+		else makePacketSize = inputPacket[currentPacketLocal];
+		if (makePacketSize == 0) break;
+		if (restSize < makePacketSize) {
+			memcpy(prevPacket + prevPacketLastLocal, inputPacket + currentPacketLocal, restSize);
+			prevPacketLastLocal += restSize;
+			break;
+		}
+		else {
+			memcpy(prevPacket + prevPacketLastLocal, inputPacket + currentPacketLocal, (int)(makePacketSize - prevPacketLastLocal));
+
+			restSize -= (makePacketSize - prevPacketLastLocal);
+			currentPacketLocal += (makePacketSize - prevPacketLastLocal);
+			prevPacketLastLocal += (makePacketSize - prevPacketLastLocal);
+
+			char* procPacket = new char[makePacketSize];
+			ZeroMemory(procPacket, makePacketSize);
+			memcpy(procPacket, prevPacket, makePacketSize);
+			processPacket(procPacket);
+			ZeroMemory(prevPacket, BUF_SIZE);
+			prevPacketLastLocal = 0;
+			if (currentPacketLocal == inputSize)
+				break;
+		}
+	}
 }

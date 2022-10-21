@@ -4,10 +4,10 @@
 
 #define SERVER_PORT 9000
 
-#define DIRECTION_FRONT 0x10
-#define DIRECTION_BACK	0x11
-#define DIRECTION_LEFT	0x12
-#define DIRECTION_RIGHT 0x13
+#define DIRECTION_FRONT 1
+#define DIRECTION_BACK	2
+#define DIRECTION_LEFT	3
+#define DIRECTION_RIGHT 4
 
 #pragma pack(pop)
 
@@ -16,7 +16,7 @@
 서버와 클라이언트의 공유되는 내용들이 담겨져 있다.
 
 */
-#define SERVER_PORT 9000
+#define SERVER_PORT 4000
 
 
 //constexpr int PORT_NUM = 9000;

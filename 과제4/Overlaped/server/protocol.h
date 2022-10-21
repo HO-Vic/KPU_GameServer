@@ -9,7 +9,7 @@
 서버와 클라이언트의 공유되는 내용들이 담겨져 있다.
 
 */
-#define SERVER_PORT 9000
+#define SERVER_PORT 4000
 
 
 //constexpr int PORT_NUM = 9000;

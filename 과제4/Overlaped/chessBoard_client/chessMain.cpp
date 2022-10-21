@@ -588,7 +588,7 @@ void constructPacket(char* inputPacket, int inputSize)
 			break;
 		}
 		if (prevPacketLastLocal < 1) {
-			int memSize = 2 - prevPacketLastLocal;
+			int memSize = 1 - prevPacketLastLocal;
 			memcpy(prevPacket + prevPacketLastLocal, inputPacket + currentPacketLocal, memSize);
 			currentPacketLocal += memSize;
 			prevPacketLastLocal += memSize;
