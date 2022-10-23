@@ -495,5 +495,7 @@ int WINAPI WinMain(HINSTANCE	hInstance,			// Instance
 
 	// Shutdown
 	KillGLWindow();									// Kill The Window
+	stop = true;
+	ShutdownNetwork();
 	return ((int)msg.wParam);							// Exit The Program
 }

@@ -19,7 +19,7 @@ using namespace chrono;
 
 extern HWND		hWnd;
 
-const static int MAX_TEST = 400;					// 최대 동접 수 (한 번에 제작이 아닌 하나씩 증가)
+const static int MAX_TEST = 2000;					// 최대 동접 수 (한 번에 제작이 아닌 하나씩 증가)
 const static int MAX_CLIENTS = MAX_TEST * 2;	// Dummy Client 보다 많은 Client 컨테이너 크기가 필요
 const static int INVALID_ID = -1;
 const static int MAX_PACKET_SIZE = 255;
@@ -71,6 +71,8 @@ vector <thread*> worker_threads;
 thread test_thread;
 
 float point_cloud[MAX_TEST * 2];		// Draw_Thread와 상호작용하는 배열
+
+bool stop;
 
 // 나중에 NPC까지 추가 확장 용 (아직 미사용)
 struct ALIEN {
@@ -141,8 +143,10 @@ void ProcessPacket(int ci, unsigned char packet[])
 				if (0 != move_packet->move_time) {
 					auto d_ms = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count() - move_packet->move_time;
 
-					if (global_delay < d_ms) global_delay++;
-					else if (global_delay > d_ms) global_delay--;
+					if (global_delay < d_ms) 
+						global_delay++;
+					else if (global_delay > d_ms) 
+						global_delay--;
 				}
 			}
 		}
@@ -178,7 +182,7 @@ void ProcessPacket(int ci, unsigned char packet[])
 
 void Worker_Thread()
 {
-	while (true) {
+	while (!stop) {
 		DWORD io_size;
 		unsigned long long ci;
 		OverlappedEx* over;
@@ -250,7 +254,7 @@ void Worker_Thread()
 		}
 		else {
 			std::cout << "Unknown GQCS event!\n";
-			while (true);
+			while (!stop);
 		}
 	}
 }
@@ -407,10 +411,10 @@ void InitializeNetwork()
 void ShutdownNetwork()
 {
 	test_thread.join();
-	for (auto pth : worker_threads) {
+	for (auto& pth : worker_threads) {
 		pth->join();
 		delete pth;
-	}
+	}	
 }
 
 void Do_Network()

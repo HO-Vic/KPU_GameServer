@@ -108,8 +108,8 @@ public:
 		p.id = _id;
 		p.size = sizeof(SC_LOGIN_INFO_PACKET);
 		p.type = SC_LOGIN_INFO;
-		p.x = uid(dre);
-		p.y = uid(dre);
+		x = p.x = uid(dre);
+		y = p.y = uid(dre);
 		do_send(&p);
 	}
 	void send_move_packet(int c_id);
