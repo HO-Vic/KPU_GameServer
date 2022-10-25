@@ -13,6 +13,7 @@
 
 
 //constexpr int PORT_NUM = 9000;
+constexpr int MAX_USER = 1000;
 constexpr int BUF_SIZE = 200;
 constexpr int NAME_SIZE = 20;
 

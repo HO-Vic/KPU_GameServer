@@ -1,6 +1,8 @@
 #include<unordered_map>
 #include<random>
 #include<chrono>
+#include<mutex>
+#include<array>
 #include"SocketSection.h"
 
 using namespace std;
@@ -9,45 +11,48 @@ void CALLBACK recv_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED 
 void CALLBACK send_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags);
 void disconnect(int id);
 
-extern unordered_map<int, SocketSection> ClientSockets;
-
+extern array<SocketSection, MAX_USER> ClientSockets;
+extern mutex mapMutex;
 SocketSection::SocketSection(int id, SOCKET& clientSocket) :clientSocket(clientSocket) {
 	clientInfo.id = id;
 	ZeroMemory(&recvWSABuf, sizeof(WSABUF));
 	recvWSABuf.buf = recvBuf;		recvWSABuf.len = BUF_SIZE;
 }
 
-void SocketSection::doRecv()
+void doRecv(int id)
 {
-	//cout << "doRecv() " << clientInfo.id << endl;
+	//cout << "doRecv() " << clientInfo.id << endl;	
+	if (ClientSockets[id].clientSocket == SOCKET_ERROR)
+		return;
+	if (!ClientSockets[id].isUse)
+		return;
 	DWORD flag = 0x0;
-	overlapped.hEvent = reinterpret_cast<HANDLE>(clientInfo.id);
-	if (ClientSockets.find(clientInfo.id) == ClientSockets.end()) return;
-	if (WSARecv(clientSocket, &recvWSABuf, 1, NULL, &flag, &overlapped, recv_Callback) != 0) {
+	ClientSockets[id].overlapped.hEvent = reinterpret_cast<HANDLE>(id);
+	if (WSARecv(ClientSockets[id].clientSocket, &ClientSockets[id].recvWSABuf, 1, NULL, &flag, &ClientSockets[id].overlapped, recv_Callback) != 0) {
 		if (WSAGetLastError() != WSA_IO_PENDING) {
-			//cout << "ID: " << clientInfo.id << "	" << "doRecv() - Error" << endl;
-			cout << "Fail id: " << clientInfo.id << endl;
-			display_Err(WSAGetLastError());
-			disconnect(clientInfo.id);
+			disconnect(id);
+			return;
 		}
 	}
 	SleepEx(100, true);
 }
 
-void SocketSection::doSend(void* packet)
+void doSend(int id, void* packet)
 {
 	//cout << "doSend() " << clientInfo.id << endl;
+	if (ClientSockets[id].clientSocket == SOCKET_ERROR)	
+		return;
+	if (!ClientSockets[id].isUse)
+		return;
 	OverlappedEx* sendOver = new OverlappedEx;
-	sendOver->over.hEvent = reinterpret_cast<HANDLE>(clientInfo.id);
+	sendOver->over.hEvent = reinterpret_cast<HANDLE>(sendOver);
 	memcpy(sendOver->IOCP_buf, packet, reinterpret_cast<char*>(packet)[0]);
 	sendOver->wsabuf.buf = reinterpret_cast<char*>(sendOver->IOCP_buf);
 	sendOver->wsabuf.len = reinterpret_cast<char*>(packet)[0];
-	if (WSASend(clientSocket, &sendOver->wsabuf, 1, nullptr, 0, &sendOver->over, send_Callback) != 0) {
+	if (WSASend(ClientSockets[id].clientSocket, &sendOver->wsabuf, 1, nullptr, 0, &sendOver->over, send_Callback) != 0) {
 		if (WSAGetLastError() != WSA_IO_PENDING) {
-			if (ClientSockets.find(clientInfo.id) == ClientSockets.end()) return;
-			cout << "Fail id: " << clientInfo.id << endl;
-			display_Err(WSAGetLastError());
-			disconnect(clientInfo.id);
+			disconnect(id);
+			return;
 		}
 	}
 	SleepEx(100, true);
@@ -58,7 +63,7 @@ void SocketSection::firstLocal()
 {
 	std::random_device rd;
 	std::default_random_engine dre(rd());
-	std::uniform_int_distribution<int> uid(-199, 199);
+	std::uniform_int_distribution<int> uid(0, 400);
 
 	int x = uid(dre);
 	int y = uid(dre);
@@ -70,7 +75,7 @@ void SocketSection::firstLocal()
 	sendPosPacket.y = clientInfo.pos.z;
 	sendPosPacket.type = SC_LOGIN_INFO;
 	sendPosPacket.size = sizeof(sendPosPacket);
-	doSend(&sendPosPacket);
+	doSend(clientInfo.id, &sendPosPacket);
 }
 
 void SocketSection::processPacket(char* completePacket)
@@ -112,7 +117,7 @@ void SocketSection::moveChessPiece(char& direction)
 	switch (direction)
 	{
 	case DIRECTION_FRONT:
-		if (clientInfo.pos.z > -199) {
+		if (clientInfo.pos.z > 0) {
 			/*board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5)] = 0;
 			board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5) + 1] = 1;*/
 			clientInfo.pos += glm::vec3(0, 0, -1);
@@ -120,13 +125,13 @@ void SocketSection::moveChessPiece(char& direction)
 			sendPacket.y = clientInfo.pos.z;
 			sendPacket.move_time = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now().time_since_epoch()).count();
 			for (auto& client : ClientSockets) {
-				if (client.second.recvWSABuf.buf == nullptr) continue;
-				client.second.doSend(&sendPacket);
+				if (client.recvWSABuf.buf == nullptr) continue;
+				doSend(client.clientInfo.id, &sendPacket);
 			}
 		}
 		break;
 	case DIRECTION_BACK:
-		if (clientInfo.pos.z < 200) {
+		if (clientInfo.pos.z < 400) {
 			/*board[(int)(clientInfo.pos.x + 3.5f)][-(int)(clientInfo.pos.z - 3.5)] = 0;
 			board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5) - 1] = 1;*/
 			clientInfo.pos += glm::vec3(0, 0, 1);
@@ -134,13 +139,13 @@ void SocketSection::moveChessPiece(char& direction)
 			sendPacket.y = clientInfo.pos.z;
 			sendPacket.move_time = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now().time_since_epoch()).count();
 			for (auto& client : ClientSockets) {
-				if (client.second.recvWSABuf.buf == nullptr) continue;
-				client.second.doSend(&sendPacket);
+				if (client.recvWSABuf.buf == nullptr) continue;
+				doSend(client.clientInfo.id, &sendPacket);
 			}
 		}
 		break;
 	case DIRECTION_LEFT:
-		if (clientInfo.pos.x > -199) {
+		if (clientInfo.pos.x > 0) {
 			/*board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5)] = 0;
 			board[(int)(clientInfo.pos.x + 3.5) - 1][-(int)(clientInfo.pos.z - 3.5)] = 1;*/
 			clientInfo.pos += glm::vec3(-1, 0, 0);
@@ -148,13 +153,13 @@ void SocketSection::moveChessPiece(char& direction)
 			sendPacket.y = clientInfo.pos.z;
 			sendPacket.move_time = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now().time_since_epoch()).count();
 			for (auto& client : ClientSockets) {
-				if (client.second.recvWSABuf.buf == nullptr) continue;
-				client.second.doSend(&sendPacket);
+				if (client.recvWSABuf.buf == nullptr) continue;
+				doSend(client.clientInfo.id, &sendPacket);
 			}
 		}
 		break;
 	case DIRECTION_RIGHT:
-		if (clientInfo.pos.x < 200) {
+		if (clientInfo.pos.x < 400) {
 			/*board[(int)(clientInfo.pos.x + 3.5)][-(int)(clientInfo.pos.z - 3.5)] = 0;
 			board[(int)(clientInfo.pos.x + 3.5) + 1][-(int)(clientInfo.pos.z - 3.5)] = 1;*/
 			clientInfo.pos += glm::vec3(1, 0, 0);
@@ -162,8 +167,8 @@ void SocketSection::moveChessPiece(char& direction)
 			sendPacket.y = clientInfo.pos.z;
 			sendPacket.move_time = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now().time_since_epoch()).count();
 			for (auto& client : ClientSockets) {
-				if (client.second.recvWSABuf.buf == nullptr) continue;
-				client.second.doSend(&sendPacket);
+				if (client.recvWSABuf.buf == nullptr) continue;
+				doSend(client.clientInfo.id, &sendPacket);
 			}
 		}
 		break;
@@ -182,24 +187,24 @@ void SocketSection::spreadMyChessPeice()
 	sendPakcet.type = SC_ADD_PLAYER;
 	sendPakcet.size = sizeof(SC_ADD_PLAYER_PACKET);
 	for (auto& client : ClientSockets) {
-		if (client.first == clientInfo.id) continue;
-		client.second.doSend(&sendPakcet);
+		if (client.clientInfo.id == clientInfo.id) continue;
+		doSend(client.clientInfo.id, &sendPakcet);
 	}
 }
 
 void SocketSection::prsentDiffChessPeice()
 {
 	for (auto& client : ClientSockets) {
-		if (client.first == clientInfo.id || client.second.recvWSABuf.buf == nullptr) continue;
+		if (client.clientInfo.id == clientInfo.id || client.recvWSABuf.buf == nullptr) continue;
 		//	cout << "presendDiffChessPeice[" << client.first << "]" << endl;
 		SC_ADD_PLAYER_PACKET sendPakcet;
-		sendPakcet.id = client.first;
+		sendPakcet.id = client.clientInfo.id;
 		sendPakcet.x = clientInfo.pos.x;
 		sendPakcet.y = clientInfo.pos.z;
 		memcpy(sendPakcet.name, clientInfo.name, NAME_SIZE);
 		sendPakcet.type = SC_ADD_PLAYER;
 		sendPakcet.size = sizeof(SC_ADD_PLAYER_PACKET);
-		doSend(&sendPakcet);
+		doSend(clientInfo.id, &sendPakcet);
 	}
 }
 
@@ -209,16 +214,18 @@ void SocketSection::LoginClient()
 
 void disconnect(int id)
 {
+	ClientSockets[id].isUse = false;
+	closesocket(ClientSockets[id].clientSocket);
+	SC_REMOVE_PLAYER_PACKET sendPakcet;
+	sendPakcet.id = id;
+	sendPakcet.type = SC_REMOVE_PLAYER;
+	sendPakcet.size = sizeof(SC_REMOVE_PLAYER_PACKET);
 	for (auto& client : ClientSockets) {
-		if (client.first != id || client.second.recvWSABuf.buf == nullptr) continue;
-		SC_REMOVE_PLAYER_PACKET sendPakcet;
-		sendPakcet.id = id;
-		sendPakcet.type = SC_REMOVE_PLAYER;
-		sendPakcet.size = sizeof(SC_REMOVE_PLAYER_PACKET);
-		client.second.doSend(&sendPakcet);
+		if (ClientSockets[id].isUse)
+			doSend(client.clientInfo.id, &sendPakcet);
 	}
+
 	cout << "disconect id: " << id << endl;
-	ClientSockets.erase(id);
 }
 
 /* CALLBACK Params
@@ -231,30 +238,22 @@ void disconnect(int id)
 
 void CALLBACK recv_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags)
 {
-
-	//cout << "recv_Callback() - RecvByte" << (int)cbTransferred << endl;
 	int id = reinterpret_cast<int>(lpOverlapped->hEvent);
-	if (ClientSockets.find(id) != ClientSockets.end()) {
-		if (dwError == 0) {
-			ClientSockets[id].constructPacket(ClientSockets[id].recvBuf, (unsigned char)cbTransferred);
-			ZeroMemory(ClientSockets[id].recvBuf, BUF_SIZE);
-		}
-		else if (dwError == WSAECONNRESET) {
-			//cout << "disconnect ID: " << id << endl;
-			//ClientSockets[recvOverlapped->clientInfo.id].disconnect();
-			//board[(int)(ClientSockets[id].clientInfo.pos.x + 3.5)][-(int)(ClientSockets[id].clientInfo.pos.z - 3.5)] = 0;
-			disconnect(id);
-			return;
-		}
+	if (dwError == WSAECONNRESET) {
+		disconnect(id);
+		return;
 	}
-	ClientSockets[id].doRecv();
+	ClientSockets[id].constructPacket(ClientSockets[id].recvBuf, (unsigned char)cbTransferred);
+	ZeroMemory(ClientSockets[id].recvBuf, BUF_SIZE);
+	doRecv(id);
+
 }
 
 void CALLBACK send_Callback(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags)
 {
 	//cout << "send_Callback() - SendByte" << (int)cbTransferred << endl;
 	//ClientSockets[reinterpret_cast<int>(lpOverlapped->hEvent)].doRecv();
-	delete lpOverlapped;
+	delete lpOverlapped->hEvent;
 
 }
 

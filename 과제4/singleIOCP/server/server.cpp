@@ -154,10 +154,10 @@ void process_packet(int c_id, char* packet)
 		short x = clients[c_id].x;
 		short y = clients[c_id].y;
 		switch (p->direction) {
-		case 0: if (y > 0) y--; break;
-		case 1: if (y < W_HEIGHT - 1) y++; break;
-		case 2: if (x > 0) x--; break;
-		case 3: if (x < W_WIDTH - 1) x++; break;
+		case 1: if (y > 0) y--; break;
+		case 2: if (y < W_HEIGHT - 1) y++; break;
+		case 3: if (x > 0) x--; break;
+		case 4: if (x < W_WIDTH - 1) x++; break;
 		}
 		clients[c_id].x = x;
 		clients[c_id].y = y;

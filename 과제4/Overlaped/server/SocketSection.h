@@ -11,6 +11,7 @@
 
 using namespace std;
 
+
 struct ClientInfo
 {
 	int id;
@@ -34,13 +35,16 @@ public:
 	char recvBuf[BUF_SIZE] = { 0 };
 	DWORD recvByte = 0;
 	ClientInfo clientInfo;
-
+	bool isUse = false;
 	char prevPacket[BUF_SIZE] = { 0 };
 	
 	unsigned char prevPacketLastLocal = 0;
 
 public:
-	SocketSection() {}
+	SocketSection() {
+		recvWSABuf.buf = recvBuf;
+		recvWSABuf.len = BUF_SIZE;
+	}
 	~SocketSection() {
 		recvWSABuf.buf = nullptr;
 		closesocket(clientSocket);		
@@ -48,8 +52,6 @@ public:
 	
 
 	SocketSection(int id, SOCKET& clientSocket);
-	void doRecv();
-	void doSend(void* packet);
 
 	void firstLocal();
 	void moveChessPiece(char& direction);
@@ -62,3 +64,5 @@ public:
 };
 
 void display_Err(int Errcode);
+void doSend(int id, void* packet);
+void doRecv(int id);

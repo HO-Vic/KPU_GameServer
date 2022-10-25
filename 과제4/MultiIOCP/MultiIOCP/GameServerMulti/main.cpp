@@ -19,13 +19,13 @@ random_device rd;
 default_random_engine dre(rd());
 uniform_int_distribution<int> uid(0, 400);
 
-enum COMP_TYPE { OP_ACCEPT, OP_RECV, OP_SEND };//iocp에서 gqgs 구분을 위한 타입 구분
+enum COMP_TYPE { OP_ACCEPT, OP_RECV, OP_SEND };
 class OVER_EXP { // 
 public:
 	WSAOVERLAPPED _over;
 	WSABUF _wsabuf;
 	char _send_buf[BUF_SIZE];
-	COMP_TYPE _comp_type; // 이 오버랩드 ㅑio가 recv 인지 send인지 구분
+	COMP_TYPE _comp_type; 
 	OVER_EXP()
 	{
 		_wsabuf.len = BUF_SIZE;
@@ -49,16 +49,14 @@ enum STATE {
 	ST_INGAME
 };
 
-//mutex로 보호 해주던지 atomic operator- 나중에
-//x, y는 성능을 위해 보호하지 않음 // 아주 약간 삐뚫어지게 걸어가는건 괜찮은데, 텔포는 문제
-//
+
 class SESSION {
 	OVER_EXP _recv_over; // no data race // 하나의 오버랩드는 recv send 하나만 유일
 
 public:
 	mutex _c_mutex;
 	STATE _state;// data race
-	//name을 업데이트 할때 in_use가 false일때
+
 
 	int _id; // no data race
 	SOCKET _socket;// data race - ?? // 업데이트할때 생길 수도??
@@ -115,20 +113,7 @@ public:
 	void send_move_packet(int c_id);
 };
 
-array<SESSION, MAX_USER> clients; // data race //이새키가 젤 문제임
-//한 클라이언트가 이동하면 다른 클라이언트에 내용을 브로드캐스트 하기 때문
-//어떻게 해야할까
-//컨테이너가 구조가 바뀐다면 컨테이너 자체가 data race  => vector
-//하지만 array컨테이너는 바뀌지 않음 => data race를 일으키지않는 유일한 컨테이너 요놈
-//5천이지만 10명밖에 안들어온다 => 괜찮음 오버헤드차이가 없어서 괜찮음
-//
-//멀티쓰레드전용 맵이 있음
-//
-//array값을 접근할때는 data race => mutex를 사용해야됨
-//재사용에 문제, map은 erase하면 문제 없는데 aray는 문제가 됨 => 재사용안하면 상관없는데 그게 안됨
-//
-//
-//
+array<SESSION, MAX_USER> clients;
 
 
 HANDLE h_iocp; // no data race
@@ -215,10 +200,10 @@ void process_packet(int c_id, char* packet)
 		short x = clients[c_id].x;
 		short y = clients[c_id].y;
 		switch (p->direction) {
-		case 0: if (y > 0) y--; break;
-		case 1: if (y < W_HEIGHT - 1) y++; break;
-		case 2: if (x > 0) x--; break;
-		case 3: if (x < W_WIDTH - 1) x++; break;
+		case 1: if (y > 0) y--; break;
+		case 2: if (y < W_HEIGHT - 1) y++; break;
+		case 3: if (x > 0) x--; break;
+		case 4: if (x < W_WIDTH - 1) x++; break;
 		}
 		clients[c_id].x = x;
 		clients[c_id].y = y;

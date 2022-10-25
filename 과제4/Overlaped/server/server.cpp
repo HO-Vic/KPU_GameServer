@@ -2,15 +2,17 @@
 #include"include/glm/ext.hpp"
 #include"include/glm/gtc/matrix_transform.hpp"
 #include<iostream>
-#include<unordered_map>
+#include<array>
 #include<WS2tcpip.h>
+#include<mutex>
 #include"SocketSection.h"
 #include"protocol.h"
 #pragma comment(lib,"ws2_32")
 
 using namespace std;
 
-unordered_map<int, SocketSection> ClientSockets;
+array<SocketSection, MAX_USER> ClientSockets;
+mutex mapMutex;
 
 int main(int argc, char** argv)
 {	
@@ -46,16 +48,19 @@ int main(int argc, char** argv)
 	}
 
 	for(int i=0; ; ++i) {
-		int addrLen = sizeof(SOCKADDR_IN);
-		SOCKET clientSocket = WSAAccept(mainSocket, reinterpret_cast<sockaddr*>(&serverAddr), &addrLen, NULL, NULL);		
+		int addrLen = sizeof(SOCKADDR_IN);		
+		ClientSockets[i].isUse = true;
+		ClientSockets[i].clientSocket = WSAAccept(mainSocket, reinterpret_cast<sockaddr*>(&serverAddr), &addrLen, NULL, NULL);
+		ClientSockets[i].clientInfo.id = i;
 		cout << i << endl;
-		if (clientSocket == INVALID_SOCKET) {
+		if (ClientSockets[i].clientSocket == INVALID_SOCKET) {
 			cout << "Error: InvalidSocket" << endl;
 			display_Err(WSAGetLastError());
+			ClientSockets[i].isUse = false;			
+			i--;
 			continue;
 		}
-		ClientSockets.try_emplace(i, i, clientSocket);
-		ClientSockets[i].doRecv();
+		doRecv(i);
 		
 	}
 	closesocket(mainSocket);

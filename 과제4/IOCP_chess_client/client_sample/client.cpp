@@ -29,7 +29,7 @@ constexpr auto SCREEN_HEIGHT = W_HEIGHT;
 constexpr auto TILE_WIDTH = 65;
 constexpr auto WINDOW_WIDTH = SCREEN_WIDTH * TILE_WIDTH;   // size of window
 constexpr auto WINDOW_HEIGHT = SCREEN_WIDTH * TILE_WIDTH;
-constexpr auto MAX_USER = 10;
+constexpr auto MAX_USER = 1000;
 
 int g_left_x;
 int g_top_y;
@@ -133,8 +133,8 @@ void ProcessPacket(char* ptr)
 
         if (id == g_myid) {
             avatar.move(my_packet->x, my_packet->y);
-            g_left_x = my_packet->x - 4;
-            g_top_y = my_packet->y - 4;
+            g_left_x = my_packet->x - 8;
+            g_top_y = my_packet->y - 8;
             avatar.show();
         }
         else if (id < MAX_USER) {
@@ -154,8 +154,8 @@ void ProcessPacket(char* ptr)
         int other_id = my_packet->id;
         if (other_id == g_myid) {
             avatar.move(my_packet->x, my_packet->y);
-            g_left_x = my_packet->x - 4;
-            g_top_y = my_packet->y - 4;
+            g_left_x = my_packet->x - 8;
+            g_top_y = my_packet->y - 8;
         }
         else if (other_id < MAX_USER) {
             players[other_id].move(my_packet->x, my_packet->y);
@@ -232,7 +232,7 @@ void client_main()
             int tile_x = i + g_left_x;
             int tile_y = j + g_top_y;
             if ((tile_x < 0) || (tile_y < 0)) continue;
-            if (((tile_x + tile_y) % 6) < 3) {
+            if (((tile_x + tile_y) % 8) < 4) {
                 white_tile.a_move(TILE_WIDTH * i + 7, TILE_WIDTH * j + 7);
                 white_tile.a_draw();
             }
@@ -286,16 +286,16 @@ int main()
                 int direction = -1;
                 switch (event.key.code) {
                 case sf::Keyboard::Left:
-                    direction = 2;
-                    break;
-                case sf::Keyboard::Right:
                     direction = 3;
                     break;
+                case sf::Keyboard::Right:
+                    direction = 4;
+                    break;
                 case sf::Keyboard::Up:
-                    direction = 0;
+                    direction = 1;
                     break;
                 case sf::Keyboard::Down:
-                    direction = 1;
+                    direction = 2;
                     break;
                 case sf::Keyboard::Escape:
                     window.close();
