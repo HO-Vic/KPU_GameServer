@@ -14,7 +14,7 @@
 #pragma comment(lib, "MSWSock.lib")
 using namespace std;
 using namespace chrono;
-constexpr int MAX_USER = 2000;
+constexpr int MAX_USER = 10000;
 
 random_device rd;
 default_random_engine dre(rd());
@@ -101,7 +101,7 @@ public:
 	void send_add_player_packet(int c_id);
 	void send_remove_player_packet(int c_id)
 	{
-		_vl.lock();
+		_vl.lock();	 
 		if (_view_list.count(c_id))
 			_view_list.erase(c_id);
 		else {
@@ -184,7 +184,8 @@ void process_packet(int c_id, char* packet)
 			if (false == can_see(c_id, pl._id))
 				continue;
 			clients[c_id]._vl.lock();
-
+			clients[c_id]._view_list.insert(pl._id);
+			clients[c_id]._vl.unlock();
 			pl.send_add_player_packet(c_id);
 			clients[c_id].send_add_player_packet(pl._id);
 		}
@@ -204,9 +205,11 @@ void process_packet(int c_id, char* packet)
 		clients[c_id].y = y;
 
 		unordered_set<int> near_list;
+
 		clients[c_id]._vl.lock();
 		unordered_set<int> old_vlist = clients[c_id]._view_list;
 		clients[c_id]._vl.unlock();
+
 		for (auto& cl : clients) {
 			if (cl._state != ST_INGAME) continue;
 			if (cl._id == c_id) continue;
@@ -219,9 +222,9 @@ void process_packet(int c_id, char* packet)
 		for (auto& pl : near_list) {
 			auto& cpl = clients[pl];
 			cpl._vl.lock();
-			if (clients[pl]._view_list.count(c_id)) {
+			if (cpl._view_list.count(c_id) > 0) {
 				cpl._vl.unlock();
-				clients[pl].send_move_packet(c_id);
+				cpl.send_move_packet(c_id);
 			}
 			else {
 				cpl._vl.unlock();
@@ -235,6 +238,7 @@ void process_packet(int c_id, char* packet)
 		for (auto& pl : old_vlist)
 			if (0 == near_list.count(pl)) {
 				clients[c_id].send_remove_player_packet(pl);
+
 				clients[pl].send_remove_player_packet(c_id);
 			}
 	}
@@ -293,6 +297,7 @@ void worker_thread(HANDLE h_iocp)
 				clients[client_id]._id = client_id;
 				clients[client_id]._name[0] = 0;
 				clients[client_id]._prev_remain = 0;
+				clients[client_id]._view_list.clear();
 				clients[client_id]._socket = g_c_socket;
 				CreateIoCompletionPort(reinterpret_cast<HANDLE>(g_c_socket),
 					h_iocp, client_id, 0);
