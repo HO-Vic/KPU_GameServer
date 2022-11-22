@@ -19,7 +19,7 @@ using namespace chrono;
 
 extern HWND		hWnd;
 
-const static int MAX_TEST = 2000;					// 최대 동접 수 (한 번에 제작이 아닌 하나씩 증가)
+const static int MAX_TEST = 10000;					// 최대 동접 수 (한 번에 제작이 아닌 하나씩 증가)
 const static int MAX_CLIENTS = MAX_TEST * 2;	// Dummy Client 보다 많은 Client 컨테이너 크기가 필요
 const static int INVALID_ID = -1;
 const static int MAX_PACKET_SIZE = 255;
@@ -143,9 +143,9 @@ void ProcessPacket(int ci, unsigned char packet[])
 				if (0 != move_packet->move_time) {
 					auto d_ms = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count() - move_packet->move_time;
 
-					if (global_delay < d_ms) 
+					if (global_delay < d_ms)
 						global_delay++;
-					else if (global_delay > d_ms) 
+					else if (global_delay > d_ms)
 						global_delay--;
 				}
 			}
@@ -414,7 +414,7 @@ void ShutdownNetwork()
 	for (auto& pth : worker_threads) {
 		pth->join();
 		delete pth;
-	}	
+	}
 }
 
 void Do_Network()
