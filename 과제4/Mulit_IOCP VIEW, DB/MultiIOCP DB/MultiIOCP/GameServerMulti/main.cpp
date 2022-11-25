@@ -13,6 +13,9 @@
 
 #pragma comment(lib, "WS2_32.lib")
 #pragma comment(lib, "MSWSock.lib")
+
+#define NAME_LEN 10
+
 using namespace std;
 using namespace chrono;
 constexpr int MAX_USER = 10000;
@@ -22,7 +25,7 @@ default_random_engine dre(rd());
 uniform_int_distribution<int> uid(0, 400);
 
 
-enum COMP_TYPE { OP_ACCEPT, OP_RECV, OP_SEND };
+enum COMP_TYPE { OP_ACCEPT, OP_RECV, OP_SEND, OP_DB_GET_PLAYER_INFO };
 class OVER_EXP {
 public:
 	WSAOVERLAPPED _over;
@@ -102,7 +105,7 @@ public:
 	void send_add_player_packet(int c_id);
 	void send_remove_player_packet(int c_id)
 	{
-		_vl.lock();	 
+		_vl.lock();
 		if (_view_list.count(c_id))
 			_view_list.erase(c_id);
 		else {
@@ -119,14 +122,17 @@ public:
 };
 
 bool InitializeDB();
+bool GetPlayerInfo(wstring PlayerLoginId, wstring& outputPlayerName, short& pos_X, short& pos_Y);
+
 
 array<SESSION, MAX_USER> clients;
 SOCKET g_s_socket, g_c_socket;
 OVER_EXP g_a_over;
 
-SQLHENV henv;
-SQLHDBC hdbc;
-
+//환경 변수. ODBC변수
+SQLHENV g_henv;
+SQLHDBC g_hdbc;
+HANDLE h_iocp;
 bool can_see(int from, int to)
 {
 	if (abs(clients[from].x - clients[to].x) > VIEW_RANGE) return false;
@@ -175,7 +181,7 @@ void process_packet(int c_id, char* packet)
 	switch (packet[1]) {
 	case CS_LOGIN: {
 		CS_LOGIN_PACKET* p = reinterpret_cast<CS_LOGIN_PACKET*>(packet);
-		strcpy_s(clients[c_id]._name, p->name);
+		/*
 		clients[c_id].send_login_info_packet();
 		{
 			lock_guard<mutex> ll{ clients[c_id]._s_lock };
@@ -194,6 +200,12 @@ void process_packet(int c_id, char* packet)
 			clients[c_id]._vl.unlock();
 			pl.send_add_player_packet(c_id);
 			clients[c_id].send_add_player_packet(pl._id);
+		}*/
+		{
+			OVER_EXP* exOver = new OVER_EXP();
+			exOver->_comp_type = OP_DB_GET_PLAYER_INFO;
+			memcpy(exOver->_send_buf, p->id, strlen(p->id));
+			PostQueuedCompletionStatus(h_iocp, strlen(p->id), c_id, &exOver->_over);
 		}
 		break;
 	}
@@ -340,14 +352,41 @@ void worker_thread(HANDLE h_iocp)
 		case OP_SEND:
 			delete ex_over;
 			break;
+		case OP_DB_GET_PLAYER_INFO:
+		{
+			string userStr{ ex_over->_send_buf };
+			wstring userId;
+			userId.assign(userStr.begin(), userStr.end());
+			wstring playerName;
+			GetPlayerInfo(userId, playerName, clients[key].x, clients[key].y);
+			if (playerName.empty()) {
+				SC_LOGIN_FAIL_INFO_PACKET failPacket;
+				failPacket.size = 2;
+				failPacket.type = SC_LOGIN_FAIL_INFO;
+				clients[key].do_send(&failPacket);
+			}
+			else {
+				SC_LOGIN_INFO_PACKET loginPacket;
+				loginPacket.id = key;
+				loginPacket.type = SC_LOGIN_INFO;
+				loginPacket.x = clients[key].x;
+				loginPacket.y = clients[key].y;
+				string playerStr;
+				playerStr.assign(playerName.begin(), playerName.end());
+				memcpy(loginPacket.name, playerStr.c_str(), playerStr.size());
+				loginPacket.size = sizeof(SC_LOGIN_INFO_PACKET);
+				clients[key].do_send(&loginPacket);
+			}			
+		}
+		break;
+		default:
+			break;
 		}
 	}
 }
 
 int main()
 {
-	HANDLE h_iocp;
-
 	WSADATA WSAData;
 	WSAStartup(MAKEWORD(2, 2), &WSAData);
 	g_s_socket = WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
@@ -361,6 +400,9 @@ int main()
 	SOCKADDR_IN cl_addr;
 	int addr_size = sizeof(cl_addr);
 	int client_id = 0;
+
+	if (!InitializeDB())
+		return -1;
 
 	h_iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, 0);
 	CreateIoCompletionPort(reinterpret_cast<HANDLE>(g_s_socket), h_iocp, 9999, 0);
@@ -380,93 +422,90 @@ int main()
 
 bool InitializeDB()
 {
-	SQLHSTMT hstmt = 0; // sql명령을 저장하고 핸들을 이용해서 실행하기 위한 핸들
 	SQLRETURN retcode;
-
-	SQLWCHAR szName[NAME_LEN];
-	SQLINTEGER szLevel, szId;
-	SQLLEN cbName = 0, cbLevel = 0, cbId = 0;
-
-	//https://ozt88.tistory.com/43
-	//설명 괜찮은집 발견 -> 조금 봐도 될듯?
-
 	// Allocate environment handle  
-	retcode = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv);//환경 핸들 할당
+	retcode = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &g_henv);
 
 	// Set the ODBC version environment attribute  
 	if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
-		retcode = SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER*)SQL_OV_ODBC3, 0);//환경핸들에 환경 속성을 설정
-									  //어떤 attribute인데			//저 attib에 이런 정보를		환경 핸들에 매핑할거다.
+		retcode = SQLSetEnvAttr(g_henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER*)SQL_OV_ODBC3, 0);
 		// Allocate connection handle  
 		if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
-			retcode = SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc); //1번인자: 어떤 종류의 데이터 유형인지, 2번 이 환경 속성에 대해서 3번 할당된 데이터를 핸들에 주소 연결
+			retcode = SQLAllocHandle(SQL_HANDLE_DBC, g_henv, &g_hdbc);
 
 			// Set login timeout to 5 seconds  
 			if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
-				SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0); //연결 설정
-
+				SQLSetConnectAttr(g_hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0);
 				// Connect to data source  
-				retcode = SQLConnect(hdbc, (SQLWCHAR*)L"gameServer", SQL_NTS, (SQLWCHAR*)NULL, 0, NULL, 0);
-//											 //서버 이름		서버이름 크기	유저이름	길이  인증 인증문자열 크기
-				// Allocate statement handle  
+				retcode = SQLConnect(g_hdbc, (SQLWCHAR*)L"2018184010", SQL_NTS, (SQLWCHAR*)NULL, 0, NULL, 0);
 				if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
-					retcode = SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);//stmt(statement?)는 명령문 할당 핸들
-
-					//retcode = SQLExecDirect(hstmt, (SQLWCHAR*)L"SELECT Name, User_ID, [Level] FROM Table_1", SQL_NTS);
-					retcode = SQLExecDirect(hstmt, (SQLWCHAR*)L"EXEC select_user_over 10", SQL_NTS);
-					/*SQLExecDirect 는 문에 매개 변수가 있는 경우 매개 변수 표식 변수의 현재 값을 사용하여 준비 가능한 문을 실행합니다.
-					SQLExecDirect 는 일회성 실행을 위해 SQL 문을 제출하는 가장 빠른 방법입니다. -> 일회성??*/
-
-					if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
-
-						// Bind columns 1, 2, and 3  
-						/*retcode = SQLBindCol(hstmt, 1, SQL_C_WCHAR, &szName, NAME_LEN, &cbName);
-						retcode = SQLBindCol(hstmt, 2, SQL_C_LONG, &szId, 4, &cbId);
-						retcode = SQLBindCol(hstmt, 3, SQL_C_LONG, &szLevel, 4, &cbLevel);*/
-
-						retcode = SQLBindCol(hstmt, 1, SQL_C_WCHAR, szName, NAME_LEN, &cbName);// 데이터버퍼와 결과 집합의 열에 바인딩
-						//stmt  몇번째 열, c형식 타입, sql로 선언된 변수, 담을 수 있는 최대 길이?, 실제 담은 길이?
-						retcode = SQLBindCol(hstmt, 2, SQL_C_LONG, &szId, 4, &cbId);
-						retcode = SQLBindCol(hstmt, 3, SQL_C_LONG, &szLevel, 4, &cbLevel);
-
-						// Fetch and print each row of data. On an error, display a message and exit.  
-						for (int i = 0; ; i++) {
-							retcode = SQLFetch(hstmt); // 다음 행일 가져와라 명령어
-							if (retcode == SQL_ERROR || retcode == SQL_SUCCESS_WITH_INFO)
-								//show_error();
-							if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
-							{
-								//replace wprintf with printf
-								//%S with %ls
-								//warning C4477: 'wprintf' : format string '%S' requires an argument of type 'char *'
-								//but variadic argument 2 has type 'SQLWCHAR *'
-								//wprintf(L"%d: %S %S %d\n", i + 1, szLevel, szName, szId);
-								printf("%d: %d %ls %d\n", i + 1, szLevel, szName, szId);
-								//std::cout << szName << " " << szId << " " << szLevel << std::endl;
-								//printf("%d: %ls %ls %ls\n", i + 1, sCustID, szName, szPhone);
-							}
-							else
-								break;
-						}
-					}
-					else {
-						if (retcode == SQL_ERROR) {
-							std::cout << "error" << std::endl;
-						}
-					}
-					// Process data  
-					if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
-						SQLCancel(hstmt);///종료
-						SQLFreeHandle(SQL_HANDLE_STMT, hstmt);//리소스 해제
-					}
-
-					SQLDisconnect(hdbc);
+					return true;
 				}
-
-				SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
 			}
 		}
-		SQLFreeHandle(SQL_HANDLE_ENV, henv);
 	}
 	return false;
+
+	// Disconnet SQL
+		//SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
+		//SQLFreeHandle(SQL_HANDLE_ENV, henv);
+}
+
+bool GetPlayerInfo(wstring PlayerLoginId, wstring& outputPlayerName, short& pos_X, short& pos_Y)
+{
+	SQLRETURN retcode;
+	retcode = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &g_henv);
+
+	SQLHSTMT hstmt;
+
+	SQLWCHAR szName[NAME_LEN];
+	SQLLEN cbName;
+
+	SQLINTEGER szPos_X;
+	SQLLEN cbPos_X;
+
+	SQLINTEGER szPos_Y;
+	SQLLEN cbPos_Y;
+
+	// Allocate statement handle  
+	if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
+		retcode = SQLAllocHandle(SQL_HANDLE_STMT, g_hdbc, &hstmt);
+
+
+		wstring oper = L"EXEC select_user_info ";
+		oper.append(PlayerLoginId);
+		retcode = SQLExecDirect(hstmt, (SQLWCHAR*)oper.c_str(), SQL_NTS);
+		if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
+			retcode = SQLBindCol(hstmt, 1, SQL_C_WCHAR, szName, NAME_LEN, &cbName);
+			retcode = SQLBindCol(hstmt, 2, SQL_C_SHORT, &szPos_X, 2, &cbPos_X);
+			retcode = SQLBindCol(hstmt, 3, SQL_C_SHORT, &szPos_Y, 2, &cbPos_Y);
+
+			// Fetch and print each row of data. On an error, display a message and exit.
+			retcode = SQLFetch(hstmt); // 다음 행일 가져와라 명령어
+			if (retcode == SQL_ERROR || retcode == SQL_SUCCESS_WITH_INFO) {
+				return false;
+			}
+			//show_error();
+			else if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
+			{
+				outputPlayerName.append(szName, cbName);
+				pos_X = szPos_X;
+				pos_Y = szPos_Y;
+			}
+		}
+	}
+	else {
+		if (retcode == SQL_ERROR) {
+			std::cout << "error" << std::endl;
+		}
+		return false;
+	}
+	// Process data  
+	if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
+		SQLCancel(hstmt);///종료
+		SQLFreeHandle(SQL_HANDLE_STMT, hstmt);//리소스 해제
+	}
+	return true;
+	//disconnet
+	//SQLDisconnect(hdbc);
 }

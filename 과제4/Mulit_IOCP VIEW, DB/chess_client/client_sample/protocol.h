@@ -13,12 +13,13 @@ constexpr char SC_LOGIN_INFO = 2;
 constexpr char SC_ADD_PLAYER = 3;
 constexpr char SC_REMOVE_PLAYER = 4;
 constexpr char SC_MOVE_PLAYER = 5;
+constexpr char SC_LOGIN_FAIL_INFO = 6;
 
 #pragma pack (push, 1)
 struct CS_LOGIN_PACKET {
 	unsigned char size;
 	char	type;
-	char	name[NAME_SIZE];
+	char	id[NAME_SIZE];
 };
 
 struct CS_MOVE_PACKET {
@@ -32,6 +33,12 @@ struct SC_LOGIN_INFO_PACKET {
 	char	type;
 	short	id;
 	short	x, y;
+	char	name[NAME_SIZE];
+};
+
+struct SC_LOGIN_FAIL_INFO_PACKET {
+	unsigned char size;
+	char	type;
 };
 
 struct SC_ADD_PLAYER_PACKET {

@@ -121,6 +121,11 @@ void ProcessPacket(char* ptr)
 	static bool first_time = true;
 	switch (ptr[1])
 	{
+	case SC_LOGIN_FAIL_INFO:
+	{
+		//g_window->close();
+	}
+	break;
 	case SC_LOGIN_INFO:
 	{
 		SC_LOGIN_INFO_PACKET* packet = reinterpret_cast<SC_LOGIN_INFO_PACKET*>(ptr);
@@ -139,6 +144,7 @@ void ProcessPacket(char* ptr)
 		TextString += yPos;
 		TextString += ")";
 
+		g_window->close();
 		avatar.show();
 		break;
 	}
@@ -310,16 +316,7 @@ int main()
 		while (true);
 	}
 
-	CS_LOGIN_PACKET p;
-	p.size = sizeof(p);
-	p.type = CS_LOGIN;
-	strcpy_s(p.name, "TEST");
-	send_packet(&p);
-
 	client_initialize();
-
-	sf::RenderWindow window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "2D CLIENT");
-	g_window = &window;
 
 	sf::Text myPosText;
 
@@ -333,6 +330,75 @@ int main()
 	myPosText.setOutlineThickness(1.f);
 
 	myPosText.setString(TextString);
+
+	sf::RenderWindow loginWindow(sf::VideoMode(300, 100), "Login");
+	sf::Clock clock;
+	sf::Texture* whiletBardTexture = new sf::Texture;
+	whiletBardTexture->loadFromFile("white.png");
+	OBJECT whiteBoard;
+	whiteBoard = OBJECT{ *whiletBardTexture, 0, 0, 300, 100 };
+	g_window = &loginWindow;
+
+	wstring loginId;
+	sf::Text loginText;
+	loginText.setString("ID: ");
+	loginText.setFont(font);
+	loginText.setCharacterSize(20);
+	loginText.setPosition(0, 0);
+	loginText.setFillColor(sf::Color::Black);
+	loginText.setOutlineColor(sf::Color::Black);
+	loginText.setOutlineThickness(1.f);
+
+	while (loginWindow.isOpen()) {
+		loginWindow.clear();		
+
+		sf::Event event;
+		while (loginWindow.pollEvent(event))
+		{
+			if (event.type == sf::Event::Closed)
+				loginWindow.close();
+			else if (event.type == sf::Event::TextEntered) {
+				if (std::isprint(event.text.unicode))
+					loginId += event.text.unicode;
+			}
+			else if (event.type == sf::Event::KeyPressed) {
+				if (event.key.code == sf::Keyboard::BackSpace) {
+					if (!loginId.empty())
+						loginId.pop_back();
+				}
+				if (event.key.code == sf::Keyboard::Return) {					
+					CS_LOGIN_PACKET p;
+					p.size = sizeof(p);
+					p.type = CS_LOGIN;
+					string str;
+					str.assign(loginId.begin(), loginId.end());
+					str.append(0);
+					strcpy_s(p.id, str.c_str());
+					send_packet(&p);
+				}
+			}
+		}
+		char net_buf[BUF_SIZE];
+		size_t   received;
+		auto recv_result = socket.receive(net_buf, BUF_SIZE, received);
+		if (recv_result == sf::Socket::Error)
+		{
+			wcout << L"Recv 에러!";
+			while (true);
+		}
+		if (recv_result != sf::Socket::NotReady)
+			if (received > 0) process_data(net_buf, received);
+
+		loginText.setString(L"ID: " + loginId);
+		whiteBoard.a_draw();
+		loginWindow.draw(loginText);
+		loginWindow.display();
+	}
+
+
+	sf::RenderWindow window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "2D CLIENT");
+	g_window = &window;
+
 
 	while (window.isOpen())
 	{
