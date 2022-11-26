@@ -9,12 +9,13 @@
 #include<chrono>
 #include <unordered_set>
 #include<sqlext.h>
+#include<string>
 #include "protocol.h"
 
 #pragma comment(lib, "WS2_32.lib")
 #pragma comment(lib, "MSWSock.lib")
 
-#define NAME_LEN 10
+#define NAME_LEN 20
 
 using namespace std;
 using namespace chrono;
@@ -25,7 +26,7 @@ default_random_engine dre(rd());
 uniform_int_distribution<int> uid(0, 400);
 
 
-enum COMP_TYPE { OP_ACCEPT, OP_RECV, OP_SEND, OP_DB_GET_PLAYER_INFO };
+enum COMP_TYPE { OP_ACCEPT, OP_RECV, OP_SEND, OP_DB_GET_PLAYER_INFO, OP_DB_SET_PLAYER_POSITION };
 class OVER_EXP {
 public:
 	WSAOVERLAPPED _over;
@@ -60,6 +61,7 @@ public:
 	SOCKET _socket;
 	short	x, y;
 	char	_name[NAME_SIZE];
+	char	_user_ID[NAME_SIZE];
 	int		_prev_remain;
 	unordered_set <int> _view_list;//이 클라의 뷰 리스트
 	mutex	_vl; // 뷰 리스트 전용 락
@@ -93,13 +95,14 @@ public:
 	}
 	void send_login_info_packet()
 	{
-		SC_LOGIN_INFO_PACKET p;
-		p.id = _id;
-		p.size = sizeof(SC_LOGIN_INFO_PACKET);
-		p.type = SC_LOGIN_INFO;
-		x = p.x = uid(dre);
-		y = p.y = uid(dre);
-		do_send(&p);
+		SC_LOGIN_INFO_PACKET loginPacket;
+		loginPacket.id = _id;
+		loginPacket.type = SC_LOGIN_INFO;
+		loginPacket.x = x;
+		loginPacket.y = y;
+		memcpy(loginPacket.name, _name, NAME_SIZE);
+		loginPacket.size = sizeof(SC_LOGIN_INFO_PACKET);
+		do_send(&loginPacket);
 	}
 	void send_move_packet(int c_id);
 	void send_add_player_packet(int c_id);
@@ -123,11 +126,15 @@ public:
 
 bool InitializeDB();
 bool GetPlayerInfo(wstring PlayerLoginId, wstring& outputPlayerName, short& pos_X, short& pos_Y);
+void SetPlayerPosition(wstring PlayerLoginId, short pos_X, short pos_Y);
+void HandleDiagnosticRecord(SQLHANDLE hHandle, SQLSMALLINT hType, RETCODE RetCode);
 
 
 array<SESSION, MAX_USER> clients;
 SOCKET g_s_socket, g_c_socket;
 OVER_EXP g_a_over;
+
+mutex DBmutex;
 
 //환경 변수. ODBC변수
 SQLHENV g_henv;
@@ -181,35 +188,17 @@ void process_packet(int c_id, char* packet)
 	switch (packet[1]) {
 	case CS_LOGIN: {
 		CS_LOGIN_PACKET* p = reinterpret_cast<CS_LOGIN_PACKET*>(packet);
-		/*
-		clients[c_id].send_login_info_packet();
-		{
-			lock_guard<mutex> ll{ clients[c_id]._s_lock };
-			clients[c_id]._state = ST_INGAME;
-		}
-		for (auto& pl : clients) {
-			{
-				lock_guard<mutex> ll(pl._s_lock);
-				if (ST_INGAME != pl._state) continue;
-			}
-			if (pl._id == c_id) continue;
-			if (false == can_see(c_id, pl._id))
-				continue;
-			clients[c_id]._vl.lock();
-			clients[c_id]._view_list.insert(pl._id);
-			clients[c_id]._vl.unlock();
-			pl.send_add_player_packet(c_id);
-			clients[c_id].send_add_player_packet(pl._id);
-		}*/
 		{
 			OVER_EXP* exOver = new OVER_EXP();
 			exOver->_comp_type = OP_DB_GET_PLAYER_INFO;
 			memcpy(exOver->_send_buf, p->id, strlen(p->id));
+			exOver->_send_buf[strlen(p->id)] = 0;
 			PostQueuedCompletionStatus(h_iocp, strlen(p->id), c_id, &exOver->_over);
 		}
 		break;
 	}
-	case CS_MOVE: {
+	case CS_MOVE:
+	{
 		CS_MOVE_PACKET* p = reinterpret_cast<CS_MOVE_PACKET*>(packet);
 		short x = clients[c_id].x;
 		short y = clients[c_id].y;
@@ -260,7 +249,14 @@ void process_packet(int c_id, char* packet)
 				clients[pl].send_remove_player_packet(c_id);
 			}
 	}
-				break;
+	break;
+	case CS_LOG_OUT:
+	{
+		OVER_EXP* exOver = new OVER_EXP();
+		exOver->_comp_type = OP_DB_SET_PLAYER_POSITION;
+		PostQueuedCompletionStatus(h_iocp, 0, c_id, &exOver->_over);
+	}
+	break;
 	}
 }
 
@@ -354,11 +350,13 @@ void worker_thread(HANDLE h_iocp)
 			break;
 		case OP_DB_GET_PLAYER_INFO:
 		{
-			string userStr{ ex_over->_send_buf };
+			string userStr{ ex_over->_send_buf, strlen(ex_over->_send_buf) };
 			wstring userId;
 			userId.assign(userStr.begin(), userStr.end());
 			wstring playerName;
+			DBmutex.lock();
 			GetPlayerInfo(userId, playerName, clients[key].x, clients[key].y);
+			DBmutex.unlock();
 			if (playerName.empty()) {
 				SC_LOGIN_FAIL_INFO_PACKET failPacket;
 				failPacket.size = 2;
@@ -366,17 +364,41 @@ void worker_thread(HANDLE h_iocp)
 				clients[key].do_send(&failPacket);
 			}
 			else {
-				SC_LOGIN_INFO_PACKET loginPacket;
-				loginPacket.id = key;
-				loginPacket.type = SC_LOGIN_INFO;
-				loginPacket.x = clients[key].x;
-				loginPacket.y = clients[key].y;
 				string playerStr;
 				playerStr.assign(playerName.begin(), playerName.end());
-				memcpy(loginPacket.name, playerStr.c_str(), playerStr.size());
-				loginPacket.size = sizeof(SC_LOGIN_INFO_PACKET);
-				clients[key].do_send(&loginPacket);
-			}			
+				memcpy(clients[key]._name, playerStr.c_str(), NAME_SIZE);				
+				memcpy(clients[key]._user_ID, userStr.c_str(), userStr.size());
+
+				clients[key].send_login_info_packet();
+				{
+					lock_guard<mutex> ll{ clients[key]._s_lock };
+					clients[key]._state = ST_INGAME;
+				}
+				for (auto& pl : clients) {
+					{
+						lock_guard<mutex> ll(pl._s_lock);
+						if (ST_INGAME != pl._state) continue;
+					}
+					if (pl._id == key) continue;
+					if (false == can_see(key, pl._id))
+						continue;
+					clients[key]._vl.lock();
+					clients[key]._view_list.insert(pl._id);
+					clients[key]._vl.unlock();
+					pl.send_add_player_packet(key);
+					clients[key].send_add_player_packet(pl._id);
+				}
+			}
+		}
+		break;
+		case OP_DB_SET_PLAYER_POSITION:
+		{
+			string userStr{clients[key]._user_ID};
+			wstring userId;
+			userId.assign(userStr.begin(), userStr.end());			
+			DBmutex.lock();
+			SetPlayerPosition(userId, clients[key].x, clients[key].y);
+			DBmutex.unlock();
 		}
 		break;
 		default:
@@ -454,51 +476,50 @@ bool InitializeDB()
 bool GetPlayerInfo(wstring PlayerLoginId, wstring& outputPlayerName, short& pos_X, short& pos_Y)
 {
 	SQLRETURN retcode;
-	retcode = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &g_henv);
 
 	SQLHSTMT hstmt;
 
-	SQLWCHAR szName[NAME_LEN];
-	SQLLEN cbName;
+	SQLWCHAR szName[NAME_LEN] = { 0 };
+	SQLLEN cbName = 0;
 
-	SQLINTEGER szPos_X;
-	SQLLEN cbPos_X;
+	SQLINTEGER szPos_X = 0;
+	SQLLEN cbPos_X = 0;
 
-	SQLINTEGER szPos_Y;
-	SQLLEN cbPos_Y;
+	SQLINTEGER szPos_Y = 0;
+	SQLLEN cbPos_Y = 0;
 
 	// Allocate statement handle  
+	retcode = SQLAllocHandle(SQL_HANDLE_STMT, g_hdbc, &hstmt);
+
+
+	wstring oper = L"EXEC select_user_info ";
+	oper.append(PlayerLoginId);
+	oper.append(L"\0");
+	retcode = SQLExecDirect(hstmt, (SQLWCHAR*)oper.c_str(), SQL_NTS);
 	if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
-		retcode = SQLAllocHandle(SQL_HANDLE_STMT, g_hdbc, &hstmt);
+		retcode = SQLBindCol(hstmt, 1, SQL_C_WCHAR, szName, NAME_LEN, &cbName);
+		retcode = SQLBindCol(hstmt, 2, SQL_C_SHORT, &szPos_X, 2, &cbPos_X);
+		retcode = SQLBindCol(hstmt, 3, SQL_C_SHORT, &szPos_Y, 2, &cbPos_Y);
 
-
-		wstring oper = L"EXEC select_user_info ";
-		oper.append(PlayerLoginId);
-		retcode = SQLExecDirect(hstmt, (SQLWCHAR*)oper.c_str(), SQL_NTS);
-		if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
-			retcode = SQLBindCol(hstmt, 1, SQL_C_WCHAR, szName, NAME_LEN, &cbName);
-			retcode = SQLBindCol(hstmt, 2, SQL_C_SHORT, &szPos_X, 2, &cbPos_X);
-			retcode = SQLBindCol(hstmt, 3, SQL_C_SHORT, &szPos_Y, 2, &cbPos_Y);
-
-			// Fetch and print each row of data. On an error, display a message and exit.
-			retcode = SQLFetch(hstmt); // 다음 행일 가져와라 명령어
-			if (retcode == SQL_ERROR || retcode == SQL_SUCCESS_WITH_INFO) {
-				return false;
-			}
-			//show_error();
-			else if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
-			{
-				outputPlayerName.append(szName, cbName);
-				pos_X = szPos_X;
-				pos_Y = szPos_Y;
-			}
+		// Fetch and print each row of data. On an error, display a message and exit.
+		retcode = SQLFetch(hstmt); // 다음 행일 가져와라 명령어
+		if (retcode == SQL_ERROR/* || retcode == SQL_SUCCESS_WITH_INFO*/) {
+			HandleDiagnosticRecord(hstmt, SQL_HANDLE_STMT, retcode);
+			return false;
 		}
-	}
-	else {
-		if (retcode == SQL_ERROR) {
-			std::cout << "error" << std::endl;
+		////show_error();
+		else if (retcode == SQL_SUCCESS)
+		{
+			outputPlayerName.append(szName);
+			pos_X = szPos_X;
+			pos_Y = szPos_Y;
 		}
-		return false;
+		if (retcode == SQL_SUCCESS_WITH_INFO) {
+			outputPlayerName.append(szName);
+			pos_X = szPos_X;
+			pos_Y = szPos_Y;
+			HandleDiagnosticRecord(hstmt, SQL_HANDLE_STMT, retcode);
+		}
 	}
 	// Process data  
 	if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
@@ -508,4 +529,70 @@ bool GetPlayerInfo(wstring PlayerLoginId, wstring& outputPlayerName, short& pos_
 	return true;
 	//disconnet
 	//SQLDisconnect(hdbc);
+}
+
+void SetPlayerPosition(wstring PlayerLoginId, short pos_X, short pos_Y)
+{
+	SQLRETURN retcode;
+
+	SQLHSTMT hstmt;
+
+	// Allocate statement handle  
+	retcode = SQLAllocHandle(SQL_HANDLE_STMT, g_hdbc, &hstmt);
+
+
+	wstring oper = L"EXEC set_user_position ";
+	oper.append(PlayerLoginId);
+	oper.append(L", ");
+	oper.append(to_wstring(pos_X));
+	oper.append(L", ");
+	oper.append(to_wstring(pos_Y));
+
+	oper.append(L"\0");
+	retcode = SQLExecDirect(hstmt, (SQLWCHAR*)oper.c_str(), SQL_NTS);
+	if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {		
+
+		// Fetch and print each row of data. On an error, display a message and exit.
+		retcode = SQLFetch(hstmt); // 다음 행일 가져와라 명령어
+		if (retcode == SQL_ERROR/* || retcode == SQL_SUCCESS_WITH_INFO*/) {
+			HandleDiagnosticRecord(hstmt, SQL_HANDLE_STMT, retcode);		
+		}
+		////show_error();
+		else if (retcode == SQL_SUCCESS)
+		{
+			
+		}
+		if (retcode == SQL_SUCCESS_WITH_INFO) {
+		
+			HandleDiagnosticRecord(hstmt, SQL_HANDLE_STMT, retcode);
+		}
+	}
+	// Process data  
+	if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
+		SQLCancel(hstmt);///종료
+		SQLFreeHandle(SQL_HANDLE_STMT, hstmt);//리소스 해제
+	}
+}
+
+void HandleDiagnosticRecord(SQLHANDLE hHandle, SQLSMALLINT hType, RETCODE RetCode) {
+	SQLSMALLINT iRec = 0;
+	SQLINTEGER  iError;
+	WCHAR       wszMessage[1000];
+	WCHAR       wszState[SQL_SQLSTATE_SIZE + 1];
+
+	if (RetCode == SQL_INVALID_HANDLE)
+	{
+		fwprintf(stderr, L"Invalid handle!\n");
+		return;
+	}
+	while (SQLGetDiagRec(hType, hHandle, ++iRec, wszState, &iError, wszMessage,
+		(SQLSMALLINT)(sizeof(wszMessage) / sizeof(WCHAR)), (SQLSMALLINT*)NULL) == SQL_SUCCESS)
+	{
+		// Hide data truncated.. 		
+		if (wcsncmp(wszState, L"01004", 5))
+		{
+			fwprintf(stdout, L"[%5.5s] %s (%d)\n", wszState, wszMessage, iError);
+		}
+		//cout << wszState << " " << (WCHAR*)wszMessage << " " << iError << endl;
+	}
 }

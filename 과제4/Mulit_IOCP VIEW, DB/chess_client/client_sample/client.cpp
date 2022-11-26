@@ -21,9 +21,8 @@ using namespace std;
 
 #include "protocol.h"
 
-
 sf::TcpSocket socket;
-
+sf::Font font;
 constexpr auto SCREEN_WIDTH = W_WIDTH;
 constexpr auto SCREEN_HEIGHT = W_HEIGHT;
 
@@ -44,10 +43,19 @@ private:
 	sf::Sprite m_sprite;
 public:
 	int m_x, m_y;
+	//wchar_t name[NAME_SIZE] = {0};
+	sf::Text nameText;
 	OBJECT(sf::Texture& t, int x, int y, int x2, int y2) {
 		m_showing = false;
 		m_sprite.setTexture(t);
 		m_sprite.setTextureRect(sf::IntRect(x, y, x2, y2));
+		nameText.setString("");
+		nameText.setFont(font);
+		nameText.setCharacterSize(20);
+		nameText.setPosition(0, 0);
+		nameText.setFillColor(sf::Color::Magenta);
+		nameText.setOutlineColor(sf::Color::Magenta);
+		nameText.setOutlineThickness(1.f);
 	}
 	OBJECT() {
 		m_showing = false;
@@ -77,8 +85,11 @@ public:
 		if (false == m_showing) return;
 		float rx = (m_x - g_left_x) * 65.0f + 8;
 		float ry = (m_y - g_top_y) * 65.0f + 8;
+		nameText.setPosition(rx, ry + 20);
 		m_sprite.setPosition(rx, ry);
+		g_window->draw(nameText);
 		g_window->draw(m_sprite);
+
 	}
 };
 
@@ -98,7 +109,7 @@ void client_initialize()
 {
 	board = new sf::Texture;
 	pieces = new sf::Texture;
-	
+
 	board->loadFromFile("chessmap.bmp");
 	pieces->loadFromFile("chess2.png");
 	white_tile = OBJECT{ *board, 5, 5, TILE_WIDTH, TILE_WIDTH };
@@ -132,6 +143,11 @@ void ProcessPacket(char* ptr)
 		g_myid = packet->id;
 		avatar.m_x = packet->x;
 		avatar.m_y = packet->y;
+		string str{ packet->name };
+
+		avatar.nameText.setColor(sf::Color::Green);
+		avatar.nameText.setOutlineColor(sf::Color::Green);
+		avatar.nameText.setString(packet->name);
 		char xPos[5];
 		char yPos[5];
 
@@ -158,7 +174,7 @@ void ProcessPacket(char* ptr)
 			avatar.move(my_packet->x, my_packet->y);
 			g_left_x = my_packet->x - 8;
 			g_top_y = my_packet->y - 8;
-
+			//memcpy(avatar.name, my_packet->name, strlen(my_packet->name));
 			char xPos[5];
 			char yPos[5];
 
@@ -175,6 +191,8 @@ void ProcessPacket(char* ptr)
 		}
 		else if (id < MAX_USER) {
 			players[id].move(my_packet->x, my_packet->y);
+			//memcpy(avatar.name, my_packet->name, strlen(my_packet->name));
+			players[id].nameText.setString(my_packet->name);
 			players[id].show();
 		}
 		else {
@@ -204,7 +222,7 @@ void ProcessPacket(char* ptr)
 			TextString += ", ";
 			TextString += yPos;
 			TextString += ")";
-			
+
 
 		}
 		else if (other_id < MAX_USER) {
@@ -282,7 +300,7 @@ void client_main()
 			int tile_x = i + g_left_x;
 			int tile_y = j + g_top_y;
 			if ((tile_x < 0) || (tile_y < 0)) continue;
-			if ((tile_x > 399) || (tile_y > 399)) continue;			
+			if ((tile_x > 399) || (tile_y > 399)) continue;
 			if (((tile_x + tile_y) % 8) < 4) {
 				white_tile.a_move(TILE_WIDTH * i + 7, TILE_WIDTH * j + 7);
 				white_tile.a_draw();
@@ -320,7 +338,6 @@ int main()
 
 	sf::Text myPosText;
 
-	sf::Font font;
 	font.loadFromFile("cour.ttf");
 	myPosText.setFont(font);
 	myPosText.setCharacterSize(30);
@@ -332,7 +349,6 @@ int main()
 	myPosText.setString(TextString);
 
 	sf::RenderWindow loginWindow(sf::VideoMode(300, 100), "Login");
-	sf::Clock clock;
 	sf::Texture* whiletBardTexture = new sf::Texture;
 	whiletBardTexture->loadFromFile("white.png");
 	OBJECT whiteBoard;
@@ -350,7 +366,7 @@ int main()
 	loginText.setOutlineThickness(1.f);
 
 	while (loginWindow.isOpen()) {
-		loginWindow.clear();		
+		loginWindow.clear();
 
 		sf::Event event;
 		while (loginWindow.pollEvent(event))
@@ -366,14 +382,14 @@ int main()
 					if (!loginId.empty())
 						loginId.pop_back();
 				}
-				if (event.key.code == sf::Keyboard::Return) {					
+				if (event.key.code == sf::Keyboard::Return) {
 					CS_LOGIN_PACKET p;
 					p.size = sizeof(p);
 					p.type = CS_LOGIN;
+					memset(p.id, 0, NAME_SIZE);
 					string str;
 					str.assign(loginId.begin(), loginId.end());
-					str.append(0);
-					strcpy_s(p.id, str.c_str());
+					memcpy(p.id, str.c_str(), str.size());
 					send_packet(&p);
 				}
 			}
@@ -423,8 +439,14 @@ int main()
 					direction = 2;
 					break;
 				case sf::Keyboard::Escape:
+				{
+					CS_LOG_OUT_PACKET logoutPakcet;					
+					logoutPakcet.size = sizeof(CS_LOG_OUT_PACKET);
+					logoutPakcet.type = CS_LOG_OUT;
+					send_packet(&logoutPakcet);
 					window.close();
-					break;
+				}
+				break;
 				}
 				if (-1 != direction) {
 					CS_MOVE_PACKET p;
@@ -438,7 +460,7 @@ int main()
 		}
 
 		window.clear();
-		client_main();		
+		client_main();
 		myPosText.setString(TextString);
 		window.draw(myPosText);
 		window.display();

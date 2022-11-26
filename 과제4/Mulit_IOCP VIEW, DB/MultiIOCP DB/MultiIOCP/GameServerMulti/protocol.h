@@ -15,6 +15,7 @@ constexpr char SC_ADD_PLAYER = 3;
 constexpr char SC_REMOVE_PLAYER = 4;
 constexpr char SC_MOVE_PLAYER = 5;
 constexpr char SC_LOGIN_FAIL_INFO = 6;
+constexpr char CS_LOG_OUT = 7;
 
 #pragma pack (push, 1)
 struct CS_LOGIN_PACKET {
@@ -63,6 +64,12 @@ struct SC_MOVE_PLAYER_PACKET {
 	short	id;
 	short	x, y;
 	unsigned int move_time;
+};
+
+struct CS_LOG_OUT_PACKET {
+	unsigned char size;
+	char	type;
+	short	id;
 };
 
 #pragma pack (pop)
