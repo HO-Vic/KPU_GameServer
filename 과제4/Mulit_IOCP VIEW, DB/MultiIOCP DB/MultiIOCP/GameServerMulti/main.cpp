@@ -25,6 +25,7 @@ random_device rd;
 default_random_engine dre(rd());
 uniform_int_distribution<int> uid(0, 400);
 
+void disconnect(int c_id);
 
 enum COMP_TYPE { OP_ACCEPT, OP_RECV, OP_SEND, OP_DB_GET_PLAYER_INFO, OP_DB_SET_PLAYER_POSITION };
 class OVER_EXP {
@@ -156,6 +157,9 @@ void SESSION::send_move_packet(int c_id)
 	p.y = clients[c_id].y;
 	p.move_time = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();
 	do_send(&p);
+	OVER_EXP* exOver = new OVER_EXP();
+	exOver->_comp_type = OP_DB_SET_PLAYER_POSITION;
+	PostQueuedCompletionStatus(h_iocp, 0, c_id, &exOver->_over);
 }
 
 void SESSION::send_add_player_packet(int c_id)
@@ -255,6 +259,7 @@ void process_packet(int c_id, char* packet)
 		OVER_EXP* exOver = new OVER_EXP();
 		exOver->_comp_type = OP_DB_SET_PLAYER_POSITION;
 		PostQueuedCompletionStatus(h_iocp, 0, c_id, &exOver->_over);
+		disconnect(static_cast<int>(c_id));
 	}
 	break;
 	}
@@ -395,7 +400,7 @@ void worker_thread(HANDLE h_iocp)
 		{
 			string userStr{clients[key]._user_ID};
 			wstring userId;
-			userId.assign(userStr.begin(), userStr.end());			
+			userId.assign(userStr.begin(), userStr.end());
 			DBmutex.lock();
 			SetPlayerPosition(userId, clients[key].x, clients[key].y);
 			DBmutex.unlock();
@@ -591,7 +596,7 @@ void HandleDiagnosticRecord(SQLHANDLE hHandle, SQLSMALLINT hType, RETCODE RetCod
 		// Hide data truncated.. 		
 		if (wcsncmp(wszState, L"01004", 5))
 		{
-			fwprintf(stdout, L"[%5.5s] %s (%d)\n", wszState, wszMessage, iError);
+			//fwprintf(stdout, L"[%5.5s] %s (%d)\n", wszState, wszMessage, iError);
 		}
 		//cout << wszState << " " << (WCHAR*)wszMessage << " " << iError << endl;
 	}

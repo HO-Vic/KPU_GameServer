@@ -23,6 +23,7 @@ using namespace std;
 
 sf::TcpSocket socket;
 sf::Font font;
+wstring* g_loginId;
 constexpr auto SCREEN_WIDTH = W_WIDTH;
 constexpr auto SCREEN_HEIGHT = W_HEIGHT;
 
@@ -85,7 +86,7 @@ public:
 		if (false == m_showing) return;
 		float rx = (m_x - g_left_x) * 65.0f + 8;
 		float ry = (m_y - g_top_y) * 65.0f + 8;
-		nameText.setPosition(rx, ry + 20);
+		nameText.setPosition(rx, ry - 20);
 		m_sprite.setPosition(rx, ry);
 		g_window->draw(nameText);
 		g_window->draw(m_sprite);
@@ -135,6 +136,7 @@ void ProcessPacket(char* ptr)
 	case SC_LOGIN_FAIL_INFO:
 	{
 		//g_window->close();
+		*g_loginId = L"Login Error";
 	}
 	break;
 	case SC_LOGIN_INFO:
@@ -356,6 +358,7 @@ int main()
 	g_window = &loginWindow;
 
 	wstring loginId;
+	g_loginId = &loginId;
 	sf::Text loginText;
 	loginText.setString("ID: ");
 	loginText.setFont(font);
@@ -371,8 +374,10 @@ int main()
 		sf::Event event;
 		while (loginWindow.pollEvent(event))
 		{
-			if (event.type == sf::Event::Closed)
+			if (event.type == sf::Event::Closed) {
 				loginWindow.close();
+				return -1;
+			}
 			else if (event.type == sf::Event::TextEntered) {
 				if (std::isprint(event.text.unicode))
 					loginId += event.text.unicode;
@@ -383,6 +388,8 @@ int main()
 						loginId.pop_back();
 				}
 				if (event.key.code == sf::Keyboard::Return) {
+					if (loginId == L"Login Error")
+						continue;
 					CS_LOGIN_PACKET p;
 					p.size = sizeof(p);
 					p.type = CS_LOGIN;
