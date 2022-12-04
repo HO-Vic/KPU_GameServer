@@ -497,15 +497,15 @@ void worker_thread(HANDLE h_iocp)
 				}
 			}
 			if (true == keep_alive) {
-				cout << "move Time: " << chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now()- moveTime).count() << endl;
+				//cout << "move Time: " << chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now()- moveTime).count() << endl;
 				moveTime = chrono::system_clock::now();
 				do_npc_random_move(static_cast<int>(key));
 				if (!clients[key]._is_player_touch) {
-					cout << "non touch" << endl;
+					//cout << "non touch" << endl;
 					TIMER_EVENT ev{ key, chrono::system_clock::now() + 1s, EV_RANDOM_MOVE, 0 };
 					timer_queue.push(ev);
 				}
-				else cout << "touch" << endl;
+				//else cout << "touch" << endl;
 			}
 			else {
 				clients[key]._is_active = false;
@@ -525,10 +525,10 @@ void worker_thread(HANDLE h_iocp)
 			int error2 = lua_pcall(L, 1, 0, 0);
 			if (error2)
 			{
-				cout << lua_typename(L, error2) << endl;
-				cout << "pcall Error : ";
-				printf("%s", lua_tostring(L, -1));
-				cout << endl;
+				//cout << lua_typename(L, error2) << endl;
+				//cout << "pcall Error : ";
+				//printf("%s", lua_tostring(L, -1));
+				//cout << endl;
 
 				lua_pop(L, 1);
 			}
@@ -540,7 +540,7 @@ void worker_thread(HANDLE h_iocp)
 		break;
 		case OP_AI_BYE:
 		{
-			cout << "call bye" << endl;
+			//cout << "call bye" << endl;
 			clients[key]._ll.lock();
 			auto L = clients[key]._L;
 
@@ -551,10 +551,10 @@ void worker_thread(HANDLE h_iocp)
 			int error2 = lua_pcall(L, 1, 0, 0);
 			if (error2)
 			{
-				cout << lua_typename(L, error2) << endl;
-				cout << "pcall Error : ";
-				printf("%s", lua_tostring(L, -1));
-				cout << endl;
+				//cout << lua_typename(L, error2) << endl;
+				//cout << "pcall Error : ";
+				//printf("%s", lua_tostring(L, -1));
+				//cout << endl;
 
 				lua_pop(L, 1);
 			}
@@ -588,7 +588,7 @@ int API_get_y(lua_State* L)
 
 int API_helloSendMessage(lua_State* L)
 {
-	cout << "API_HELLO_SEND" << endl;
+	//cout << "API_HELLO_SEND" << endl;
 	int my_id = (int)lua_tointeger(L, -3);
 	int user_id = (int)lua_tointeger(L, -2);
 	char* mess = (char*)lua_tostring(L, -1);
@@ -613,7 +613,7 @@ int API_helloSendMessage(lua_State* L)
 
 int API_ByeSendMessage(lua_State* L)
 {
-	cout << "API_BYE_SEND" << endl;
+	//cout << "API_BYE_SEND" << endl;
 	int my_id = (int)lua_tointeger(L, -3);
 	int user_id = (int)lua_tointeger(L, -2);
 	char* mess = (char*)lua_tostring(L, -1);
@@ -634,32 +634,58 @@ int API_ByeSendMessage(lua_State* L)
 
 void InitializeNPC()
 {
+
 	cout << "NPC intialize begin.\n";
 	for (int i = MAX_USER; i < MAX_USER + MAX_NPC; ++i) {
-		//cout << i << endl;
 		clients[i].x = rand() % W_WIDTH;
 		clients[i].y = rand() % W_HEIGHT;
 		clients[i]._id = i;
 		sprintf_s(clients[i]._name, "NPC%d", i);
 		clients[i]._state = ST_INGAME;
 
-		clients[i]._L = luaL_newstate();
-		luaL_openlibs(clients[i]._L);
-		luaL_loadfile(clients[i]._L, "npc.lua");
-		lua_pcall(clients[i]._L, 0, 0, 0);
-		lua_pop(clients[i]._L, 1);
+		auto L = clients[i]._L = luaL_newstate();
+		luaL_openlibs(L);
+		luaL_loadfile(L, "npc.lua");
+		lua_pcall(L, 0, 0, 0);
 
-		lua_getglobal(clients[i]._L, "set_uid");
-		lua_pushnumber(clients[i]._L, i);
-		lua_pcall(clients[i]._L, 1, 0, 0);
-		lua_pop(clients[i]._L, 2);// eliminate set_uid from stack after call
-
-		lua_register(clients[i]._L , "SendHelloMessage", API_helloSendMessage);
-		lua_register(clients[i]._L , "SendByeMessage", API_ByeSendMessage);
-		lua_register(clients[i]._L , "API_get_x", API_get_x);
-		lua_register(clients[i]._L , "API_get_y", API_get_y);
+		lua_getglobal(L, "set_uid");
+		lua_pushnumber(L, i);
+		lua_pcall(L, 1, 0, 0);
+		// lua_pop(L, 1);// eliminate set_uid from stack after call
+		
+		lua_register(clients[i]._L, "SendHelloMessage", API_helloSendMessage);
+		lua_register(clients[i]._L, "SendByeMessage", API_ByeSendMessage);
+		lua_register(L, "API_get_x", API_get_x);
+		lua_register(L, "API_get_y", API_get_y);
 	}
 	cout << "NPC initialize end.\n";
+
+	//cout << "NPC intialize begin.\n";
+	//for (int i = MAX_USER; i < MAX_USER + MAX_NPC; ++i) {
+	//	//cout << i << endl;
+	//	clients[i].x = rand() % W_WIDTH;
+	//	clients[i].y = rand() % W_HEIGHT;
+	//	clients[i]._id = i;
+	//	sprintf_s(clients[i]._name, "NPC%d", i);
+	//	clients[i]._state = ST_INGAME;
+
+	//	clients[i]._L = luaL_newstate();
+	//	luaL_openlibs(clients[i]._L);
+	//	luaL_loadfile(clients[i]._L, "npc.lua");
+	//	lua_pcall(clients[i]._L, 0, 0, 0);
+	//	lua_pop(clients[i]._L, 1);
+
+	//	lua_getglobal(clients[i]._L, "set_uid");
+	//	lua_pushnumber(clients[i]._L, i);
+	//	lua_pcall(clients[i]._L, 1, 0, 0);
+	//	lua_pop(clients[i]._L, 2);// eliminate set_uid from stack after call
+
+	//	lua_register(clients[i]._L , "SendHelloMessage", API_helloSendMessage);
+	//	lua_register(clients[i]._L , "SendByeMessage", API_ByeSendMessage);
+	//	lua_register(clients[i]._L , "API_get_x", API_get_x);
+	//	lua_register(clients[i]._L , "API_get_y", API_get_y);
+	//}
+	//cout << "NPC initialize end.\n";
 }
 
 void do_timer()
@@ -693,7 +719,7 @@ void do_timer()
 			break;
 			case EV_RANDOM_MOVE_FINISH:
 			{
-				cout << "oder bye" << endl;
+				//cout << "oder bye" << endl;
 				OVER_EXP* ov = new OVER_EXP;
 				ov->_comp_type = OP_NPC_MOVE;
 				PostQueuedCompletionStatus(h_iocp, 1, ev.obj_id, &ov->_over);
@@ -714,6 +740,7 @@ void do_timer()
 
 int main()
 {
+	InitializeNPC();
 	WSADATA WSAData;
 	WSAStartup(MAKEWORD(2, 2), &WSAData);
 	g_s_socket = WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
@@ -727,7 +754,6 @@ int main()
 	SOCKADDR_IN cl_addr;
 	int addr_size = sizeof(cl_addr);
 
-	InitializeNPC();
 
 	h_iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, 0);
 	CreateIoCompletionPort(reinterpret_cast<HANDLE>(g_s_socket), h_iocp, 9999, 0);
