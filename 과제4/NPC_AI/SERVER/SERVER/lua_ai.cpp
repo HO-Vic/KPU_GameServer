@@ -522,16 +522,8 @@ void worker_thread(HANDLE h_iocp)
 			//cout << lua_typename(L, error) << endl;
 
 			lua_pushnumber(L, ex_over->_ai_target_obj);
-			int error2 = lua_pcall(L, 1, 0, 0);
-			if (error2)
-			{
-				//cout << lua_typename(L, error2) << endl;
-				//cout << "pcall Error : ";
-				//printf("%s", lua_tostring(L, -1));
-				//cout << endl;
-
-				lua_pop(L, 1);
-			}
+			lua_pcall(L, 1, 0, 0);
+			
 			lua_pop(L, 2);
 			lua_settop(L, 0);
 			clients[key]._ll.unlock();
@@ -548,16 +540,8 @@ void worker_thread(HANDLE h_iocp)
 			//cout << lua_typename(L, error) << endl;
 
 			lua_pushnumber(L, ex_over->_ai_target_obj);
-			int error2 = lua_pcall(L, 1, 0, 0);
-			if (error2)
-			{
-				//cout << lua_typename(L, error2) << endl;
-				//cout << "pcall Error : ";
-				//printf("%s", lua_tostring(L, -1));
-				//cout << endl;
-
-				lua_pop(L, 1);
-			}
+			lua_pcall(L, 1, 0, 0);
+			
 			lua_pop(L, 2);
 			lua_settop(L, 0);
 			clients[key]._ll.unlock();
@@ -659,33 +643,6 @@ void InitializeNPC()
 		lua_register(L, "API_get_y", API_get_y);
 	}
 	cout << "NPC initialize end.\n";
-
-	//cout << "NPC intialize begin.\n";
-	//for (int i = MAX_USER; i < MAX_USER + MAX_NPC; ++i) {
-	//	//cout << i << endl;
-	//	clients[i].x = rand() % W_WIDTH;
-	//	clients[i].y = rand() % W_HEIGHT;
-	//	clients[i]._id = i;
-	//	sprintf_s(clients[i]._name, "NPC%d", i);
-	//	clients[i]._state = ST_INGAME;
-
-	//	clients[i]._L = luaL_newstate();
-	//	luaL_openlibs(clients[i]._L);
-	//	luaL_loadfile(clients[i]._L, "npc.lua");
-	//	lua_pcall(clients[i]._L, 0, 0, 0);
-	//	lua_pop(clients[i]._L, 1);
-
-	//	lua_getglobal(clients[i]._L, "set_uid");
-	//	lua_pushnumber(clients[i]._L, i);
-	//	lua_pcall(clients[i]._L, 1, 0, 0);
-	//	lua_pop(clients[i]._L, 2);// eliminate set_uid from stack after call
-
-	//	lua_register(clients[i]._L , "SendHelloMessage", API_helloSendMessage);
-	//	lua_register(clients[i]._L , "SendByeMessage", API_ByeSendMessage);
-	//	lua_register(clients[i]._L , "API_get_x", API_get_x);
-	//	lua_register(clients[i]._L , "API_get_y", API_get_y);
-	//}
-	//cout << "NPC initialize end.\n";
 }
 
 void do_timer()
