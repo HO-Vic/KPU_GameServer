@@ -1,5 +1,5 @@
 #pragma once
-#include<unordered_map>
+#include<unordered_set>
 #include<mutex>
 class SESSION;
 class Game_OBJECT;
@@ -12,7 +12,7 @@ private:
 	int treeCount = 0;
 	int stoneCount = 0;
 
-	std::unordered_map<int, int> players;
+	std::unordered_set<int> players;
 	std::mutex playersLock;
 public:
 	LOCAL_SESSION();
@@ -23,6 +23,7 @@ public:
 public:
 	void InsertPlayers(SESSION& player);
 	void UpdatePlayers(SESSION& player, std::array< std::array<LOCAL_SESSION, 100>, 100>& maps);
+	const std::unordered_set<int>& GetPlayer();
 public:
 	void SetPos(int x, int y);
 };

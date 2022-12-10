@@ -55,7 +55,7 @@ LOCAL_SESSION::~LOCAL_SESSION()
 void LOCAL_SESSION::InsertPlayers(SESSION& player)
 {
 	playersLock.lock();
-	players.try_emplace(player._id, player._id);
+	players.emplace(player._id);
 	playersLock.unlock();
 }
 
@@ -86,7 +86,12 @@ void LOCAL_SESSION::UpdatePlayers(SESSION& player, std::array< std::array<LOCAL_
 		}
 		else maps[x][y + 1].InsertPlayers(player);
 		player.myLocalSectionIndex = std::make_pair(x, y + 1);
-	}
+	}	
+}
+
+const std::unordered_set<int>& LOCAL_SESSION::GetPlayer()
+{
+	return players;
 }
 
 void LOCAL_SESSION::SetPos(int x, int y)

@@ -1,25 +1,15 @@
 #include <iostream>
-#include <array>
 #include <WS2tcpip.h>
 #include <MSWSock.h>
 #include <thread>
 #include <vector>
-#include <chrono>
 #include "SESSION.h"
 #include "LOCAL_SESSION.h"
-extern "C"
-{
-#include "include\lua.h"
-#include "include\lauxlib.h"
-#include "include\lualib.h"
-}
-
+#include "DB_OBJ.h"
 #pragma comment(lib, "WS2_32.lib")
 #pragma comment(lib, "MSWSock.lib")
-#pragma comment(lib, "lua54.lib")
 
 using namespace std;
-using namespace chrono;
 
 array<SESSION, MAX_USER> clients;
 array < array<LOCAL_SESSION, 100>, 100> gameMap;
@@ -28,28 +18,36 @@ SOCKET clientSocket;
 EXP_OVER acceptOver;
 HANDLE g_iocpHandle;
 
+
+//main func
 bool can_see(int from, int to);
 int get_new_client_id();
 void process_packet(int c_id, char* packet);
 void disconnect(int c_id);
-void worker_thread();
+void worker_thread(DB_OBJ dbObj);
+
+//lua func
+void InitializeNPC();
+
+
 constexpr int VIEW_RANGE = 15;
 int main()
 {
-	WSADATA WSAData;
-	if (WSAStartup(MAKEWORD(2, 2), &WSAData) != 0) {
-		cout << "wsaStartUp Error" << endl;
-		WSACleanup();
-		return -1;
-	}
-
 	cout << "initialize Map" << endl;
 	for (int i = 0; i < 100; i++) {
 		for (int j = 0; j < 100; j++) {
 			gameMap[i][j].SetPos(i, j);
 		}
 	}
+	InitializeNPC();
 
+
+	WSADATA WSAData;
+	if (WSAStartup(MAKEWORD(2, 2), &WSAData) != 0) {
+		cout << "wsaStartUp Error" << endl;
+		WSACleanup();
+		return -1;
+	}
 
 	SOCKADDR_IN server_addr;
 	memset(&server_addr, 0, sizeof(server_addr));
@@ -76,7 +74,8 @@ int main()
 	int num_threads = std::thread::hardware_concurrency();
 
 	for (int i = 0; i < num_threads; ++i) {
-		worker_threads.emplace_back(worker_thread);
+		DB_OBJ dbObj;
+		worker_threads.emplace_back(worker_thread, dbObj);
 	}
 
 	for (auto& th : worker_threads)
@@ -109,6 +108,7 @@ void process_packet(int c_id, char* packet)
 	case CS_LOGIN: {
 		CS_LOGIN_PACKET* p = reinterpret_cast<CS_LOGIN_PACKET*>(packet);
 		strcpy_s(clients[c_id]._name, p->name);
+		//DB 추가 해야됨
 		/*clients[c_id].send_login_info_packet();
 		{
 			lock_guard<mutex> ll{ clients[c_id]._s_lock };
@@ -130,7 +130,8 @@ void process_packet(int c_id, char* packet)
 		}*/
 		break;
 	}
-	case CS_MOVE: {
+	case CS_MOVE:
+	{
 		CS_MOVE_PACKET* p = reinterpret_cast<CS_MOVE_PACKET*>(packet);
 		short x = clients[c_id].x;
 		short y = clients[c_id].y;
@@ -143,45 +144,138 @@ void process_packet(int c_id, char* packet)
 		clients[c_id].x = x;
 		clients[c_id].y = y;
 
-		unordered_set<int> near_list;
+		gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second].UpdatePlayers(clients[c_id], gameMap);//현재 로컬 최신화
 
+		//뷰 리스트 업데이트를 위한 new near List 생성
+		unordered_set<int> near_list;
 		clients[c_id]._vl.lock();
 		unordered_set<int> old_vlist = clients[c_id]._view_list;
 		clients[c_id]._vl.unlock();
 
-		for (auto& cl : clients) {
+		//all clients search - 원본
+		/*for (auto& cl : clients) {
 			if (cl._state != ST_INGAME) continue;
 			if (cl._id == c_id) continue;
 			if (can_see(c_id, cl._id))
 				near_list.insert(cl._id);
+		}*/
+
+		for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second].GetPlayer()) { // current my local
+			if (clients[id]._state != ST_INGAME) continue;
+			if (clients[id]._id == c_id) continue;
+			if (can_see(c_id, id))
+				near_list.insert(id);
+		}
+		//근첩한 local 탐색
+		if (clients[c_id].x % 20 < 7) { // 좌로 붙은 섹션
+			if (clients[c_id].y % 20 < 7) {// 위로 붙은 부분
+				if (clients[c_id].myLocalSectionIndex.second > 0 && clients[c_id].myLocalSectionIndex.first > 0) {
+					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second - 1].GetPlayer()) {
+						if (clients[id]._state != ST_INGAME) continue;
+						if (clients[id]._id == c_id) continue;
+						if (can_see(c_id, id))
+							near_list.insert(id);
+					}
+				}
+			}
+			else if (clients[c_id].y % 20 > 13) { // 아래로 붙은 부분
+				if (clients[c_id].myLocalSectionIndex.second < 19 && clients[c_id].myLocalSectionIndex.first > 0) {
+					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second + 1].GetPlayer()) {
+						if (clients[id]._state != ST_INGAME) continue;
+						if (clients[id]._id == c_id) continue;
+						if (can_see(c_id, id))
+							near_list.insert(id);
+					}
+				}
+			}
+			if (clients[c_id].myLocalSectionIndex.first > 0) {
+				for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second].GetPlayer()) {
+					if (clients[id]._state != ST_INGAME) continue;
+					if (clients[id]._id == c_id) continue;
+					if (can_see(c_id, id))
+						near_list.insert(id);
+				}
+			}
+		}
+		else if (clients[c_id].x % 20 > 13) { // 우로 붙은 섹션
+			if (clients[c_id].y % 20 < 7) {
+				if (clients[c_id].myLocalSectionIndex.second > 0 && clients[c_id].myLocalSectionIndex.first < 19) {
+					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second - 1].GetPlayer()) {
+						if (clients[id]._state != ST_INGAME) continue;
+						if (clients[id]._id == c_id) continue;
+						if (can_see(c_id, id))
+							near_list.insert(id);
+					}
+				}
+			}
+			else if (clients[c_id].y % 20 > 13) {
+				if (clients[c_id].myLocalSectionIndex.second < 19 && clients[c_id].myLocalSectionIndex.first < 19) {
+					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second + 1].GetPlayer()) {
+						if (clients[id]._state != ST_INGAME) continue;
+						if (clients[id]._id == c_id) continue;
+						if (can_see(c_id, id))
+							near_list.insert(id);
+					}
+				}
+			}
+			if (clients[c_id].myLocalSectionIndex.first < 19) {
+				for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].GetPlayer()) {
+					if (clients[id]._state != ST_INGAME) continue;
+					if (clients[id]._id == c_id) continue;
+					if (can_see(c_id, id))
+						near_list.insert(id);
+				}
+			}
+		}
+		else { // x는 내부에 잘 있고 y만 체크
+			if (clients[c_id].y % 20 < 7) {
+				if (clients[c_id].myLocalSectionIndex.second > 0) {
+					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].GetPlayer()) {
+						if (clients[id]._state != ST_INGAME) continue;
+						if (clients[id]._id == c_id) continue;
+						if (can_see(c_id, id))
+							near_list.insert(id);
+					}
+				}
+			}
+			else if (clients[c_id].y % 20 > 13) {
+				if (clients[c_id].myLocalSectionIndex.second < 19) {
+					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].GetPlayer()) {
+						if (clients[id]._state != ST_INGAME) continue;
+						if (clients[id]._id == c_id) continue;
+						if (can_see(c_id, id))
+							near_list.insert(id);
+					}
+				}
+			}
 		}
 
-		clients[c_id].send_move_packet(c_id);
+
+		clients[c_id].send_move_packet(c_id, clients);
 
 		for (auto& pl : near_list) {
 			auto& cpl = clients[pl];
 			cpl._vl.lock();
 			if (cpl._view_list.count(c_id) > 0) {
 				cpl._vl.unlock();
-				cpl.send_move_packet(c_id);
+				cpl.send_move_packet(c_id, clients);
 			}
 			else {
 				cpl._vl.unlock();
-				clients[pl].send_add_player_packet(c_id);
+				clients[pl].send_add_player_packet(c_id, clients);
 			}
 
 			if (old_vlist.count(pl) == 0)
-				clients[c_id].send_add_player_packet(pl);
+				clients[c_id].send_add_player_packet(pl, clients);
 		}
 
 		for (auto& pl : old_vlist)
 			if (0 == near_list.count(pl)) {
 				clients[c_id].send_remove_player_packet(pl);
-
 				clients[pl].send_remove_player_packet(c_id);
 			}
 	}
-				break;
+	break;
 	}
 }
 
@@ -205,7 +299,7 @@ void disconnect(int c_id)
 	clients[c_id]._state = ST_FREE;
 }
 
-void worker_thread()
+void worker_thread(DB_OBJ dbObj)
 {
 	while (true) {
 		DWORD num_bytes;
@@ -274,4 +368,32 @@ void worker_thread()
 			break;
 		}
 	}
+}
+
+void InitializeNPC()
+{
+	cout << "NPC intialize begin.\n";
+	for (int i = MAX_USER; i < MAX_USER + MAX_NPC; ++i) {
+		clients[i].x = rand() % W_WIDTH;
+		clients[i].y = rand() % W_HEIGHT;
+		clients[i]._id = i;
+		sprintf_s(clients[i]._name, "NPC%d", i);
+		clients[i]._state = ST_INGAME;
+
+		auto L = clients[i].myLuaState = luaL_newstate();
+		luaL_openlibs(L);
+		luaL_loadfile(L, "npc.lua");
+		lua_pcall(L, 0, 0, 0);
+
+		lua_getglobal(L, "set_uid");
+		lua_pushnumber(L, i);
+		lua_pcall(L, 1, 0, 0);
+		// lua_pop(L, 1);// eliminate set_uid from stack after call
+
+		/*lua_register(clients[i]._L, "SendHelloMessage", API_helloSendMessage);
+		lua_register(clients[i]._L, "SendByeMessage", API_ByeSendMessage);
+		lua_register(L, "API_get_x", API_get_x);
+		lua_register(L, "API_get_y", API_get_y);*/
+	}
+	cout << "NPC initialize end.\n";
 }

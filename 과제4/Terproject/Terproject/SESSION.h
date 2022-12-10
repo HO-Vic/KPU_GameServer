@@ -4,7 +4,16 @@
 #include <mutex>
 #include <utility>
 #include <unordered_set>
+#include <array>
 #include "protocol_2022.h"
+extern "C"
+{
+#include "include\lua.h"
+#include "include\lauxlib.h"
+#include "include\lualib.h"
+}
+#pragma comment(lib, "lua54.lib")
+
 using namespace std;
 
 enum S_STATE { ST_FREE, ST_ALLOC, ST_INGAME };
@@ -48,7 +57,7 @@ public:
 	mutex	_vl; // 뷰 리스트 전용 락
 	
 	pair<int, int> myLocalSectionIndex = make_pair(0, 0); // 현재 위치한 땅의 인덱스
-
+	lua_State* myLuaState;
 public:
 	SESSION();
 
@@ -58,8 +67,8 @@ public:
 
 	void do_send(void* packet);
 	void send_login_info_packet();
-	void send_move_packet(int c_id);
-	void send_add_player_packet(int c_id);
+	void send_move_packet(int c_id, std::array<SESSION, MAX_USER>& clients);
+	void send_add_player_packet(int c_id, std::array<SESSION, MAX_USER>& clients);
 	void send_remove_player_packet(int c_id);
 };
 
