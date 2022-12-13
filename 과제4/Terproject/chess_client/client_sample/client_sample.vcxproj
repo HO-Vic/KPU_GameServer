@@ -121,13 +121,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="client.cpp" />
-    <ClCompile Include="소스.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <Image Include="chess2.png" />
-    <Image Include="chessmap.bmp" />
+    <ClCompile Include="OBJECT.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\SFML\Config.hpp" />
@@ -209,6 +203,7 @@
     <ClInclude Include="include\SFML\Window\Window.hpp" />
     <ClInclude Include="include\SFML\Window\WindowHandle.hpp" />
     <ClInclude Include="include\SFML\Window\WindowStyle.hpp" />
+    <ClInclude Include="OBJECT.h" />
     <ClInclude Include="protocol.h" />
   </ItemGroup>
   <ItemGroup>

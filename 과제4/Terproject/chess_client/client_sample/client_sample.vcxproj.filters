@@ -27,17 +27,9 @@
     <ClCompile Include="client.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="소스.cpp">
+    <ClCompile Include="OBJECT.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <Image Include="chess2.png">
-      <Filter>리소스 파일</Filter>
-    </Image>
-    <Image Include="chessmap.bmp">
-      <Filter>리소스 파일</Filter>
-    </Image>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\SFML\Config.hpp">
@@ -278,6 +270,9 @@
       <Filter>SFML\include</Filter>
     </ClInclude>
     <ClInclude Include="protocol.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="OBJECT.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>

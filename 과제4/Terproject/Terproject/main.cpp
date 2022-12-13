@@ -26,6 +26,8 @@ void process_packet(int c_id, char* packet);
 void disconnect(int c_id);
 void worker_thread(DB_OBJ dbObj);
 
+void UpdateNearList(std::unordered_set<int>& newNearList, int c_id);
+
 //lua func
 void InitializeNPC();
 
@@ -105,31 +107,18 @@ int get_new_client_id()
 void process_packet(int c_id, char* packet)
 {
 	switch (packet[1]) {
-	case CS_LOGIN: {
+	case CS_LOGIN:
+	{
 		CS_LOGIN_PACKET* p = reinterpret_cast<CS_LOGIN_PACKET*>(packet);
 		strcpy_s(clients[c_id]._name, p->name);
-		//DB 추가 해야됨
-		/*clients[c_id].send_login_info_packet();
-		{
-			lock_guard<mutex> ll{ clients[c_id]._s_lock };
-			clients[c_id]._state = ST_INGAME;
-		}
-		for (auto& pl : clients) {
-			{
-				lock_guard<mutex> ll(pl._s_lock);
-				if (ST_INGAME != pl._state) continue;
-			}
-			if (pl._id == c_id) continue;
-			if (false == can_see(c_id, pl._id))
-				continue;
-			clients[c_id]._vl.lock();
-			clients[c_id]._view_list.insert(pl._id);
-			clients[c_id]._vl.unlock();
-			pl.send_add_player_packet(c_id);
-			clients[c_id].send_add_player_packet(pl._id);
-		}*/
-		break;
+
+		EXP_OVER* exOver = new EXP_OVER();
+		exOver->_comp_type = OP_DB_GET_PLAYER_INFO;
+		memcpy(exOver->_send_buf, p->name, strlen(p->name));
+		exOver->_send_buf[strlen(p->name)] = 0;
+		PostQueuedCompletionStatus(g_iocpHandle, strlen(p->name), c_id, &exOver->_over);
 	}
+	break;
 	case CS_MOVE:
 	{
 		CS_MOVE_PACKET* p = reinterpret_cast<CS_MOVE_PACKET*>(packet);
@@ -160,96 +149,7 @@ void process_packet(int c_id, char* packet)
 				near_list.insert(cl._id);
 		}*/
 
-		for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second].GetPlayer()) { // current my local
-			if (clients[id]._state != ST_INGAME) continue;
-			if (clients[id]._id == c_id) continue;
-			if (can_see(c_id, id))
-				near_list.insert(id);
-		}
-		//근첩한 local 탐색
-		if (clients[c_id].x % 20 < 7) { // 좌로 붙은 섹션
-			if (clients[c_id].y % 20 < 7) {// 위로 붙은 부분
-				if (clients[c_id].myLocalSectionIndex.second > 0 && clients[c_id].myLocalSectionIndex.first > 0) {
-					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second - 1].GetPlayer()) {
-						if (clients[id]._state != ST_INGAME) continue;
-						if (clients[id]._id == c_id) continue;
-						if (can_see(c_id, id))
-							near_list.insert(id);
-					}
-				}
-			}
-			else if (clients[c_id].y % 20 > 13) { // 아래로 붙은 부분
-				if (clients[c_id].myLocalSectionIndex.second < 19 && clients[c_id].myLocalSectionIndex.first > 0) {
-					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second + 1].GetPlayer()) {
-						if (clients[id]._state != ST_INGAME) continue;
-						if (clients[id]._id == c_id) continue;
-						if (can_see(c_id, id))
-							near_list.insert(id);
-					}
-				}
-			}
-			if (clients[c_id].myLocalSectionIndex.first > 0) {
-				for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second].GetPlayer()) {
-					if (clients[id]._state != ST_INGAME) continue;
-					if (clients[id]._id == c_id) continue;
-					if (can_see(c_id, id))
-						near_list.insert(id);
-				}
-			}
-		}
-		else if (clients[c_id].x % 20 > 13) { // 우로 붙은 섹션
-			if (clients[c_id].y % 20 < 7) {
-				if (clients[c_id].myLocalSectionIndex.second > 0 && clients[c_id].myLocalSectionIndex.first < 19) {
-					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second - 1].GetPlayer()) {
-						if (clients[id]._state != ST_INGAME) continue;
-						if (clients[id]._id == c_id) continue;
-						if (can_see(c_id, id))
-							near_list.insert(id);
-					}
-				}
-			}
-			else if (clients[c_id].y % 20 > 13) {
-				if (clients[c_id].myLocalSectionIndex.second < 19 && clients[c_id].myLocalSectionIndex.first < 19) {
-					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second + 1].GetPlayer()) {
-						if (clients[id]._state != ST_INGAME) continue;
-						if (clients[id]._id == c_id) continue;
-						if (can_see(c_id, id))
-							near_list.insert(id);
-					}
-				}
-			}
-			if (clients[c_id].myLocalSectionIndex.first < 19) {
-				for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].GetPlayer()) {
-					if (clients[id]._state != ST_INGAME) continue;
-					if (clients[id]._id == c_id) continue;
-					if (can_see(c_id, id))
-						near_list.insert(id);
-				}
-			}
-		}
-		else { // x는 내부에 잘 있고 y만 체크
-			if (clients[c_id].y % 20 < 7) {
-				if (clients[c_id].myLocalSectionIndex.second > 0) {
-					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].GetPlayer()) {
-						if (clients[id]._state != ST_INGAME) continue;
-						if (clients[id]._id == c_id) continue;
-						if (can_see(c_id, id))
-							near_list.insert(id);
-					}
-				}
-			}
-			else if (clients[c_id].y % 20 > 13) {
-				if (clients[c_id].myLocalSectionIndex.second < 19) {
-					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].GetPlayer()) {
-						if (clients[id]._state != ST_INGAME) continue;
-						if (clients[id]._id == c_id) continue;
-						if (can_see(c_id, id))
-							near_list.insert(id);
-					}
-				}
-			}
-		}
-
+		UpdateNearList(near_list, c_id);
 
 		clients[c_id].send_move_packet(c_id, clients);
 
@@ -366,6 +266,148 @@ void worker_thread(DB_OBJ dbObj)
 		case OP_SEND:
 			delete ex_over;
 			break;
+		case OP_DB_GET_PLAYER_INFO:
+		{
+			string userStr{ ex_over->_send_buf, strlen(ex_over->_send_buf) };
+			wstring userId;
+			userId.assign(userStr.begin(), userStr.end());
+			wstring playerName;
+
+			//DB 내부 아직 작성 안함
+			dbObj.GetPlayerInfo(userId, playerName, clients[key].x, clients[key].y);
+
+			if (playerName.empty()) {
+				SC_LOGIN_FAIL_PACKET failPacket;
+				failPacket.size = 2;
+				failPacket.type = SC_LOGIN_FAIL;
+				clients[key].do_send(&failPacket);
+			}
+			else {
+				string playerStr;
+				playerStr.assign(playerName.begin(), playerName.end());
+				memcpy(clients[key]._name, playerStr.c_str(), NAME_SIZE);
+				memcpy(clients[key]._name, userStr.c_str(), userStr.size());
+
+				clients[key].send_login_info_packet();
+				{
+					lock_guard<mutex> ll{ clients[key]._s_lock };
+					clients[key]._state = ST_INGAME;
+				}
+
+				//여기 최적화 해야됨
+				UpdateNearList(clients[key]._view_list, key);
+
+				for (auto& pl : clients[key]._view_list) {
+					clients[pl].send_add_player_packet(key, clients);
+					clients[key].send_add_player_packet(clients[pl]._id, clients);
+				}
+			}
+		}
+		break;
+		/*case OP_DB_SET_PLAYER_POSITION:
+		{
+			string userStr{ clients[key]._user_ID };
+			wstring userId;
+			userId.assign(userStr.begin(), userStr.end());
+			DBmutex.lock();
+			SetPlayerPosition(userId, clients[key].x, clients[key].y);
+			DBmutex.unlock();
+		}
+		break;*/
+		}
+
+	}
+}
+
+void UpdateNearList(std::unordered_set<int>& newNearList, int c_id)
+{
+	for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second].GetPlayer()) { // current my local
+		if (clients[id]._state != ST_INGAME) continue;
+		if (clients[id]._id == c_id) continue;
+		if (can_see(c_id, id))
+			newNearList.insert(id);
+	}
+	//근첩한 local 탐색
+	if (clients[c_id].x % 20 < 7) { // 좌로 붙은 섹션
+		if (clients[c_id].y % 20 < 7) {// 위로 붙은 부분
+			if (clients[c_id].myLocalSectionIndex.second > 0 && clients[c_id].myLocalSectionIndex.first > 0) {
+				for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second - 1].GetPlayer()) {
+					if (clients[id]._state != ST_INGAME) continue;
+					if (clients[id]._id == c_id) continue;
+					if (can_see(c_id, id))
+						newNearList.insert(id);
+				}
+			}
+		}
+		else if (clients[c_id].y % 20 > 13) { // 아래로 붙은 부분
+			if (clients[c_id].myLocalSectionIndex.second < 19 && clients[c_id].myLocalSectionIndex.first > 0) {
+				for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second + 1].GetPlayer()) {
+					if (clients[id]._state != ST_INGAME) continue;
+					if (clients[id]._id == c_id) continue;
+					if (can_see(c_id, id))
+						newNearList.insert(id);
+				}
+			}
+		}
+		if (clients[c_id].myLocalSectionIndex.first > 0) {
+			for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second].GetPlayer()) {
+				if (clients[id]._state != ST_INGAME) continue;
+				if (clients[id]._id == c_id) continue;
+				if (can_see(c_id, id))
+					newNearList.insert(id);
+			}
+		}
+	}
+	else if (clients[c_id].x % 20 > 13) { // 우로 붙은 섹션
+		if (clients[c_id].y % 20 < 7) {
+			if (clients[c_id].myLocalSectionIndex.second > 0 && clients[c_id].myLocalSectionIndex.first < 19) {
+				for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second - 1].GetPlayer()) {
+					if (clients[id]._state != ST_INGAME) continue;
+					if (clients[id]._id == c_id) continue;
+					if (can_see(c_id, id))
+						newNearList.insert(id);
+				}
+			}
+		}
+		else if (clients[c_id].y % 20 > 13) {
+			if (clients[c_id].myLocalSectionIndex.second < 19 && clients[c_id].myLocalSectionIndex.first < 19) {
+				for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second + 1].GetPlayer()) {
+					if (clients[id]._state != ST_INGAME) continue;
+					if (clients[id]._id == c_id) continue;
+					if (can_see(c_id, id))
+						newNearList.insert(id);
+				}
+			}
+		}
+		if (clients[c_id].myLocalSectionIndex.first < 19) {
+			for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].GetPlayer()) {
+				if (clients[id]._state != ST_INGAME) continue;
+				if (clients[id]._id == c_id) continue;
+				if (can_see(c_id, id))
+					newNearList.insert(id);
+			}
+		}
+	}
+	else { // x는 내부에 잘 있고 y만 체크
+		if (clients[c_id].y % 20 < 7) {
+			if (clients[c_id].myLocalSectionIndex.second > 0) {
+				for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].GetPlayer()) {
+					if (clients[id]._state != ST_INGAME) continue;
+					if (clients[id]._id == c_id) continue;
+					if (can_see(c_id, id))
+						newNearList.insert(id);
+				}
+			}
+		}
+		else if (clients[c_id].y % 20 > 13) {
+			if (clients[c_id].myLocalSectionIndex.second < 19) {
+				for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].GetPlayer()) {
+					if (clients[id]._state != ST_INGAME) continue;
+					if (clients[id]._id == c_id) continue;
+					if (can_see(c_id, id))
+						newNearList.insert(id);
+				}
+			}
 		}
 	}
 }

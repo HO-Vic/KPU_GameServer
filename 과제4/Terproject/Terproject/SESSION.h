@@ -17,7 +17,7 @@ extern "C"
 using namespace std;
 
 enum S_STATE { ST_FREE, ST_ALLOC, ST_INGAME };
-enum COMP_TYPE { OP_ACCEPT, OP_RECV, OP_SEND };
+enum COMP_TYPE { OP_ACCEPT, OP_RECV, OP_SEND, OP_DB_GET_PLAYER_INFO};
 
 class EXP_OVER
 {

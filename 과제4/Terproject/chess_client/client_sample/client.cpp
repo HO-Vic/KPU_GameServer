@@ -1,37 +1,18 @@
-﻿#define SFML_STATIC 1
-#include <SFML/Graphics.hpp>
-#include <SFML/Network.hpp>
-#include <iostream>
-#include<chrono>
+﻿#include <iostream>
+#include "OBJECT.h"
+
 using namespace std;
-
-#ifdef _DEBUG
-#pragma comment (lib, "lib/sfml-graphics-s-d.lib")
-#pragma comment (lib, "lib/sfml-window-s-d.lib")
-#pragma comment (lib, "lib/sfml-system-s-d.lib")
-#pragma comment (lib, "lib/sfml-network-s-d.lib")
-#else
-#pragma comment (lib, "lib/sfml-graphics-s.lib")
-#pragma comment (lib, "lib/sfml-window-s.lib")
-#pragma comment (lib, "lib/sfml-system-s.lib")
-#pragma comment (lib, "lib/sfml-network-s.lib")
-#endif
-#pragma comment (lib, "opengl32.lib")
-#pragma comment (lib, "winmm.lib")
-#pragma comment (lib, "ws2_32.lib")
-
 #include "protocol.h"
 
 sf::TcpSocket socket;
-sf::Font font;
 wstring* g_loginId;
+sf::Font font;
 constexpr auto SCREEN_WIDTH = W_WIDTH;
 constexpr auto SCREEN_HEIGHT = W_HEIGHT;
 
-constexpr auto TILE_WIDTH = 65;
 constexpr auto WINDOW_WIDTH = SCREEN_WIDTH * TILE_WIDTH;   // size of window
 constexpr auto WINDOW_HEIGHT = SCREEN_WIDTH * TILE_WIDTH;
-constexpr auto MAX_USER = 1000;
+constexpr auto MAX_USER = 10000;
 
 int g_left_x;
 int g_top_y;
@@ -39,106 +20,73 @@ int g_myid;
 
 sf::RenderWindow* g_window;
 
-class OBJECT {
-private:
-	bool m_showing;
-	sf::Sprite m_sprite;
-
-	sf::Text m_name;
-	sf::Text m_chat;
-	chrono::system_clock::time_point m_mess_end_time;
-
-public:
-	int m_x, m_y;
-	//wchar_t name[NAME_SIZE] = {0};
-	sf::Text nameText;
-	OBJECT(sf::Texture& t, int x, int y, int x2, int y2) {
-		m_showing = false;
-		m_sprite.setTexture(t);
-		m_sprite.setTextureRect(sf::IntRect(x, y, x2, y2));
-		nameText.setString("");
-		nameText.setFont(font);
-		nameText.setCharacterSize(20);
-		nameText.setPosition(0, 0);
-		nameText.setFillColor(sf::Color::Magenta);
-		nameText.setOutlineColor(sf::Color::Magenta);
-		nameText.setOutlineThickness(1.f);
-	}
-	OBJECT() {
-		m_showing = false;
-	}
-	void show()
-	{
-		m_showing = true;
-	}
-	void hide()
-	{
-		m_showing = false;
-	}
-
-	void a_move(int x, int y) {
-		m_sprite.setPosition((float)x, (float)y);
-	}
-
-	void a_draw() {
-		g_window->draw(m_sprite);
-	}
-
-	void move(int x, int y) {
-		m_x = x;
-		m_y = y;
-	}
-	void draw() {
-		if (false == m_showing) return;
-		float rx = (m_x - g_left_x) * 65.0f + 8;
-		float ry = (m_y - g_top_y) * 65.0f + 8;
-		nameText.setPosition(rx, ry - 20);
-		m_sprite.setPosition(rx, ry);
-		g_window->draw(nameText);
-		g_window->draw(m_sprite);
-
-	}
-	void set_chat(const char str[]) {
-		m_chat.setFont(font);
-		m_chat.setString(str);
-		m_chat.setFillColor(sf::Color(255, 255, 255));
-		m_chat.setStyle(sf::Text::Bold);
-		m_mess_end_time = chrono::system_clock::now() + chrono::seconds(3);
-	}
-};
-
-OBJECT avatar;
+OBJECT myPlayer;
 OBJECT players[MAX_USER];
 
 OBJECT white_tile;
-OBJECT black_tile;
+OBJECT gameMap;
 
-sf::Texture* board;
-sf::Texture* pieces;
+sf::Texture* textureMap;
+sf::Texture** textureCharacter;
 
 sf::String TextString = "(0, 0)";
+
+constexpr int IDLE_LEFT = 0;
+constexpr int IDLE_RIGHT = 1;
+constexpr int RUN_LEFT_F = 2;
+constexpr int RUN_LEFT_L = 9;
+constexpr int RUN_RIGHT_F = 10;
+constexpr int RUN_RIGHT_L = 17;
 
 
 void client_initialize()
 {
-	board = new sf::Texture;
-	pieces = new sf::Texture;
-
-	board->loadFromFile("chessmap.bmp");
-	pieces->loadFromFile("chess2.png");
-	white_tile = OBJECT{ *board, 5, 5, TILE_WIDTH, TILE_WIDTH };
-	black_tile = OBJECT{ *board, 69, 5, TILE_WIDTH, TILE_WIDTH };
-	avatar = OBJECT{ *pieces, 128, 0, 64, 64 };
-	avatar.move(4, 4);
-	for (auto& pl : players) {
-		pl = OBJECT{ *pieces, 64, 0, 64, 64 };
+	textureMap = new sf::Texture;
+	textureMap->loadFromFile("images/map.png");
+	textureCharacter = new sf::Texture * [18];
+	for (int i = 0; i < 18; i++)
+		textureCharacter[i] = new sf::Texture;
+	//player Texture Init
+	{
+		textureCharacter[0]->loadFromFile("images/player/Idle/Player_Idle_Right.png");
+		textureCharacter[1]->loadFromFile("images/player/Idle/Player_Idle_Left.png");
+		textureCharacter[2]->loadFromFile("images/player/run/left/Player_Run_0.png");
+		textureCharacter[3]->loadFromFile("images/player/run/left/Player_Run_1.png");
+		textureCharacter[4]->loadFromFile("images/player/run/left/Player_Run_2.png");
+		textureCharacter[5]->loadFromFile("images/player/run/left/Player_Run_3.png");
+		textureCharacter[6]->loadFromFile("images/player/run/left/Player_Run_4.png");
+		textureCharacter[7]->loadFromFile("images/player/run/left/Player_Run_5.png");
+		textureCharacter[8]->loadFromFile("images/player/run/left/Player_Run_6.png");
+		textureCharacter[9]->loadFromFile("images/player/run/left/Player_Run_7.png");
+		textureCharacter[10]->loadFromFile("images/player/run/right/Player_Run_10.png");
+		textureCharacter[11]->loadFromFile("images/player/run/right/Player_Run_11.png");
+		textureCharacter[12]->loadFromFile("images/player/run/right/Player_Run_12.png");
+		textureCharacter[13]->loadFromFile("images/player/run/right/Player_Run_13.png");
+		textureCharacter[14]->loadFromFile("images/player/run/right/Player_Run_14.png");
+		textureCharacter[15]->loadFromFile("images/player/run/right/Player_Run_15.png");
+		textureCharacter[16]->loadFromFile("images/player/run/right/Player_Run_16.png");
+		textureCharacter[17]->loadFromFile("images/player/run/right/Player_Run_17.png");
 	}
+
+	//initialize map
+
+	gameMap = OBJECT{ *textureMap, 0, 0, 1000, 1000 };
+
+	myPlayer = OBJECT{ *textureCharacter[IDLE_LEFT], 0, 0, 50, 50 };
+	myPlayer.move(4, 4);
+	g_left_x = 4 * TILE_WIDTH - TILE_WIDTH * 10;
+	g_top_y = 4 * TILE_WIDTH - TILE_WIDTH * 10;
+	myPlayer.show();
+
+	/*for (auto& pl : players) {
+		pl = OBJECT{ *textureCharacter[0], 0, 0, 32, 32 };
+	}*/
 }
 
 void client_finish()
 {
-	delete board;
-	delete pieces;
+	delete textureMap;
+
 }
 
 void ProcessPacket(char* ptr)
@@ -156,18 +104,18 @@ void ProcessPacket(char* ptr)
 	{
 		SC_LOGIN_INFO_PACKET* packet = reinterpret_cast<SC_LOGIN_INFO_PACKET*>(ptr);
 		g_myid = packet->id;
-		avatar.m_x = packet->x;
-		avatar.m_y = packet->y;
+		myPlayer.m_x = packet->x;
+		myPlayer.m_y = packet->y;
 		string str{ packet->name };
 
-		avatar.nameText.setColor(sf::Color::Green);
-		avatar.nameText.setOutlineColor(sf::Color::Green);
-		avatar.nameText.setString(packet->name);
+		myPlayer.nameText.setColor(sf::Color::Green);
+		myPlayer.nameText.setOutlineColor(sf::Color::Green);
+		myPlayer.nameText.setString(packet->name);
 		char xPos[5];
 		char yPos[5];
 
-		_itoa(avatar.m_x, xPos, 10);
-		_itoa(avatar.m_y, yPos, 10);
+		_itoa(myPlayer.m_x, xPos, 10);
+		_itoa(myPlayer.m_y, yPos, 10);
 		TextString.clear();
 		TextString += "(";
 		TextString += xPos;
@@ -176,7 +124,7 @@ void ProcessPacket(char* ptr)
 		TextString += ")";
 
 		g_window->close();
-		avatar.show();
+		myPlayer.show();
 		break;
 	}
 
@@ -186,15 +134,15 @@ void ProcessPacket(char* ptr)
 		int id = my_packet->id;
 
 		if (id == g_myid) {
-			avatar.move(my_packet->x, my_packet->y);
-			g_left_x = my_packet->x - 8;
-			g_top_y = my_packet->y - 8;
+			myPlayer.move(my_packet->x, my_packet->y);
+			g_left_x = my_packet->x - 10 * 50;
+			g_top_y = my_packet->y - 10 * 50;
 			//memcpy(avatar.name, my_packet->name, strlen(my_packet->name));
 			char xPos[5];
 			char yPos[5];
 
-			_itoa(avatar.m_x, xPos, 10);
-			_itoa(avatar.m_y, yPos, 10);
+			_itoa(myPlayer.m_x, xPos, 10);
+			_itoa(myPlayer.m_y, yPos, 10);
 			TextString.clear();
 			TextString += "(";
 			TextString += xPos;
@@ -202,7 +150,7 @@ void ProcessPacket(char* ptr)
 			TextString += yPos;
 			TextString += ")";
 
-			avatar.show();
+			myPlayer.show();
 		}
 		else if (id < MAX_USER) {
 			players[id].move(my_packet->x, my_packet->y);
@@ -222,15 +170,15 @@ void ProcessPacket(char* ptr)
 		SC_MOVE_PLAYER_PACKET* my_packet = reinterpret_cast<SC_MOVE_PLAYER_PACKET*>(ptr);
 		int other_id = my_packet->id;
 		if (other_id == g_myid) {
-			avatar.move(my_packet->x, my_packet->y);
-			g_left_x = my_packet->x - 8;
-			g_top_y = my_packet->y - 8;
+			myPlayer.move(my_packet->x, my_packet->y);
+			g_left_x = my_packet->x - 10 * 50;
+			g_top_y = my_packet->y - 10 * 50;
 
 			char xPos[5];
 			char yPos[5];
 
-			_itoa(avatar.m_x, xPos, 10);
-			_itoa(avatar.m_y, yPos, 10);
+			_itoa(myPlayer.m_x, xPos, 10);
+			_itoa(myPlayer.m_y, yPos, 10);
 			TextString.clear();
 			TextString += "(";
 			TextString += xPos;
@@ -255,7 +203,7 @@ void ProcessPacket(char* ptr)
 		SC_REMOVE_PLAYER_PACKET* my_packet = reinterpret_cast<SC_REMOVE_PLAYER_PACKET*>(ptr);
 		int other_id = my_packet->id;
 		if (other_id == g_myid) {
-			avatar.hide();
+			myPlayer.hide();
 		}
 		else if (other_id < MAX_USER) {
 			players[other_id].hide();
@@ -270,7 +218,7 @@ void ProcessPacket(char* ptr)
 		SC_CHAT_PACKET* my_packet = reinterpret_cast<SC_CHAT_PACKET*>(ptr);
 		int other_id = my_packet->id;
 		if (other_id == g_myid) {
-			avatar.set_chat(my_packet->mess);
+			myPlayer.set_chat(my_packet->mess);
 		}
 		else {
 			players[other_id].set_chat(my_packet->mess);
@@ -310,7 +258,7 @@ void process_data(char* net_buf, size_t io_byte)
 
 void client_main()
 {
-	char net_buf[BUF_SIZE];
+	/*char net_buf[BUF_SIZE];
 	size_t   received;
 
 	auto recv_result = socket.receive(net_buf, BUF_SIZE, received);
@@ -320,28 +268,44 @@ void client_main()
 		while (true);
 	}
 	if (recv_result != sf::Socket::NotReady)
-		if (received > 0) process_data(net_buf, received);
+		if (received > 0) process_data(net_buf, received);*/
 
-	for (int i = 0; i < SCREEN_WIDTH; ++i)
-		for (int j = 0; j < SCREEN_HEIGHT; ++j)
-		{
-			int tile_x = i + g_left_x;
-			int tile_y = j + g_top_y;
-			if ((tile_x < 0) || (tile_y < 0)) continue;
-			if ((tile_x > 399) || (tile_y > 399)) continue;
-			if (((tile_x + tile_y) % 8) < 4) {
-				white_tile.a_move(TILE_WIDTH * i + 7, TILE_WIDTH * j + 7);
-				white_tile.a_draw();
-			}
-			else
-			{
-				black_tile.a_move(TILE_WIDTH * i + 7, TILE_WIDTH * j + 7);
-				black_tile.a_draw();
-			}
-		}
+		//for (int i = 0; i < SCREEN_WIDTH; ++i)
+		//	for (int j = 0; j < SCREEN_HEIGHT; ++j)
+		//	{
+		//		int tile_x = i + g_left_x;
+		//		int tile_y = j + g_top_y;
+		//		if ((tile_x < 0) || (tile_y < 0)) continue;
+		//		if ((tile_x > 2000) || (tile_y > 2000)) continue;
+		//		else
+		//		{
+		//			gameMap[tile_x / 20][tile_y / 20].a_move(tile_x % 20, tile_y % 20);
+		//			gameMap[tile_x / 20][tile_y / 20].a_draw();
+		//		}
+		//	}
 
-	avatar.draw();
-	for (auto& pl : players) pl.draw();
+	if (g_left_x < 0) {
+		gameMap.m_x = abs(g_left_x);
+		gameMap.a_move(abs(g_left_x), gameMap.m_y);
+	}
+	else if (g_left_x > 2000) {
+		gameMap.m_x = -abs(g_left_x - 2000);
+		gameMap.a_move(-abs(g_left_x - 2000), gameMap.m_y);
+	}
+	else {
+		gameMap.m_x = 0;
+		gameMap.a_move(0, gameMap.m_y);
+	}
+	if (g_top_y < 0) {
+		gameMap.a_move(gameMap.m_x, abs(g_top_y));
+	}
+	else if (g_top_y > 2000)
+		gameMap.a_move(gameMap.m_x, -abs(g_top_y - 2000));
+	else gameMap.a_move(gameMap.m_x, 0);
+
+	gameMap.a_draw();
+	myPlayer.draw();
+	//for (auto& pl : players) pl.draw();
 }
 
 void send_packet(void* packet)
@@ -353,14 +317,14 @@ void send_packet(void* packet)
 
 int main()
 {
-	wcout.imbue(locale("korean"));
-	sf::Socket::Status status = socket.connect("127.0.0.1", PORT_NUM);
-	socket.setBlocking(false);
+	//wcout.imbue(locale("korean"));
+	//sf::Socket::Status status = socket.connect("127.0.0.1", PORT_NUM);
+	//socket.setBlocking(false);
 
-	if (status != sf::Socket::Done) {
-		wcout << L"서버와 연결할 수 없습니다.\n";
-		while (true);
-	}
+	//if (status != sf::Socket::Done) {
+	//	wcout << L"서버와 연결할 수 없습니다.\n";
+	//	while (true);
+	//}
 
 	client_initialize();
 
@@ -376,7 +340,7 @@ int main()
 
 	myPosText.setString(TextString);
 
-	sf::RenderWindow loginWindow(sf::VideoMode(300, 100), "Login");
+	/*sf::RenderWindow loginWindow(sf::VideoMode(300, 100), "Login");
 	sf::Texture* whiletBardTexture = new sf::Texture;
 	whiletBardTexture->loadFromFile("white.png");
 	OBJECT whiteBoard;
@@ -392,9 +356,9 @@ int main()
 	loginText.setPosition(0, 0);
 	loginText.setFillColor(sf::Color::Black);
 	loginText.setOutlineColor(sf::Color::Black);
-	loginText.setOutlineThickness(1.f);
+	loginText.setOutlineThickness(1.f);*/
 
-	while (loginWindow.isOpen()) {
+	/*while (loginWindow.isOpen()) {
 		loginWindow.clear();
 
 		sf::Event event;
@@ -442,7 +406,7 @@ int main()
 		whiteBoard.a_draw();
 		loginWindow.draw(loginText);
 		loginWindow.display();
-	}
+	}*/
 
 
 	sf::RenderWindow window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "2D CLIENT");
@@ -460,43 +424,52 @@ int main()
 				int direction = -1;
 				switch (event.key.code) {
 				case sf::Keyboard::Left:
+					myPlayer.move(myPlayer.m_x - 1, myPlayer.m_y);
+					g_left_x = myPlayer.m_x * TILE_WIDTH - 10 * TILE_WIDTH;
 					direction = 3;
 					break;
 				case sf::Keyboard::Right:
+					myPlayer.move(myPlayer.m_x + 1, myPlayer.m_y);
+					g_left_x = myPlayer.m_x * TILE_WIDTH - 10 * TILE_WIDTH;
 					direction = 4;
 					break;
 				case sf::Keyboard::Up:
+					myPlayer.move(myPlayer.m_x, myPlayer.m_y - 1);
+					g_top_y = myPlayer.m_y * TILE_WIDTH - 10 * TILE_WIDTH;
 					direction = 1;
 					break;
 				case sf::Keyboard::Down:
+					myPlayer.move(myPlayer.m_x, myPlayer.m_y + 1);
+					g_top_y = myPlayer.m_y * TILE_WIDTH - 10 * TILE_WIDTH;
 					direction = 2;
 					break;
-				case sf::Keyboard::Escape:
-				{
-					CS_LOG_OUT_PACKET logoutPakcet;					
-					logoutPakcet.size = sizeof(CS_LOG_OUT_PACKET);
-					logoutPakcet.type = CS_LOG_OUT;
-					send_packet(&logoutPakcet);
-					window.close();
-				}
-				break;
-				}
-				if (-1 != direction) {
-					CS_MOVE_PACKET p;
-					p.size = sizeof(p);
-					p.type = CS_MOVE;
-					p.direction = direction;
-					send_packet(&p);
-				}
+					/*case sf::Keyboard::Escape:
+					{
+						CS_LOG_OUT_PACKET logoutPakcet;
+						logoutPakcet.size = sizeof(CS_LOG_OUT_PACKET);
+						logoutPakcet.type = CS_LOG_OUT;
+						send_packet(&logoutPakcet);
+						window.close();
+					}
+					break;
+					}
+					if (-1 != direction) {
+						CS_MOVE_PACKET p;
+						p.size = sizeof(p);
+						p.type = CS_MOVE;
+						p.direction = direction;
+						send_packet(&p);
+					}*/
 
+				}
 			}
-		}
 
-		window.clear();
-		client_main();
-		myPosText.setString(TextString);
-		window.draw(myPosText);
-		window.display();
+			window.clear();
+			client_main();
+			/*myPosText.setString(TextString);
+			window.draw(myPosText);*/
+			window.display();
+		}
 	}
 	client_finish();
 

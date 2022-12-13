@@ -3,8 +3,8 @@ constexpr int BUF_SIZE = 200;
 constexpr int NAME_SIZE = 20;
 constexpr int CHAT_SIZE = 100;
 
-constexpr int W_WIDTH = 16;
-constexpr int W_HEIGHT = 16;
+constexpr int W_WIDTH = 20;
+constexpr int W_HEIGHT = 20;
 
 // Packet ID
 constexpr char CS_LOGIN = 0;
