@@ -39,6 +39,7 @@ int main()
 	for (int i = 0; i < 100; i++) {
 		for (int j = 0; j < 100; j++) {
 			gameMap[i][j].SetPos(i, j);
+			// initialize Obj on Local Map
 		}
 	}
 	InitializeNPC();
@@ -422,7 +423,7 @@ void InitializeNPC()
 		sprintf_s(clients[i]._name, "NPC%d", i);
 		clients[i]._state = ST_INGAME;
 
-		auto L = clients[i].myLuaState = luaL_newstate();
+		//auto L = clients[i].myLuaState = luaL_newstate();
 		luaL_openlibs(L);
 		luaL_loadfile(L, "npc.lua");
 		lua_pcall(L, 0, 0, 0);
