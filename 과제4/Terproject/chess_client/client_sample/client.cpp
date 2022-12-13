@@ -25,9 +25,16 @@ OBJECT players[MAX_USER];
 
 OBJECT white_tile;
 OBJECT gameMap;
+OBJECT house;
+
 
 sf::Texture* textureMap;
 sf::Texture** textureCharacter;
+sf::Texture* textureTree;
+sf::Texture* textureStone;
+sf::Texture* texturePool;
+sf::Texture* textureHouse;
+
 
 sf::String TextString = "(0, 0)";
 
@@ -41,8 +48,6 @@ constexpr int RUN_RIGHT_L = 17;
 
 void client_initialize()
 {
-	textureMap = new sf::Texture;
-	textureMap->loadFromFile("images/map.png");
 	textureCharacter = new sf::Texture * [18];
 	for (int i = 0; i < 18; i++)
 		textureCharacter[i] = new sf::Texture;
@@ -68,16 +73,31 @@ void client_initialize()
 		textureCharacter[17]->loadFromFile("images/player/run/right/Player_Run_17.png");
 	}
 
-	//initialize map
+	//Object Texture
+	{
+		textureTree = new sf::Texture;
+		textureTree->loadFromFile("images/tree.png");
+		textureStone = new sf::Texture;
+		textureStone->loadFromFile("images/stone.png");
+		texturePool = new sf::Texture;
+		texturePool->loadFromFile("images/pool.png");
+		textureHouse = new sf::Texture;
+		textureHouse->loadFromFile("images/house.png");
+	}
 
+	//initialize map
+	textureMap = new sf::Texture;
+	textureMap->loadFromFile("images/houseMap.png");
 	gameMap = OBJECT{ *textureMap, 0, 0, 1000, 1000 };
 
+	house = OBJECT{ *textureHouse, 0, 0, 100, 100 };
+	house.a_move(10, 10);
 	myPlayer = OBJECT{ *textureCharacter[IDLE_LEFT], 0, 0, 50, 50 };
 	myPlayer.move(4, 4);
 	g_left_x = 4 * TILE_WIDTH - TILE_WIDTH * 10;
 	g_top_y = 4 * TILE_WIDTH - TILE_WIDTH * 10;
 	myPlayer.show();
-
+	
 	/*for (auto& pl : players) {
 		pl = OBJECT{ *textureCharacter[0], 0, 0, 32, 32 };
 	}*/
