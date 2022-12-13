@@ -5,14 +5,8 @@
 #include <utility>
 #include <unordered_set>
 #include <array>
+#include "LUA_OBJECT.h"
 #include "protocol_2022.h"
-extern "C"
-{
-#include "include\lua.h"
-#include "include\lauxlib.h"
-#include "include\lualib.h"
-}
-#pragma comment(lib, "lua54.lib")
 
 using namespace std;
 
@@ -57,7 +51,7 @@ public:
 	mutex	_vl; // 뷰 리스트 전용 락
 	
 	pair<int, int> myLocalSectionIndex = make_pair(0, 0); // 현재 위치한 땅의 인덱스
-	lua_State* myLuaState;
+	LUA_OBJECT myLua;
 public:
 	SESSION();
 
