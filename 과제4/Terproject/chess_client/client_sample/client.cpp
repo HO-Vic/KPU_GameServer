@@ -24,11 +24,13 @@ OBJECT myPlayer;
 OBJECT players[MAX_USER];
 
 OBJECT white_tile;
-OBJECT gameMap;
+OBJECT gameHouseMap;
+OBJECT gameGeneralMap;
 OBJECT house;
 
 
-sf::Texture* textureMap;
+sf::Texture* textureHouseMap;
+sf::Texture* textureGeneralMap;
 sf::Texture** textureCharacter;
 sf::Texture* textureTree;
 sf::Texture* textureStone;
@@ -86,9 +88,14 @@ void client_initialize()
 	}
 
 	//initialize map
-	textureMap = new sf::Texture;
-	textureMap->loadFromFile("images/houseMap.png");
-	gameMap = OBJECT{ *textureMap, 0, 0, 1000, 1000 };
+	textureHouseMap = new sf::Texture;
+	textureHouseMap->loadFromFile("images/houseMap.png");
+	gameHouseMap = OBJECT{ *textureHouseMap, 0, 0, 1000, 1000 };
+
+	textureGeneralMap = new sf::Texture;
+	textureGeneralMap->loadFromFile("images/generalMap.png");
+	gameGeneralMap = OBJECT{ *textureGeneralMap, 0, 0, 1000, 1000 };
+
 
 	house = OBJECT{ *textureHouse, 0, 0, 100, 100 };
 	house.a_move(10, 10);
@@ -97,7 +104,7 @@ void client_initialize()
 	g_left_x = 4 * TILE_WIDTH - TILE_WIDTH * 10;
 	g_top_y = 4 * TILE_WIDTH - TILE_WIDTH * 10;
 	myPlayer.show();
-	
+
 	/*for (auto& pl : players) {
 		pl = OBJECT{ *textureCharacter[0], 0, 0, 32, 32 };
 	}*/
@@ -105,7 +112,7 @@ void client_initialize()
 
 void client_finish()
 {
-	delete textureMap;
+	delete textureHouseMap;
 
 }
 
@@ -304,26 +311,89 @@ void client_main()
 		//		}
 		//	}
 
-	if (g_left_x < 0) {
-		gameMap.m_x = abs(g_left_x);
-		gameMap.a_move(abs(g_left_x), gameMap.m_y);
+	/*if (g_left_x < 0) {
+		gameHouseMap.m_x = abs(g_left_x);
+		gameHouseMap.a_move(abs(g_left_x), gameHouseMap.m_y);
 	}
-	else if (g_left_x > 2000) {
-		gameMap.m_x = -abs(g_left_x - 2000);
-		gameMap.a_move(-abs(g_left_x - 2000), gameMap.m_y);
+	else if (g_left_x > 2000 - TILE_WIDTH * 10) {
+		gameHouseMap.m_x = -abs(g_left_x - 2000);
+		gameHouseMap.a_move(-abs(g_left_x - 2000), gameHouseMap.m_y);
 	}
 	else {
-		gameMap.m_x = 0;
-		gameMap.a_move(0, gameMap.m_y);
+		gameHouseMap.m_x = 0;
+		gameHouseMap.a_move(0, gameHouseMap.m_y);
 	}
 	if (g_top_y < 0) {
-		gameMap.a_move(gameMap.m_x, abs(g_top_y));
+		gameHouseMap.a_move(gameHouseMap.m_x, abs(g_top_y));
 	}
-	else if (g_top_y > 2000)
-		gameMap.a_move(gameMap.m_x, -abs(g_top_y - 2000));
-	else gameMap.a_move(gameMap.m_x, 0);
+	else if (g_top_y > 20000 - TILE_WIDTH * 10)
+		gameHouseMap.a_move(gameHouseMap.m_x, -abs(g_top_y - 2000));
+	else gameHouseMap.a_move(gameHouseMap.m_x, 0);*/
+	//gameHouseMap.a_draw();
 
-	gameMap.a_draw();
+	if (g_left_x < 0) { // 홈 끝 점
+		if (g_top_y <= 0) {
+			gameHouseMap.a_move(abs(g_left_x), abs(g_top_y));
+			gameHouseMap.a_draw();
+		}
+		else if (g_top_y < 1000) {
+			gameHouseMap.a_move(abs(g_left_x), -abs(g_top_y));
+			gameHouseMap.a_draw();
+			gameGeneralMap.a_move(abs(g_left_x), WINDOW_HEIGHT - abs(g_top_y));
+			gameGeneralMap.a_draw();
+		}
+		else if (g_top_y >= TILE_WIDTH * 20 * 10 - TILE_WIDTH * 20) {
+			gameGeneralMap.a_move(abs(g_left_x), -abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+		}
+		else {
+			gameGeneralMap.a_move(abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+			gameGeneralMap.a_move(abs(g_left_x % WINDOW_WIDTH), WINDOW_HEIGHT - abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+		}
+	}
+	else if (g_left_x <= 1000) {// 홈 과 겹침
+		if (g_top_y <= 0) {
+			gameHouseMap.a_move(-abs(g_left_x), abs(g_top_y));
+			gameHouseMap.a_draw();
+			gameGeneralMap.a_move(WINDOW_WIDTH - abs(g_left_x), abs(g_top_y));
+			gameGeneralMap.a_draw();
+		}
+		else if (g_top_y < 1000) {
+			gameHouseMap.a_move(-abs(g_left_x), -abs(g_top_y));
+			gameHouseMap.a_draw();
+			gameGeneralMap.a_move(WINDOW_WIDTH - abs(g_left_x), -abs(g_top_y));
+			gameGeneralMap.a_draw();
+			gameGeneralMap.a_move(-abs(g_left_x), WINDOW_HEIGHT - abs(g_top_y));
+			gameGeneralMap.a_draw();
+			gameGeneralMap.a_move(WINDOW_WIDTH - abs(g_left_x), WINDOW_HEIGHT - abs(g_top_y));
+			gameGeneralMap.a_draw();
+		}
+		else if (g_top_y >= TILE_WIDTH * 20 * 10 - TILE_WIDTH * 20) {
+			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+			gameGeneralMap.a_move(WINDOW_WIDTH - abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+		}
+		else {
+			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+			gameGeneralMap.a_move(WINDOW_WIDTH - abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+			gameGeneralMap.a_move(WINDOW_WIDTH - abs(g_left_x % WINDOW_WIDTH), WINDOW_HEIGHT - abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), WINDOW_HEIGHT - abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+		}
+	}
+	else if (g_left_x > 20000 - TILE_WIDTH * 10) { //끝점
+
+	}
+	else { // 나머지
+
+	}
+
 	myPlayer.draw();
 	//for (auto& pl : players) pl.draw();
 }
