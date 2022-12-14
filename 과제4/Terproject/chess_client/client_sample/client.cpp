@@ -387,11 +387,61 @@ void client_main()
 			gameGeneralMap.a_draw();
 		}
 	}
-	else if (g_left_x > 20000 - TILE_WIDTH * 10) { //끝점
-
+	else if (g_left_x > TILE_WIDTH * 20 * 10 - TILE_WIDTH * 20) { //끝점
+		if (g_top_y <= 0) {
+			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), abs(g_top_y));
+			gameGeneralMap.a_draw();
+		}
+		else if (g_top_y < 1000) {
+			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y));
+			gameGeneralMap.a_draw();
+			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), WINDOW_HEIGHT - abs(g_top_y));
+			gameGeneralMap.a_draw();
+		}
+		else if (g_top_y >= TILE_WIDTH * 20 * 10 - TILE_WIDTH * 20) {
+			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+		}
+		else {
+			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), WINDOW_HEIGHT - abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+		}
 	}
 	else { // 나머지
-
+		if (g_top_y <= 0) {
+			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+			gameGeneralMap.a_move(WINDOW_WIDTH - abs(g_left_x % WINDOW_WIDTH), abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+		}
+		/*else if (g_top_y < 1000) {
+			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+			gameGeneralMap.a_move(WINDOW_WIDTH - abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+			gameGeneralMap.a_move(WINDOW_WIDTH - abs(g_left_x % WINDOW_WIDTH), WINDOW_HEIGHT - abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), WINDOW_HEIGHT - abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+		}*/
+		else if (g_top_y >= TILE_WIDTH * 20 * 10 - TILE_WIDTH * 20) {
+			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+			gameGeneralMap.a_move(WINDOW_WIDTH - abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+		}
+		else {
+			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+			gameGeneralMap.a_move(WINDOW_WIDTH - abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+			gameGeneralMap.a_move(WINDOW_WIDTH - abs(g_left_x % WINDOW_WIDTH), WINDOW_HEIGHT - abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), WINDOW_HEIGHT - abs(g_top_y % WINDOW_HEIGHT));
+			gameGeneralMap.a_draw();
+		}
 	}
 
 	myPlayer.draw();
