@@ -51,7 +51,7 @@ public:
 	mutex	_vl; // 뷰 리스트 전용 락
 	
 	pair<int, int> myLocalSectionIndex = make_pair(0, 0); // 현재 위치한 땅의 인덱스
-	LUA_OBJECT myLua;
+	LUA_OBJECT* myLua;
 public:
 	SESSION();
 

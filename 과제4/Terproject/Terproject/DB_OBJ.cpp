@@ -19,7 +19,7 @@ DB_OBJ::DB_OBJ()
 			if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
 				SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0);
 				// Connect to data source  
-				retcode = SQLConnect(hdbc, (SQLWCHAR*)L"2018184010", SQL_NTS, (SQLWCHAR*)NULL, 0, NULL, 0);
+				retcode = SQLConnect(hdbc, (SQLWCHAR*)L"TermProject_2018184010", SQL_NTS, (SQLWCHAR*)NULL, 0, NULL, 0);
 				if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
 				}
 			}

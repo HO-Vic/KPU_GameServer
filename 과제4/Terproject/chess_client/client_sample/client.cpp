@@ -2,17 +2,17 @@
 #include "OBJECT.h"
 
 using namespace std;
-#include "protocol.h"
+#include "protocol_2022.h"
 
 sf::TcpSocket socket;
 wstring* g_loginId;
 sf::Font font;
-constexpr auto SCREEN_WIDTH = W_WIDTH;
-constexpr auto SCREEN_HEIGHT = W_HEIGHT;
+
+constexpr auto SCREEN_WIDTH = 20;
+constexpr auto SCREEN_HEIGHT = 20;
 
 constexpr auto WINDOW_WIDTH = SCREEN_WIDTH * TILE_WIDTH;   // size of window
 constexpr auto WINDOW_HEIGHT = SCREEN_WIDTH * TILE_WIDTH;
-constexpr auto MAX_USER = 10000;
 
 int g_left_x;
 int g_top_y;
@@ -23,20 +23,13 @@ sf::RenderWindow* g_window;
 OBJECT myPlayer;
 OBJECT players[MAX_USER];
 
-OBJECT white_tile;
 OBJECT gameHouseMap;
 OBJECT gameGeneralMap;
-OBJECT house;
 
 
 sf::Texture* textureHouseMap;
 sf::Texture* textureGeneralMap;
 sf::Texture** textureCharacter;
-sf::Texture* textureTree;
-sf::Texture* textureStone;
-sf::Texture* texturePool;
-sf::Texture* textureHouse;
-
 
 sf::String TextString = "(0, 0)";
 
@@ -75,18 +68,6 @@ void client_initialize()
 		textureCharacter[17]->loadFromFile("images/player/run/right/Player_Run_17.png");
 	}
 
-	//Object Texture
-	{
-		textureTree = new sf::Texture;
-		textureTree->loadFromFile("images/tree.png");
-		textureStone = new sf::Texture;
-		textureStone->loadFromFile("images/stone.png");
-		texturePool = new sf::Texture;
-		texturePool->loadFromFile("images/pool.png");
-		textureHouse = new sf::Texture;
-		textureHouse->loadFromFile("images/house.png");
-	}
-
 	//initialize map
 	textureHouseMap = new sf::Texture;
 	textureHouseMap->loadFromFile("images/houseMap.png");
@@ -96,9 +77,6 @@ void client_initialize()
 	textureGeneralMap->loadFromFile("images/generalMap.png");
 	gameGeneralMap = OBJECT{ *textureGeneralMap, 0, 0, 1000, 1000 };
 
-
-	house = OBJECT{ *textureHouse, 0, 0, 100, 100 };
-	house.a_move(10, 10);
 	myPlayer = OBJECT{ *textureCharacter[IDLE_LEFT], 0, 0, 50, 50 };
 	myPlayer.move(4, 4);
 	g_left_x = 4 * TILE_WIDTH - TILE_WIDTH * 10;
@@ -118,144 +96,144 @@ void client_finish()
 
 void ProcessPacket(char* ptr)
 {
-	static bool first_time = true;
-	switch (ptr[1])
-	{
-	case SC_LOGIN_FAIL_INFO:
-	{
-		//g_window->close();
-		*g_loginId = L"Login Error";
-	}
-	break;
-	case SC_LOGIN_INFO:
-	{
-		SC_LOGIN_INFO_PACKET* packet = reinterpret_cast<SC_LOGIN_INFO_PACKET*>(ptr);
-		g_myid = packet->id;
-		myPlayer.m_x = packet->x;
-		myPlayer.m_y = packet->y;
-		string str{ packet->name };
+	//static bool first_time = true;
+	//switch (ptr[1])
+	//{
+	//case SC_LOGIN_FAIL_INFO:
+	//{
+	//	//g_window->close();
+	//	*g_loginId = L"Login Error";
+	//}
+	//break;
+	//case SC_LOGIN_INFO:
+	//{
+	//	SC_LOGIN_INFO_PACKET* packet = reinterpret_cast<SC_LOGIN_INFO_PACKET*>(ptr);
+	//	g_myid = packet->id;
+	//	myPlayer.m_x = packet->x;
+	//	myPlayer.m_y = packet->y;
+	//	string str{ packet->name };
 
-		myPlayer.nameText.setColor(sf::Color::Green);
-		myPlayer.nameText.setOutlineColor(sf::Color::Green);
-		myPlayer.nameText.setString(packet->name);
-		char xPos[5];
-		char yPos[5];
+	//	myPlayer.nameText.setColor(sf::Color::Green);
+	//	myPlayer.nameText.setOutlineColor(sf::Color::Green);
+	//	myPlayer.nameText.setString(packet->name);
+	//	char xPos[5];
+	//	char yPos[5];
 
-		_itoa(myPlayer.m_x, xPos, 10);
-		_itoa(myPlayer.m_y, yPos, 10);
-		TextString.clear();
-		TextString += "(";
-		TextString += xPos;
-		TextString += ", ";
-		TextString += yPos;
-		TextString += ")";
+	//	_itoa(myPlayer.m_x, xPos, 10);
+	//	_itoa(myPlayer.m_y, yPos, 10);
+	//	TextString.clear();
+	//	TextString += "(";
+	//	TextString += xPos;
+	//	TextString += ", ";
+	//	TextString += yPos;
+	//	TextString += ")";
 
-		g_window->close();
-		myPlayer.show();
-		break;
-	}
+	//	g_window->close();
+	//	myPlayer.show();
+	//	break;
+	//}
 
-	case SC_ADD_PLAYER:
-	{
-		SC_ADD_PLAYER_PACKET* my_packet = reinterpret_cast<SC_ADD_PLAYER_PACKET*>(ptr);
-		int id = my_packet->id;
+	//case SC_ADD_PLAYER:
+	//{
+	//	SC_ADD_PLAYER_PACKET* my_packet = reinterpret_cast<SC_ADD_PLAYER_PACKET*>(ptr);
+	//	int id = my_packet->id;
 
-		if (id == g_myid) {
-			myPlayer.move(my_packet->x, my_packet->y);
-			g_left_x = my_packet->x - 10 * 50;
-			g_top_y = my_packet->y - 10 * 50;
-			//memcpy(avatar.name, my_packet->name, strlen(my_packet->name));
-			char xPos[5];
-			char yPos[5];
+	//	if (id == g_myid) {
+	//		myPlayer.move(my_packet->x, my_packet->y);
+	//		g_left_x = my_packet->x - 10 * 50;
+	//		g_top_y = my_packet->y - 10 * 50;
+	//		//memcpy(avatar.name, my_packet->name, strlen(my_packet->name));
+	//		char xPos[5];
+	//		char yPos[5];
 
-			_itoa(myPlayer.m_x, xPos, 10);
-			_itoa(myPlayer.m_y, yPos, 10);
-			TextString.clear();
-			TextString += "(";
-			TextString += xPos;
-			TextString += ", ";
-			TextString += yPos;
-			TextString += ")";
+	//		_itoa(myPlayer.m_x, xPos, 10);
+	//		_itoa(myPlayer.m_y, yPos, 10);
+	//		TextString.clear();
+	//		TextString += "(";
+	//		TextString += xPos;
+	//		TextString += ", ";
+	//		TextString += yPos;
+	//		TextString += ")";
 
-			myPlayer.show();
-		}
-		else if (id < MAX_USER) {
-			players[id].move(my_packet->x, my_packet->y);
-			//memcpy(avatar.name, my_packet->name, strlen(my_packet->name));
-			players[id].nameText.setString(my_packet->name);
-			players[id].show();
-		}
-		else {
-			//npc[id - NPC_START].x = my_packet->x;
-			//npc[id - NPC_START].y = my_packet->y;
-			//npc[id - NPC_START].attr |= BOB_ATTR_VISIBLE;
-		}
-		break;
-	}
-	case SC_MOVE_PLAYER:
-	{
-		SC_MOVE_PLAYER_PACKET* my_packet = reinterpret_cast<SC_MOVE_PLAYER_PACKET*>(ptr);
-		int other_id = my_packet->id;
-		if (other_id == g_myid) {
-			myPlayer.move(my_packet->x, my_packet->y);
-			g_left_x = my_packet->x - 10 * 50;
-			g_top_y = my_packet->y - 10 * 50;
+	//		myPlayer.show();
+	//	}
+	//	else if (id < MAX_USER) {
+	//		players[id].move(my_packet->x, my_packet->y);
+	//		//memcpy(avatar.name, my_packet->name, strlen(my_packet->name));
+	//		players[id].nameText.setString(my_packet->name);
+	//		players[id].show();
+	//	}
+	//	else {
+	//		//npc[id - NPC_START].x = my_packet->x;
+	//		//npc[id - NPC_START].y = my_packet->y;
+	//		//npc[id - NPC_START].attr |= BOB_ATTR_VISIBLE;
+	//	}
+	//	break;
+	//}
+	//case SC_MOVE_PLAYER:
+	//{
+	//	SC_MOVE_PLAYER_PACKET* my_packet = reinterpret_cast<SC_MOVE_PLAYER_PACKET*>(ptr);
+	//	int other_id = my_packet->id;
+	//	if (other_id == g_myid) {
+	//		myPlayer.move(my_packet->x, my_packet->y);
+	//		g_left_x = my_packet->x - 10 * 50;
+	//		g_top_y = my_packet->y - 10 * 50;
 
-			char xPos[5];
-			char yPos[5];
+	//		char xPos[5];
+	//		char yPos[5];
 
-			_itoa(myPlayer.m_x, xPos, 10);
-			_itoa(myPlayer.m_y, yPos, 10);
-			TextString.clear();
-			TextString += "(";
-			TextString += xPos;
-			TextString += ", ";
-			TextString += yPos;
-			TextString += ")";
+	//		_itoa(myPlayer.m_x, xPos, 10);
+	//		_itoa(myPlayer.m_y, yPos, 10);
+	//		TextString.clear();
+	//		TextString += "(";
+	//		TextString += xPos;
+	//		TextString += ", ";
+	//		TextString += yPos;
+	//		TextString += ")";
 
 
-		}
-		else if (other_id < MAX_USER) {
-			players[other_id].move(my_packet->x, my_packet->y);
-		}
-		else {
-			//npc[other_id - NPC_START].x = my_packet->x;
-			//npc[other_id - NPC_START].y = my_packet->y;
-		}
-		break;
-	}
+	//	}
+	//	else if (other_id < MAX_USER) {
+	//		players[other_id].move(my_packet->x, my_packet->y);
+	//	}
+	//	else {
+	//		//npc[other_id - NPC_START].x = my_packet->x;
+	//		//npc[other_id - NPC_START].y = my_packet->y;
+	//	}
+	//	break;
+	//}
 
-	case SC_REMOVE_PLAYER:
-	{
-		SC_REMOVE_PLAYER_PACKET* my_packet = reinterpret_cast<SC_REMOVE_PLAYER_PACKET*>(ptr);
-		int other_id = my_packet->id;
-		if (other_id == g_myid) {
-			myPlayer.hide();
-		}
-		else if (other_id < MAX_USER) {
-			players[other_id].hide();
-		}
-		else {
-			//      npc[other_id - NPC_START].attr &= ~BOB_ATTR_VISIBLE;
-		}
-		break;
-	}
-	case SC_CHAT:
-	{
-		SC_CHAT_PACKET* my_packet = reinterpret_cast<SC_CHAT_PACKET*>(ptr);
-		int other_id = my_packet->id;
-		if (other_id == g_myid) {
-			myPlayer.set_chat(my_packet->mess);
-		}
-		else {
-			players[other_id].set_chat(my_packet->mess);
-		}
+	//case SC_REMOVE_PLAYER:
+	//{
+	//	SC_REMOVE_PLAYER_PACKET* my_packet = reinterpret_cast<SC_REMOVE_PLAYER_PACKET*>(ptr);
+	//	int other_id = my_packet->id;
+	//	if (other_id == g_myid) {
+	//		myPlayer.hide();
+	//	}
+	//	else if (other_id < MAX_USER) {
+	//		players[other_id].hide();
+	//	}
+	//	else {
+	//		//      npc[other_id - NPC_START].attr &= ~BOB_ATTR_VISIBLE;
+	//	}
+	//	break;
+	//}
+	//case SC_CHAT:
+	//{
+	//	SC_CHAT_PACKET* my_packet = reinterpret_cast<SC_CHAT_PACKET*>(ptr);
+	//	int other_id = my_packet->id;
+	//	if (other_id == g_myid) {
+	//		myPlayer.set_chat(my_packet->mess);
+	//	}
+	//	else {
+	//		players[other_id].set_chat(my_packet->mess);
+	//	}
 
-		break;
-	}
-	default:
-		printf("Unknown PACKET type [%d]\n", ptr[1]);
-	}
+	//	break;
+	//}
+	//default:
+	//	printf("Unknown PACKET type [%d]\n", ptr[1]);
+	//}
 }
 
 void process_data(char* net_buf, size_t io_byte)
@@ -297,40 +275,7 @@ void client_main()
 	if (recv_result != sf::Socket::NotReady)
 		if (received > 0) process_data(net_buf, received);*/
 
-		//for (int i = 0; i < SCREEN_WIDTH; ++i)
-		//	for (int j = 0; j < SCREEN_HEIGHT; ++j)
-		//	{
-		//		int tile_x = i + g_left_x;
-		//		int tile_y = j + g_top_y;
-		//		if ((tile_x < 0) || (tile_y < 0)) continue;
-		//		if ((tile_x > 2000) || (tile_y > 2000)) continue;
-		//		else
-		//		{
-		//			gameMap[tile_x / 20][tile_y / 20].a_move(tile_x % 20, tile_y % 20);
-		//			gameMap[tile_x / 20][tile_y / 20].a_draw();
-		//		}
-		//	}
-
-	/*if (g_left_x < 0) {
-		gameHouseMap.m_x = abs(g_left_x);
-		gameHouseMap.a_move(abs(g_left_x), gameHouseMap.m_y);
-	}
-	else if (g_left_x > 2000 - TILE_WIDTH * 10) {
-		gameHouseMap.m_x = -abs(g_left_x - 2000);
-		gameHouseMap.a_move(-abs(g_left_x - 2000), gameHouseMap.m_y);
-	}
-	else {
-		gameHouseMap.m_x = 0;
-		gameHouseMap.a_move(0, gameHouseMap.m_y);
-	}
-	if (g_top_y < 0) {
-		gameHouseMap.a_move(gameHouseMap.m_x, abs(g_top_y));
-	}
-	else if (g_top_y > 20000 - TILE_WIDTH * 10)
-		gameHouseMap.a_move(gameHouseMap.m_x, -abs(g_top_y - 2000));
-	else gameHouseMap.a_move(gameHouseMap.m_x, 0);*/
-	//gameHouseMap.a_draw();
-
+	//map rendering
 	if (g_left_x < 0) { // 홈 끝 점
 		if (g_top_y <= 0) {
 			gameHouseMap.a_move(abs(g_left_x), abs(g_top_y));
@@ -415,17 +360,7 @@ void client_main()
 			gameGeneralMap.a_draw();
 			gameGeneralMap.a_move(WINDOW_WIDTH - abs(g_left_x % WINDOW_WIDTH), abs(g_top_y % WINDOW_HEIGHT));
 			gameGeneralMap.a_draw();
-		}
-		/*else if (g_top_y < 1000) {
-			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
-			gameGeneralMap.a_draw();
-			gameGeneralMap.a_move(WINDOW_WIDTH - abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
-			gameGeneralMap.a_draw();
-			gameGeneralMap.a_move(WINDOW_WIDTH - abs(g_left_x % WINDOW_WIDTH), WINDOW_HEIGHT - abs(g_top_y % WINDOW_HEIGHT));
-			gameGeneralMap.a_draw();
-			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), WINDOW_HEIGHT - abs(g_top_y % WINDOW_HEIGHT));
-			gameGeneralMap.a_draw();
-		}*/
+		}		
 		else if (g_top_y >= TILE_WIDTH * 20 * 10 - TILE_WIDTH * 20) {
 			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
 			gameGeneralMap.a_draw();

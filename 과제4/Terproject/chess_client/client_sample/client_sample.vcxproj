@@ -204,7 +204,7 @@
     <ClInclude Include="include\SFML\Window\WindowHandle.hpp" />
     <ClInclude Include="include\SFML\Window\WindowStyle.hpp" />
     <ClInclude Include="OBJECT.h" />
-    <ClInclude Include="protocol.h" />
+    <ClInclude Include="protocol_2022.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="include\SFML\Graphics\Glsl.inl" />

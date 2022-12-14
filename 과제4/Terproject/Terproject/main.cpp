@@ -3,6 +3,7 @@
 #include <MSWSock.h>
 #include <thread>
 #include <vector>
+#include <random>
 #include "SESSION.h"
 #include "LOCAL_SESSION.h"
 #include "DB_OBJ.h"
@@ -18,6 +19,9 @@ SOCKET clientSocket;
 EXP_OVER acceptOver;
 HANDLE g_iocpHandle;
 
+random_device npcRd;
+default_random_engine npcDre(npcRd());
+uniform_int_distribution<int> npcRandPosUid(20, 2000 - 1);
 
 //main func
 bool can_see(int from, int to);
@@ -417,26 +421,12 @@ void InitializeNPC()
 {
 	cout << "NPC intialize begin.\n";
 	for (int i = MAX_USER; i < MAX_USER + MAX_NPC; ++i) {
-		clients[i].x = rand() % W_WIDTH;
-		clients[i].y = rand() % W_HEIGHT;
+		clients[i].x = npcRandPosUid(npcDre);
+		clients[i].y = npcRandPosUid(npcDre);
 		clients[i]._id = i;
+		clients[i].myLua = new LUA_OBJECT(clients[i]._id);
 		sprintf_s(clients[i]._name, "NPC%d", i);
 		clients[i]._state = ST_INGAME;
-
-		//auto L = clients[i].myLuaState = luaL_newstate();
-		luaL_openlibs(L);
-		luaL_loadfile(L, "npc.lua");
-		lua_pcall(L, 0, 0, 0);
-
-		lua_getglobal(L, "set_uid");
-		lua_pushnumber(L, i);
-		lua_pcall(L, 1, 0, 0);
-		// lua_pop(L, 1);// eliminate set_uid from stack after call
-
-		/*lua_register(clients[i]._L, "SendHelloMessage", API_helloSendMessage);
-		lua_register(clients[i]._L, "SendByeMessage", API_ByeSendMessage);
-		lua_register(L, "API_get_x", API_get_x);
-		lua_register(L, "API_get_y", API_get_y);*/
 	}
 	cout << "NPC initialize end.\n";
 }
