@@ -6,11 +6,9 @@ class Game_OBJECT;
 class LOCAL_SESSION
 {
 private:
-	Game_OBJECT* stone;
-	Game_OBJECT* tree;
+	Game_OBJECT* obstacle;
 	int x, y;
-	int treeCount = 0;
-	int stoneCount = 0;
+	int obstacleCount = 0;	
 
 	std::unordered_set<int> players;
 	std::mutex playersLock;
@@ -24,6 +22,7 @@ public:
 	void InsertPlayers(SESSION& player);
 	void UpdatePlayers(SESSION& player, std::array< std::array<LOCAL_SESSION, 100>, 100>& maps);
 	const std::unordered_set<int>& GetPlayer();
+	bool CollisionObject(int x, int y);
 public:
 	void SetPos(int x, int y);
 };

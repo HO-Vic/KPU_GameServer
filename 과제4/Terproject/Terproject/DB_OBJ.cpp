@@ -42,9 +42,9 @@ DB_OBJ::DB_OBJ()
 			if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
 				SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0);
 				// Connect to data source  
-				retcode = SQLConnect(hdbc, (SQLWCHAR*)L"TermProject_2018184010", SQL_NTS, (SQLWCHAR*)NULL, 0, NULL, 0);
+				retcode = SQLConnect(hdbc, (SQLWCHAR*)L"TermProject2018184010", SQL_NTS, (SQLWCHAR*)NULL, 0, NULL, 0);
 				if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
-					cout << "DB Success" << endl;
+					//cout << "DB Success" << endl;
 				}
 			}
 		}
@@ -78,8 +78,6 @@ bool DB_OBJ::GetPlayerInfo(wstring PlayerLoginId, wstring& outputPlayerName, sho
 
 	SQLINTEGER szHp = 0;
 	SQLLEN cbHp = 0;
-
-
 
 	wstring oper = L"EXEC select_user_Info ";
 	oper.append(PlayerLoginId);

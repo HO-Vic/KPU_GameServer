@@ -75,13 +75,6 @@ void client_initialize()
 	textureGeneralMap = new sf::Texture;
 	textureGeneralMap->loadFromFile("images/generalMap.png");
 	gameGeneralMap = OBJECT{ *textureGeneralMap, 0, 0, 1000, 1000 };
-
-	myPlayer = PLAYER{ *textureCharacter[IDLE_LEFT], 0, 0, 50, 50 };
-	myPlayer.move(4, 4);
-	g_left_x = 4 * TILE_WIDTH - TILE_WIDTH * 10;
-	g_top_y = 4 * TILE_WIDTH - TILE_WIDTH * 10;
-	myPlayer.show();
-
 	/*for (auto& pl : players) {
 		pl = OBJECT{ *textureCharacter[0], 0, 0, 32, 32 };
 	}*/
@@ -107,14 +100,15 @@ void ProcessPacket(char* ptr)
 	case SC_LOGIN_INFO:
 	{
 		SC_LOGIN_INFO_PACKET* packet = reinterpret_cast<SC_LOGIN_INFO_PACKET*>(ptr);
+		myPlayer = PLAYER{ *textureCharacter[IDLE_LEFT], 0, 0, 50, 50 };
 		g_myid = packet->id;
 		myPlayer.m_x = packet->x;
 		myPlayer.m_y = packet->y;
 		string str{ packet->name };
 
-		strncpy(myPlayer.name, packet->name, strlen(packet->name));		
+		strncpy(myPlayer.name, packet->name, strlen(packet->name));
 		myPlayer.SetNameText();
-		
+
 		char xPos[7];
 		char yPos[7];
 
@@ -128,6 +122,9 @@ void ProcessPacket(char* ptr)
 		TextString += ")";
 
 		g_window->close();
+
+		g_left_x = myPlayer.m_x * TILE_WIDTH - TILE_WIDTH * 10;
+		g_top_y = myPlayer.m_y * TILE_WIDTH - TILE_WIDTH * 10;
 		myPlayer.show();
 		break;
 	}
@@ -157,8 +154,8 @@ void ProcessPacket(char* ptr)
 			myPlayer.show();
 		}
 		else if (id < MAX_USER) {
-			players[id].move(my_packet->x, my_packet->y);		
-			strncpy(players[id].name, my_packet->name, strlen(my_packet->name));	
+			players[id].move(my_packet->x, my_packet->y);
+			strncpy(players[id].name, my_packet->name, strlen(my_packet->name));
 			players[id].SetNameText();
 			players[id].show();
 		}
@@ -174,9 +171,9 @@ void ProcessPacket(char* ptr)
 		SC_MOVE_OBJECT_PACKET* my_packet = reinterpret_cast<SC_MOVE_OBJECT_PACKET*>(ptr);
 		int other_id = my_packet->id;
 		if (other_id == g_myid) {
-			myPlayer.move(my_packet->x, my_packet->y);
-			g_left_x = my_packet->x - 10 * 50;
-			g_top_y = my_packet->y - 10 * 50;
+			myPlayer.move(my_packet->x, my_packet->y);		
+			g_left_x = my_packet->x * TILE_WIDTH - 10 * TILE_WIDTH;
+			g_top_y = my_packet->y * TILE_WIDTH - 10 * TILE_WIDTH;
 
 			char xPos[5];
 			char yPos[5];
@@ -262,7 +259,7 @@ void process_data(char* net_buf, size_t io_byte)
 
 void client_main()
 {
-	/*char net_buf[BUF_SIZE];
+	char net_buf[BUF_SIZE];
 	size_t   received;
 
 	auto recv_result = socket.receive(net_buf, BUF_SIZE, received);
@@ -272,9 +269,9 @@ void client_main()
 		while (true);
 	}
 	if (recv_result != sf::Socket::NotReady)
-		if (received > 0) process_data(net_buf, received);*/
+		if (received > 0) process_data(net_buf, received);
 
-	//map rendering
+		//map rendering
 	if (g_left_x < 0) { // 홈 끝 점
 		if (g_top_y <= 0) {
 			gameHouseMap.a_move(abs(g_left_x), abs(g_top_y));
@@ -359,7 +356,7 @@ void client_main()
 			gameGeneralMap.a_draw();
 			gameGeneralMap.a_move(WINDOW_WIDTH - abs(g_left_x % WINDOW_WIDTH), abs(g_top_y % WINDOW_HEIGHT));
 			gameGeneralMap.a_draw();
-		}		
+		}
 		else if (g_top_y >= TILE_WIDTH * 20 * 10 - TILE_WIDTH * 20) {
 			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
 			gameGeneralMap.a_draw();
@@ -498,53 +495,46 @@ int main()
 				int direction = -1;
 				switch (event.key.code) {
 				case sf::Keyboard::Left:
-					myPlayer.move(myPlayer.m_x - 1, myPlayer.m_y);
-					g_left_x = myPlayer.m_x * TILE_WIDTH - 10 * TILE_WIDTH;
+
 					direction = 3;
 					break;
 				case sf::Keyboard::Right:
-					myPlayer.move(myPlayer.m_x + 1, myPlayer.m_y);
-					g_left_x = myPlayer.m_x * TILE_WIDTH - 10 * TILE_WIDTH;
 					direction = 4;
 					break;
 				case sf::Keyboard::Up:
-					myPlayer.move(myPlayer.m_x, myPlayer.m_y - 1);
-					g_top_y = myPlayer.m_y * TILE_WIDTH - 10 * TILE_WIDTH;
 					direction = 1;
 					break;
 				case sf::Keyboard::Down:
-					myPlayer.move(myPlayer.m_x, myPlayer.m_y + 1);
-					g_top_y = myPlayer.m_y * TILE_WIDTH - 10 * TILE_WIDTH;
 					direction = 2;
 					break;
-					/*case sf::Keyboard::Escape:
-					{
-						CS_LOG_OUT_PACKET logoutPakcet;
-						logoutPakcet.size = sizeof(CS_LOG_OUT_PACKET);
-						logoutPakcet.type = CS_LOG_OUT;
-						send_packet(&logoutPakcet);
-						window.close();
-					}
-					break;
-					}
-					if (-1 != direction) {
-						CS_MOVE_PACKET p;
-						p.size = sizeof(p);
-						p.type = CS_MOVE;
-						p.direction = direction;
-						send_packet(&p);
-					}*/
-
+				case sf::Keyboard::Escape:
+				{
+					CS_LOGOUT_PACKET logoutPakcet;
+					logoutPakcet.size = sizeof(CS_LOGOUT_PACKET);
+					logoutPakcet.type = CS_LOGOUT;
+					send_packet(&logoutPakcet);
+					window.close();
 				}
-			}
+				break;
+				}
+				if (-1 != direction) {
+					CS_MOVE_PACKET p;
+					p.size = sizeof(p);
+					p.type = CS_MOVE;
+					p.direction = direction;
+					send_packet(&p);
+				}
 
-			window.clear();
-			client_main();
-			/*myPosText.setString(TextString);
-			window.draw(myPosText);*/
-			window.display();
+			}
 		}
+
+		window.clear();
+		client_main();
+		/*myPosText.setString(TextString);
+		window.draw(myPosText);*/
+		window.display();
 	}
+
 	client_finish();
 
 	return 0;

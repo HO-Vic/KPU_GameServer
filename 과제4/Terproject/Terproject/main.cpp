@@ -81,7 +81,7 @@ int main()
 	int num_threads = std::thread::hardware_concurrency();
 
 	for (int i = 0; i < num_threads; ++i) {
-		
+
 		worker_threads.emplace_back(worker_thread);
 	}
 
@@ -135,6 +135,13 @@ void process_packet(int c_id, char* packet)
 		case 3: if (x > 0) x--; break;
 		case 4: if (x < W_WIDTH - 1) x++; break;
 		}
+
+		//map Object Collision
+		if (gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second].CollisionObject(x, y)) {
+			x = clients[c_id].x;
+			y = clients[c_id].y;
+		}
+
 		clients[c_id].x = x;
 		clients[c_id].y = y;
 
@@ -145,14 +152,6 @@ void process_packet(int c_id, char* packet)
 		clients[c_id]._vl.lock();
 		unordered_set<int> old_vlist = clients[c_id]._view_list;
 		clients[c_id]._vl.unlock();
-
-		//all clients search - ¿øº»
-		/*for (auto& cl : clients) {
-			if (cl._state != ST_INGAME) continue;
-			if (cl._id == c_id) continue;
-			if (can_see(c_id, cl._id))
-				near_list.insert(cl._id);
-		}*/
 
 		UpdateNearList(near_list, c_id);
 
@@ -278,7 +277,7 @@ void worker_thread()
 			wstring userId;
 			userId.assign(userStr.begin(), userStr.end());
 			wstring playerName;
-			
+
 			dbObj.GetPlayerInfo(userId, playerName, clients[key].x, clients[key].y, clients[key].level, clients[key].exp, clients[key].hp);
 
 			if (playerName.empty()) {
@@ -290,7 +289,7 @@ void worker_thread()
 			else {
 				string playerStr;
 				playerStr.assign(playerName.begin(), playerName.end());
-				memcpy(clients[key]._name, playerStr.c_str(), NAME_SIZE);				
+				memcpy(clients[key]._name, playerStr.c_str(), NAME_SIZE);
 
 				clients[key].send_login_info_packet();
 				{
@@ -418,7 +417,15 @@ void UpdateNearList(std::unordered_set<int>& newNearList, int c_id)
 void InitializeNPC()
 {
 	cout << "NPC intialize begin.\n";
-	for (int i = MAX_USER; i < MAX_USER + MAX_NPC; ++i) {
+	for (int i = MAX_USER; i < MAX_USER + 3; ++i) {
+		clients[i].x = npcRandPosUid(npcDre);
+		clients[i].y = npcRandPosUid(npcDre);
+		clients[i]._id = i;
+		clients[i].myLua = new LUA_OBJECT(clients[i]._id, "lua_script\boss.lua");
+		sprintf_s(clients[i]._name, "NPC%d", i);
+		clients[i]._state = ST_INGAME;
+	}
+	for (int i = MAX_USER + 3; i < MAX_USER + MAX_NPC; ++i) {
 		clients[i].x = npcRandPosUid(npcDre);
 		clients[i].y = npcRandPosUid(npcDre);
 		clients[i]._id = i;

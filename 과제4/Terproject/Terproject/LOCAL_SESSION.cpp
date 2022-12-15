@@ -3,53 +3,66 @@
 #include "Game_OBJECT.h"
 #include "SESSION.h"
 LOCAL_SESSION::LOCAL_SESSION()
-{
-	/*stone = nullptr;
-	tree = nullptr;*/
-	stoneCount = 3;
-	treeCount = 3;
-	stone = new  Game_OBJECT[stoneCount];
-	tree = new  Game_OBJECT[treeCount];
-	for (int i = 0; i < stoneCount; i++) {
-		stone[i] = Game_OBJECT(5, 3);
-		stone[i] = Game_OBJECT(12, 6);
-		stone[i] = Game_OBJECT(8, 7);
-	}
+{	
+	obstacleCount = 31;	
+	obstacle = new  Game_OBJECT[obstacleCount];
+	obstacle[0] = Game_OBJECT(make_pair(5, 1));
+	obstacle[1] = Game_OBJECT(make_pair(6, 1));
+	obstacle[2] = Game_OBJECT(make_pair(7, 1));
+	obstacle[3] = Game_OBJECT(make_pair(2, 3));
+	obstacle[4] = Game_OBJECT(make_pair(5, 3));
+	obstacle[5] = Game_OBJECT(make_pair(14, 3));
+	obstacle[6] = Game_OBJECT(make_pair(17, 4));
+	obstacle[7] = Game_OBJECT(make_pair(2, 6));
+	obstacle[8] = Game_OBJECT(make_pair(10, 6));
+	obstacle[9] = Game_OBJECT(make_pair(6, 8));
+	obstacle[10] = Game_OBJECT(make_pair(7, 8));
+	obstacle[11] = Game_OBJECT(make_pair(8, 8));
+	obstacle[12] = Game_OBJECT(make_pair(9, 8));
+	obstacle[13] = Game_OBJECT(make_pair(10, 8));
+	obstacle[14] = Game_OBJECT(make_pair(13, 8));
+	obstacle[15] = Game_OBJECT(make_pair(6, 9));
+	obstacle[16] = Game_OBJECT(make_pair(7, 9));
+	obstacle[17] = Game_OBJECT(make_pair(8, 9));
+	obstacle[18] = Game_OBJECT(make_pair(9, 9));
+	obstacle[19] = Game_OBJECT(make_pair(10, 9));
+	obstacle[20] = Game_OBJECT(make_pair(17, 10));
+	obstacle[21] = Game_OBJECT(make_pair(2, 11));
+	obstacle[22] = Game_OBJECT(make_pair(15, 13));
+	obstacle[23] = Game_OBJECT(make_pair(13, 14));
+	obstacle[24] = Game_OBJECT(make_pair(2, 15));
+	obstacle[25] = Game_OBJECT(make_pair(6, 15));
+	obstacle[26] = Game_OBJECT(make_pair(16, 15));
+	obstacle[27] = Game_OBJECT(make_pair(16, 16));
+	obstacle[28] = Game_OBJECT(make_pair(7, 17));
+	obstacle[29] = Game_OBJECT(make_pair(8, 17));
+	obstacle[30] = Game_OBJECT(make_pair(16, 17));
 
-	for (int i = 0; i < treeCount; i++) {
-		tree[i] = Game_OBJECT(5, 3);
-		tree[i] = Game_OBJECT(12, 6);
-		tree[i] = Game_OBJECT(8, 7);
-	}
+
 }
 
 LOCAL_SESSION::LOCAL_SESSION(int posX, int posY) : x(posX), y(posY)
 {
-	if (posX < 3 || posY < 3) {
-		stone = nullptr;
-		tree = nullptr;
+	if (posX < 3 || posY < 3) {		
+		obstacle = nullptr;
 		return;
 	}
 }
 
 LOCAL_SESSION::LOCAL_SESSION(LOCAL_SESSION& rhs)
 {
-	stone = rhs.stone;
-	tree = rhs.tree;
-	rhs.stone = nullptr;
-	rhs.tree = nullptr;
+	obstacle = rhs.obstacle;
+	rhs.obstacle = nullptr;
 	x = rhs.x;
 	y = rhs.y;
-	treeCount = rhs.treeCount;
-	stoneCount = rhs.stoneCount;
+	obstacleCount = rhs.obstacleCount;
 }
 
 LOCAL_SESSION::~LOCAL_SESSION()
 {
-	if (stone != nullptr)
-		delete[] stone;
-	if (tree != nullptr)
-		delete[] tree;
+	if (obstacle != nullptr)
+		delete[] obstacle;
+	
 }
 
 void LOCAL_SESSION::InsertPlayers(SESSION& player)
@@ -92,6 +105,15 @@ void LOCAL_SESSION::UpdatePlayers(SESSION& player, std::array< std::array<LOCAL_
 const std::unordered_set<int>& LOCAL_SESSION::GetPlayer()
 {
 	return players;
+}
+
+bool LOCAL_SESSION::CollisionObject(int x, int y)
+{
+	for (int i = 0; i < obstacleCount; i++) {
+		if (obstacle[i].Collide(x % 20, y % 20))
+			return true;
+	}
+	return false;
 }
 
 void LOCAL_SESSION::SetPos(int x, int y)
