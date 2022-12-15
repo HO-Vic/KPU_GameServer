@@ -4,9 +4,7 @@
 #include <mutex>
 #include <utility>
 #include <unordered_set>
-#include <array>
 #include "LUA_OBJECT.h"
-#include "protocol_2022.h"
 
 using namespace std;
 
@@ -70,3 +68,4 @@ public:
 	void send_remove_player_packet(int c_id);
 };
 
+extern array<SESSION, MAX_USER> clients;

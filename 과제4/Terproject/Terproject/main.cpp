@@ -22,6 +22,7 @@ HANDLE g_iocpHandle;
 random_device npcRd;
 default_random_engine npcDre(npcRd());
 uniform_int_distribution<int> npcRandPosUid(20, 2000 - 1);
+uniform_int_distribution<int> bossRandPosUid(1000, 1200 - 1);
 
 //main func
 bool can_see(int from, int to);
@@ -32,7 +33,7 @@ void worker_thread();
 
 void UpdateNearList(std::unordered_set<int>& newNearList, int c_id);
 
-//lua func
+//NPC func
 void InitializeNPC();
 
 
@@ -418,18 +419,27 @@ void InitializeNPC()
 {
 	cout << "NPC intialize begin.\n";
 	for (int i = MAX_USER; i < MAX_USER + 3; ++i) {
-		clients[i].x = npcRandPosUid(npcDre);
-		clients[i].y = npcRandPosUid(npcDre);
+		clients[i].x = bossRandPosUid(npcDre);
+		clients[i].y = bossRandPosUid(npcDre);
 		clients[i]._id = i;
 		clients[i].myLua = new LUA_OBJECT(clients[i]._id, "lua_script\boss.lua");
 		sprintf_s(clients[i]._name, "NPC%d", i);
 		clients[i]._state = ST_INGAME;
 	}
-	for (int i = MAX_USER + 3; i < MAX_USER + MAX_NPC; ++i) {
+	for (int i = MAX_USER + 3; i < MAX_USER + MAX_NPC / 2; ++i) {
 		clients[i].x = npcRandPosUid(npcDre);
 		clients[i].y = npcRandPosUid(npcDre);
 		clients[i]._id = i;
-		clients[i].myLua = new LUA_OBJECT(clients[i]._id);
+		clients[i].myLua = new LUA_OBJECT(clients[i]._id, NPC_TYPE::AGRO);
+		sprintf_s(clients[i]._name, "NPC%d", i);
+		clients[i]._state = ST_INGAME;
+	}
+	cout << "NPC initialize end.\n";
+	for (int i = MAX_USER + MAX_NPC / 2; i < MAX_USER + MAX_NPC; ++i) {
+		clients[i].x = npcRandPosUid(npcDre);
+		clients[i].y = npcRandPosUid(npcDre);
+		clients[i]._id = i;
+		clients[i].myLua = new LUA_OBJECT(clients[i]._id, NPC_TYPE::PEACE);
 		sprintf_s(clients[i]._name, "NPC%d", i);
 		clients[i]._state = ST_INGAME;
 	}

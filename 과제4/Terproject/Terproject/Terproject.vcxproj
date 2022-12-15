@@ -144,6 +144,10 @@
     <ClInclude Include="protocol_2022.h" />
     <ClInclude Include="SESSION.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="lua_script\boss.lua" />
+    <None Include="lua_script\monster.lua" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

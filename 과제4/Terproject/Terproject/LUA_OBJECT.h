@@ -1,4 +1,6 @@
 #pragma once
+#include <array>
+#include "protocol_2022.h"
 extern "C"
 {
 #include "include\lua.h"
@@ -7,28 +9,21 @@ extern "C"
 }
 #pragma comment(lib, "lua54.lib")
 
+enum NPC_TYPE {
+	PEACE,
+	AGRO
+};
+class SESSION;
 class LUA_OBJECT
 {
 private:
 	lua_State* myLuaState = nullptr;
 public:
+	NPC_TYPE type = AGRO;
 	LUA_OBJECT() {}
-	LUA_OBJECT(int id) {
-		myLuaState = luaL_newstate();
-		luaL_openlibs(myLuaState);
-	/*	luaL_loadfile(myLuaState, "npc.lua");
-		lua_pcall(myLuaState, 0, 0, 0);
+	LUA_OBJECT(int id, NPC_TYPE t);
 
-		lua_getglobal(myLuaState, "set_uid");
-		lua_pushnumber(myLuaState, id);
-		lua_pcall(myLuaState, 1, 0, 0);*/
-		// lua_pop(L, 1);// eliminate set_uid from stack after call
+	LUA_OBJECT(int id, const char* luaName);
 
-		/*lua_register(clients[i]._L, "SendHelloMessage", API_helloSendMessage);
-		lua_register(clients[i]._L, "SendByeMessage", API_ByeSendMessage);
-		lua_register(L, "API_get_x", API_get_x);
-		lua_register(L, "API_get_y", API_get_y);*/
-	}
 	~LUA_OBJECT() {}
 };
-
