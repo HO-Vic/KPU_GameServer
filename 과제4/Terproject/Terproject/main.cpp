@@ -28,7 +28,7 @@ bool can_see(int from, int to);
 int get_new_client_id();
 void process_packet(int c_id, char* packet);
 void disconnect(int c_id);
-void worker_thread(DB_OBJ dbObj);
+void worker_thread();
 
 void UpdateNearList(std::unordered_set<int>& newNearList, int c_id);
 
@@ -81,8 +81,8 @@ int main()
 	int num_threads = std::thread::hardware_concurrency();
 
 	for (int i = 0; i < num_threads; ++i) {
-		DB_OBJ dbObj = DB_OBJ{};
-		worker_threads.emplace_back(worker_thread, dbObj);
+		
+		worker_threads.emplace_back(worker_thread);
 	}
 
 	for (auto& th : worker_threads)
@@ -204,8 +204,9 @@ void disconnect(int c_id)
 	clients[c_id]._state = ST_FREE;
 }
 
-void worker_thread(DB_OBJ dbObj)
+void worker_thread()
 {
+	DB_OBJ dbObj = DB_OBJ{};
 	while (true) {
 		DWORD num_bytes;
 		ULONG_PTR key;

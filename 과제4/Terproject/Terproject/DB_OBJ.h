@@ -12,6 +12,11 @@ public:
 	DB_OBJ();
 	~DB_OBJ()
 	{
+		// Process data  
+
+		SQLCancel(hstmt);///종료
+		SQLFreeHandle(SQL_HANDLE_STMT, hstmt);//리소스 해제
+
 		//disconnet
 		SQLDisconnect(hdbc);
 
