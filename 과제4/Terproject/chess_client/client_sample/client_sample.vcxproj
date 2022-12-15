@@ -122,6 +122,7 @@
   <ItemGroup>
     <ClCompile Include="client.cpp" />
     <ClCompile Include="OBJECT.cpp" />
+    <ClCompile Include="PLAYER.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\SFML\Config.hpp" />
@@ -204,6 +205,7 @@
     <ClInclude Include="include\SFML\Window\WindowHandle.hpp" />
     <ClInclude Include="include\SFML\Window\WindowStyle.hpp" />
     <ClInclude Include="OBJECT.h" />
+    <ClInclude Include="PLAYER.h" />
     <ClInclude Include="protocol_2022.h" />
   </ItemGroup>
   <ItemGroup>

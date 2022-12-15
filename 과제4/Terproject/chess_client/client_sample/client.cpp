@@ -1,8 +1,7 @@
 ﻿#include <iostream>
-#include "OBJECT.h"
+#include "PLAYER.h"
 
 using namespace std;
-#include "protocol_2022.h"
 
 sf::TcpSocket socket;
 wstring* g_loginId;
@@ -20,8 +19,8 @@ int g_myid;
 
 sf::RenderWindow* g_window;
 
-OBJECT myPlayer;
-OBJECT players[MAX_USER];
+PLAYER myPlayer;
+PLAYER players[MAX_USER];
 
 OBJECT gameHouseMap;
 OBJECT gameGeneralMap;
@@ -58,14 +57,14 @@ void client_initialize()
 		textureCharacter[7]->loadFromFile("images/player/run/left/Player_Run_5.png");
 		textureCharacter[8]->loadFromFile("images/player/run/left/Player_Run_6.png");
 		textureCharacter[9]->loadFromFile("images/player/run/left/Player_Run_7.png");
-		textureCharacter[10]->loadFromFile("images/player/run/right/Player_Run_10.png");
-		textureCharacter[11]->loadFromFile("images/player/run/right/Player_Run_11.png");
-		textureCharacter[12]->loadFromFile("images/player/run/right/Player_Run_12.png");
-		textureCharacter[13]->loadFromFile("images/player/run/right/Player_Run_13.png");
-		textureCharacter[14]->loadFromFile("images/player/run/right/Player_Run_14.png");
-		textureCharacter[15]->loadFromFile("images/player/run/right/Player_Run_15.png");
-		textureCharacter[16]->loadFromFile("images/player/run/right/Player_Run_16.png");
-		textureCharacter[17]->loadFromFile("images/player/run/right/Player_Run_17.png");
+		textureCharacter[10]->loadFromFile("images/player/run/right/Player_Run_0.png");
+		textureCharacter[11]->loadFromFile("images/player/run/right/Player_Run_1.png");
+		textureCharacter[12]->loadFromFile("images/player/run/right/Player_Run_2.png");
+		textureCharacter[13]->loadFromFile("images/player/run/right/Player_Run_3.png");
+		textureCharacter[14]->loadFromFile("images/player/run/right/Player_Run_4.png");
+		textureCharacter[15]->loadFromFile("images/player/run/right/Player_Run_5.png");
+		textureCharacter[16]->loadFromFile("images/player/run/right/Player_Run_6.png");
+		textureCharacter[17]->loadFromFile("images/player/run/right/Player_Run_7.png");
 	}
 
 	//initialize map
@@ -77,7 +76,7 @@ void client_initialize()
 	textureGeneralMap->loadFromFile("images/generalMap.png");
 	gameGeneralMap = OBJECT{ *textureGeneralMap, 0, 0, 1000, 1000 };
 
-	myPlayer = OBJECT{ *textureCharacter[IDLE_LEFT], 0, 0, 50, 50 };
+	myPlayer = PLAYER{ *textureCharacter[IDLE_LEFT], 0, 0, 50, 50 };
 	myPlayer.move(4, 4);
 	g_left_x = 4 * TILE_WIDTH - TILE_WIDTH * 10;
 	g_top_y = 4 * TILE_WIDTH - TILE_WIDTH * 10;
@@ -96,144 +95,144 @@ void client_finish()
 
 void ProcessPacket(char* ptr)
 {
-	//static bool first_time = true;
-	//switch (ptr[1])
-	//{
-	//case SC_LOGIN_FAIL_INFO:
-	//{
-	//	//g_window->close();
-	//	*g_loginId = L"Login Error";
-	//}
-	//break;
-	//case SC_LOGIN_INFO:
-	//{
-	//	SC_LOGIN_INFO_PACKET* packet = reinterpret_cast<SC_LOGIN_INFO_PACKET*>(ptr);
-	//	g_myid = packet->id;
-	//	myPlayer.m_x = packet->x;
-	//	myPlayer.m_y = packet->y;
-	//	string str{ packet->name };
+	static bool first_time = true;
+	switch (ptr[1])
+	{
+	case SC_LOGIN_FAIL:
+	{
+		//g_window->close();
+		*g_loginId = L"Login Error";
+	}
+	break;
+	case SC_LOGIN_INFO:
+	{
+		SC_LOGIN_INFO_PACKET* packet = reinterpret_cast<SC_LOGIN_INFO_PACKET*>(ptr);
+		g_myid = packet->id;
+		myPlayer.m_x = packet->x;
+		myPlayer.m_y = packet->y;
+		string str{ packet->name };
 
-	//	myPlayer.nameText.setColor(sf::Color::Green);
-	//	myPlayer.nameText.setOutlineColor(sf::Color::Green);
-	//	myPlayer.nameText.setString(packet->name);
-	//	char xPos[5];
-	//	char yPos[5];
+		strncpy(myPlayer.name, packet->name, strlen(packet->name));		
+		myPlayer.SetNameText();
+		
+		char xPos[7];
+		char yPos[7];
 
-	//	_itoa(myPlayer.m_x, xPos, 10);
-	//	_itoa(myPlayer.m_y, yPos, 10);
-	//	TextString.clear();
-	//	TextString += "(";
-	//	TextString += xPos;
-	//	TextString += ", ";
-	//	TextString += yPos;
-	//	TextString += ")";
+		_itoa(myPlayer.m_x, xPos, 10);
+		_itoa(myPlayer.m_y, yPos, 10);
+		TextString.clear();
+		TextString += "(";
+		TextString += xPos;
+		TextString += ", ";
+		TextString += yPos;
+		TextString += ")";
 
-	//	g_window->close();
-	//	myPlayer.show();
-	//	break;
-	//}
+		g_window->close();
+		myPlayer.show();
+		break;
+	}
 
-	//case SC_ADD_PLAYER:
-	//{
-	//	SC_ADD_PLAYER_PACKET* my_packet = reinterpret_cast<SC_ADD_PLAYER_PACKET*>(ptr);
-	//	int id = my_packet->id;
+	case SC_ADD_OBJECT:
+	{
+		SC_ADD_OBJECT_PACKET* my_packet = reinterpret_cast<SC_ADD_OBJECT_PACKET*>(ptr);
+		int id = my_packet->id;
 
-	//	if (id == g_myid) {
-	//		myPlayer.move(my_packet->x, my_packet->y);
-	//		g_left_x = my_packet->x - 10 * 50;
-	//		g_top_y = my_packet->y - 10 * 50;
-	//		//memcpy(avatar.name, my_packet->name, strlen(my_packet->name));
-	//		char xPos[5];
-	//		char yPos[5];
+		if (id == g_myid) {
+			myPlayer.move(my_packet->x, my_packet->y);
+			g_left_x = my_packet->x - 10 * 50;
+			g_top_y = my_packet->y - 10 * 50;
+			//memcpy(avatar.name, my_packet->name, strlen(my_packet->name));
+			char xPos[5];
+			char yPos[5];
 
-	//		_itoa(myPlayer.m_x, xPos, 10);
-	//		_itoa(myPlayer.m_y, yPos, 10);
-	//		TextString.clear();
-	//		TextString += "(";
-	//		TextString += xPos;
-	//		TextString += ", ";
-	//		TextString += yPos;
-	//		TextString += ")";
+			_itoa(myPlayer.m_x, xPos, 10);
+			_itoa(myPlayer.m_y, yPos, 10);
+			TextString.clear();
+			TextString += "(";
+			TextString += xPos;
+			TextString += ", ";
+			TextString += yPos;
+			TextString += ")";
 
-	//		myPlayer.show();
-	//	}
-	//	else if (id < MAX_USER) {
-	//		players[id].move(my_packet->x, my_packet->y);
-	//		//memcpy(avatar.name, my_packet->name, strlen(my_packet->name));
-	//		players[id].nameText.setString(my_packet->name);
-	//		players[id].show();
-	//	}
-	//	else {
-	//		//npc[id - NPC_START].x = my_packet->x;
-	//		//npc[id - NPC_START].y = my_packet->y;
-	//		//npc[id - NPC_START].attr |= BOB_ATTR_VISIBLE;
-	//	}
-	//	break;
-	//}
-	//case SC_MOVE_PLAYER:
-	//{
-	//	SC_MOVE_PLAYER_PACKET* my_packet = reinterpret_cast<SC_MOVE_PLAYER_PACKET*>(ptr);
-	//	int other_id = my_packet->id;
-	//	if (other_id == g_myid) {
-	//		myPlayer.move(my_packet->x, my_packet->y);
-	//		g_left_x = my_packet->x - 10 * 50;
-	//		g_top_y = my_packet->y - 10 * 50;
+			myPlayer.show();
+		}
+		else if (id < MAX_USER) {
+			players[id].move(my_packet->x, my_packet->y);		
+			strncpy(players[id].name, my_packet->name, strlen(my_packet->name));	
+			players[id].SetNameText();
+			players[id].show();
+		}
+		else {
+			//npc[id - NPC_START].x = my_packet->x;
+			//npc[id - NPC_START].y = my_packet->y;
+			//npc[id - NPC_START].attr |= BOB_ATTR_VISIBLE;
+		}
+		break;
+	}
+	case SC_MOVE_OBJECT:
+	{
+		SC_MOVE_OBJECT_PACKET* my_packet = reinterpret_cast<SC_MOVE_OBJECT_PACKET*>(ptr);
+		int other_id = my_packet->id;
+		if (other_id == g_myid) {
+			myPlayer.move(my_packet->x, my_packet->y);
+			g_left_x = my_packet->x - 10 * 50;
+			g_top_y = my_packet->y - 10 * 50;
 
-	//		char xPos[5];
-	//		char yPos[5];
+			char xPos[5];
+			char yPos[5];
 
-	//		_itoa(myPlayer.m_x, xPos, 10);
-	//		_itoa(myPlayer.m_y, yPos, 10);
-	//		TextString.clear();
-	//		TextString += "(";
-	//		TextString += xPos;
-	//		TextString += ", ";
-	//		TextString += yPos;
-	//		TextString += ")";
+			_itoa(myPlayer.m_x, xPos, 10);
+			_itoa(myPlayer.m_y, yPos, 10);
+			TextString.clear();
+			TextString += "(";
+			TextString += xPos;
+			TextString += ", ";
+			TextString += yPos;
+			TextString += ")";
 
 
-	//	}
-	//	else if (other_id < MAX_USER) {
-	//		players[other_id].move(my_packet->x, my_packet->y);
-	//	}
-	//	else {
-	//		//npc[other_id - NPC_START].x = my_packet->x;
-	//		//npc[other_id - NPC_START].y = my_packet->y;
-	//	}
-	//	break;
-	//}
+		}
+		else if (other_id < MAX_USER) {
+			players[other_id].move(my_packet->x, my_packet->y);
+		}
+		else {
+			//npc[other_id - NPC_START].x = my_packet->x;
+			//npc[other_id - NPC_START].y = my_packet->y;
+		}
+		break;
+	}
 
-	//case SC_REMOVE_PLAYER:
-	//{
-	//	SC_REMOVE_PLAYER_PACKET* my_packet = reinterpret_cast<SC_REMOVE_PLAYER_PACKET*>(ptr);
-	//	int other_id = my_packet->id;
-	//	if (other_id == g_myid) {
-	//		myPlayer.hide();
-	//	}
-	//	else if (other_id < MAX_USER) {
-	//		players[other_id].hide();
-	//	}
-	//	else {
-	//		//      npc[other_id - NPC_START].attr &= ~BOB_ATTR_VISIBLE;
-	//	}
-	//	break;
-	//}
-	//case SC_CHAT:
-	//{
-	//	SC_CHAT_PACKET* my_packet = reinterpret_cast<SC_CHAT_PACKET*>(ptr);
-	//	int other_id = my_packet->id;
-	//	if (other_id == g_myid) {
-	//		myPlayer.set_chat(my_packet->mess);
-	//	}
-	//	else {
-	//		players[other_id].set_chat(my_packet->mess);
-	//	}
+	case SC_REMOVE_OBJECT:
+	{
+		SC_REMOVE_OBJECT_PACKET* my_packet = reinterpret_cast<SC_REMOVE_OBJECT_PACKET*>(ptr);
+		int other_id = my_packet->id;
+		if (other_id == g_myid) {
+			myPlayer.hide();
+		}
+		else if (other_id < MAX_USER) {
+			players[other_id].hide();
+		}
+		else {
+			//      npc[other_id - NPC_START].attr &= ~BOB_ATTR_VISIBLE;
+		}
+		break;
+	}
+	case SC_CHAT:
+	{
+		SC_CHAT_PACKET* my_packet = reinterpret_cast<SC_CHAT_PACKET*>(ptr);
+		int other_id = my_packet->id;
+		if (other_id == g_myid) {
+			myPlayer.set_chat(my_packet->mess);
+		}
+		else {
+			players[other_id].set_chat(my_packet->mess);
+		}
 
-	//	break;
-	//}
-	//default:
-	//	printf("Unknown PACKET type [%d]\n", ptr[1]);
-	//}
+		break;
+	}
+	default:
+		printf("Unknown PACKET type [%d]\n", ptr[1]);
+	}
 }
 
 void process_data(char* net_buf, size_t io_byte)
@@ -392,14 +391,14 @@ void send_packet(void* packet)
 
 int main()
 {
-	//wcout.imbue(locale("korean"));
-	//sf::Socket::Status status = socket.connect("127.0.0.1", PORT_NUM);
-	//socket.setBlocking(false);
+	wcout.imbue(locale("korean"));
+	sf::Socket::Status status = socket.connect("127.0.0.1", PORT_NUM);
+	socket.setBlocking(false);
 
-	//if (status != sf::Socket::Done) {
-	//	wcout << L"서버와 연결할 수 없습니다.\n";
-	//	while (true);
-	//}
+	if (status != sf::Socket::Done) {
+		wcout << L"서버와 연결할 수 없습니다.\n";
+		while (true);
+	}
 
 	client_initialize();
 
@@ -415,7 +414,7 @@ int main()
 
 	myPosText.setString(TextString);
 
-	/*sf::RenderWindow loginWindow(sf::VideoMode(300, 100), "Login");
+	sf::RenderWindow loginWindow(sf::VideoMode(300, 100), "Login");
 	sf::Texture* whiletBardTexture = new sf::Texture;
 	whiletBardTexture->loadFromFile("white.png");
 	OBJECT whiteBoard;
@@ -431,9 +430,9 @@ int main()
 	loginText.setPosition(0, 0);
 	loginText.setFillColor(sf::Color::Black);
 	loginText.setOutlineColor(sf::Color::Black);
-	loginText.setOutlineThickness(1.f);*/
+	loginText.setOutlineThickness(1.f);
 
-	/*while (loginWindow.isOpen()) {
+	while (loginWindow.isOpen()) {
 		loginWindow.clear();
 
 		sf::Event event;
@@ -458,10 +457,10 @@ int main()
 					CS_LOGIN_PACKET p;
 					p.size = sizeof(p);
 					p.type = CS_LOGIN;
-					memset(p.id, 0, NAME_SIZE);
+					memset(p.name, 0, NAME_SIZE);
 					string str;
 					str.assign(loginId.begin(), loginId.end());
-					memcpy(p.id, str.c_str(), str.size());
+					memcpy(p.name, str.c_str(), str.size());
 					send_packet(&p);
 				}
 			}
@@ -481,7 +480,7 @@ int main()
 		whiteBoard.a_draw();
 		loginWindow.draw(loginText);
 		loginWindow.display();
-	}*/
+	}
 
 
 	sf::RenderWindow window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "2D CLIENT");

@@ -46,7 +46,7 @@ int main()
 			// initialize Obj on Local Map
 		}
 	}
-	InitializeNPC();
+	//InitializeNPC();
 
 
 	WSADATA WSAData;
@@ -81,7 +81,7 @@ int main()
 	int num_threads = std::thread::hardware_concurrency();
 
 	for (int i = 0; i < num_threads; ++i) {
-		DB_OBJ dbObj;
+		DB_OBJ dbObj = DB_OBJ{};
 		worker_threads.emplace_back(worker_thread, dbObj);
 	}
 
@@ -277,9 +277,8 @@ void worker_thread(DB_OBJ dbObj)
 			wstring userId;
 			userId.assign(userStr.begin(), userStr.end());
 			wstring playerName;
-
-			//DB 내부 아직 작성 안함
-			dbObj.GetPlayerInfo(userId, playerName, clients[key].x, clients[key].y);
+			
+			dbObj.GetPlayerInfo(userId, playerName, clients[key].x, clients[key].y, clients[key].level, clients[key].exp, clients[key].hp);
 
 			if (playerName.empty()) {
 				SC_LOGIN_FAIL_PACKET failPacket;
@@ -290,8 +289,7 @@ void worker_thread(DB_OBJ dbObj)
 			else {
 				string playerStr;
 				playerStr.assign(playerName.begin(), playerName.end());
-				memcpy(clients[key]._name, playerStr.c_str(), NAME_SIZE);
-				memcpy(clients[key]._name, userStr.c_str(), userStr.size());
+				memcpy(clients[key]._name, playerStr.c_str(), NAME_SIZE);				
 
 				clients[key].send_login_info_packet();
 				{
@@ -299,7 +297,6 @@ void worker_thread(DB_OBJ dbObj)
 					clients[key]._state = ST_INGAME;
 				}
 
-				//여기 최적화 해야됨
 				UpdateNearList(clients[key]._view_list, key);
 
 				for (auto& pl : clients[key]._view_list) {

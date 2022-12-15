@@ -1,11 +1,7 @@
-#include<random>
 #include <chrono>
 #include "SESSION.h"
 
 using namespace chrono;
-std::random_device rd;
-std::default_random_engine dre(rd());
-std::uniform_int_distribution<int> uid(0, 2000);
 
 SESSION::SESSION()
 {
@@ -39,8 +35,12 @@ void SESSION::send_login_info_packet()
 	p.id = _id;
 	p.size = sizeof(SC_LOGIN_INFO_PACKET);
 	p.type = SC_LOGIN_INFO;
-	x = p.x = uid(dre);
-	y = p.y = uid(dre);
+	p.x = x;
+	p.y = y;
+	p.hp = hp;
+	p.max_hp = hp;
+	p.exp = exp;
+	p.level = level;
 	do_send(&p);
 }
 
