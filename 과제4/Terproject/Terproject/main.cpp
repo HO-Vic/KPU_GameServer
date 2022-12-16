@@ -9,6 +9,7 @@
 #include "LOCAL_SESSION.h"
 #include "DB_OBJ.h"
 #include "TIMER_EVENT.h"
+#include "LUA_OBJECT.h"
 #pragma comment(lib, "WS2_32.lib")
 #pragma comment(lib, "MSWSock.lib")
 
@@ -16,6 +17,7 @@ using namespace std;
 
 array<SESSION, MAX_USER + MAX_NPC> clients;
 array < array<LOCAL_SESSION, 100>, 100> gameMap;
+pair<int, int> AStartObstacle[31];
 SOCKET listenSocket;
 SOCKET clientSocket;
 EXP_OVER acceptOver;
@@ -23,8 +25,8 @@ HANDLE g_iocpHandle;
 
 random_device npcRd;
 default_random_engine npcDre(npcRd());
-//uniform_int_distribution<int> npcRandPosUid(20, 2000 - 1);
-uniform_int_distribution<int> npcRandPosUid(0, 40);
+uniform_int_distribution<int> npcRandPosUid(20, 2000 - 1);
+//uniform_int_distribution<int> npcRandPosUid(0, 40);
 uniform_int_distribution<int> bossRandPosUid(1000, 1200 - 1);
 uniform_int_distribution<int> npcRandDirUid(0, 3); // inclusive
 chrono::system_clock::time_point g_nowTime = chrono::system_clock::now();
@@ -52,6 +54,39 @@ constexpr int VIEW_RANGE = 8;
 int main()
 {
 	cout << "initialize Map" << endl;
+	{
+		AStartObstacle[0] = (make_pair(5, 1));
+		AStartObstacle[1] = (make_pair(6, 1));
+		AStartObstacle[2] = (make_pair(7, 1));
+		AStartObstacle[3] = (make_pair(2, 3));
+		AStartObstacle[4] = (make_pair(5, 3));
+		AStartObstacle[5] = (make_pair(14, 3));
+		AStartObstacle[6] = (make_pair(17, 4));
+		AStartObstacle[7] = (make_pair(2, 6));
+		AStartObstacle[8] = (make_pair(10, 6));
+		AStartObstacle[9] = (make_pair(6, 8));
+		AStartObstacle[10] = (make_pair(7, 8));
+		AStartObstacle[11] = (make_pair(8, 8));
+		AStartObstacle[12] = (make_pair(9, 8));
+		AStartObstacle[13] = (make_pair(10, 8));
+		AStartObstacle[14] = (make_pair(13, 8));
+		AStartObstacle[15] = (make_pair(6, 9));
+		AStartObstacle[16] = (make_pair(7, 9));
+		AStartObstacle[17] = (make_pair(8, 9));
+		AStartObstacle[18] = (make_pair(9, 9));
+		AStartObstacle[19] = (make_pair(10, 9));
+		AStartObstacle[20] = (make_pair(17, 10));
+		AStartObstacle[21] = (make_pair(2, 11));
+		AStartObstacle[22] = (make_pair(15, 13));
+		AStartObstacle[23] = (make_pair(13, 14));
+		AStartObstacle[24] = (make_pair(2, 15));
+		AStartObstacle[25] = (make_pair(6, 15));
+		AStartObstacle[26] = (make_pair(16, 15));
+		AStartObstacle[27] = (make_pair(16, 16));
+		AStartObstacle[28] = (make_pair(7, 17));
+		AStartObstacle[29] = (make_pair(8, 17));
+		AStartObstacle[30] = (make_pair(16, 17));
+	}
 	for (int i = 0; i < 100; i++) {
 		for (int j = 0; j < 100; j++) {
 			gameMap[i][j].SetPos(i, j);
@@ -826,7 +861,6 @@ void InitializeNPC()
 		sprintf_s(clients[i]._name, "NPC%d", i);
 		clients[i]._state = ST_INGAME;
 	}
-	cout << "NPC initialize end.\n";
 	for (int i = MAX_USER + MAX_NPC / 2; i < MAX_USER + MAX_NPC; ++i) {
 		clients[i].x = npcRandPosUid(npcDre);
 		clients[i].y = npcRandPosUid(npcDre);
@@ -854,7 +888,7 @@ void WakeUpNPC(int npcId, int waker)
 
 void MoveRandNPC(int npcId)
 {
-	cout << "npc move" << endl;
+	//cout << "npc move" << endl;
 	int x = clients[npcId].x;
 	int y = clients[npcId].y;
 	switch (npcRandDirUid(npcDre)) {
@@ -877,6 +911,7 @@ void MoveRandNPC(int npcId)
 	unordered_set<int> old_vlist = clients[npcId]._view_list;
 	clients[npcId]._vl.unlock();
 
+	gameMap[clients[npcId].myLocalSectionIndex.first][clients[npcId].myLocalSectionIndex.second].UpdatePlayers(clients[npcId], gameMap);//현재 로컬 최신화
 	UpdateNearList(clients[npcId]._view_list, npcId);
 
 	//npc not send

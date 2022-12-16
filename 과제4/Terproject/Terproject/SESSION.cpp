@@ -1,5 +1,6 @@
 #include <chrono>
 #include "SESSION.h"
+#include "LUA_OBJECT.h"
 
 using namespace chrono;
 

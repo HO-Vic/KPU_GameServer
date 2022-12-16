@@ -1,6 +1,7 @@
 #pragma once
 #include<unordered_set>
 #include<mutex>
+#include <array>
 class SESSION;
 class Game_OBJECT;
 class LOCAL_SESSION

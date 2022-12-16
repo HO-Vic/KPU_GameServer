@@ -1,7 +1,6 @@
 #pragma once
 #include <array>
 #include <atomic>
-#include "protocol_2022.h"
 extern "C"
 {
 #include "include\lua.h"
@@ -31,4 +30,5 @@ public:
 
 	bool ActiveNPC();
 	bool InActiveNPC();
+	void AStart(int DestinyId, int npcId);
 };

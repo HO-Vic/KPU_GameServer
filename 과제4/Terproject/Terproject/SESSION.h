@@ -4,13 +4,15 @@
 #include <mutex>
 #include <utility>
 #include <unordered_set>
-#include "LUA_OBJECT.h"
+#include "protocol_2022.h"
+
 
 using namespace std;
 
 enum S_STATE { ST_FREE, ST_ALLOC, ST_INGAME };
 enum COMP_TYPE { OP_ACCEPT, OP_RECV, OP_SEND, OP_DB_GET_PLAYER_INFO, OP_NPC_MOVE};
 
+class LUA_OBJECT;
 class EXP_OVER
 {
 public:
@@ -53,7 +55,7 @@ public:
 	short level = 0;
 	short exp = 0;
 	short hp = 0;
-	LUA_OBJECT* myLua;
+	LUA_OBJECT* myLua = nullptr;
 public:
 	SESSION();
 
