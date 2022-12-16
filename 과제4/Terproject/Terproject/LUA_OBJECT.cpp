@@ -41,6 +41,22 @@ LUA_OBJECT::LUA_OBJECT(int id, const char* luaName)
 	lua_register(myLuaState, "API_get_y", API_get_y);
 }
 
+bool LUA_OBJECT::ActiveNPC()
+{
+	bool old_state = false;
+	if (false == atomic_compare_exchange_strong(&isActive, &old_state, true))
+		return true;
+	return false;
+}
+
+bool LUA_OBJECT::InActiveNPC()
+{
+	bool old_state = true;
+	if (false == atomic_compare_exchange_strong(&isActive, &old_state, false))
+		return true;
+	return false;
+}
+
 int API_get_x(lua_State* L)
 {
 	int user_id = (int)lua_tointeger(L, -1);

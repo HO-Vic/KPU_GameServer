@@ -20,7 +20,7 @@ int g_myid;
 sf::RenderWindow* g_window;
 
 PLAYER myPlayer;
-PLAYER players[MAX_USER];
+PLAYER players[MAX_USER + MAX_NPC];
 
 OBJECT gameHouseMap;
 OBJECT gameGeneralMap;
@@ -75,9 +75,9 @@ void client_initialize()
 	textureGeneralMap = new sf::Texture;
 	textureGeneralMap->loadFromFile("images/generalMap.png");
 	gameGeneralMap = OBJECT{ *textureGeneralMap, 0, 0, 1000, 1000 };
-	/*for (auto& pl : players) {
-		pl = OBJECT{ *textureCharacter[0], 0, 0, 32, 32 };
-	}*/
+	for (auto& pl : players) {
+		pl = PLAYER{ *textureCharacter[0], 0, 0, 50, 50 };
+	}
 }
 
 void client_finish()
@@ -141,7 +141,6 @@ void ProcessPacket(char* ptr)
 			//memcpy(avatar.name, my_packet->name, strlen(my_packet->name));
 			char xPos[5];
 			char yPos[5];
-
 			_itoa(myPlayer.m_x, xPos, 10);
 			_itoa(myPlayer.m_y, yPos, 10);
 			TextString.clear();
@@ -153,17 +152,16 @@ void ProcessPacket(char* ptr)
 
 			myPlayer.show();
 		}
-		else if (id < MAX_USER) {
-			players[id].move(my_packet->x, my_packet->y);
-			strncpy(players[id].name, my_packet->name, strlen(my_packet->name));
-			players[id].SetNameText();
+		//else if (id < MAX_USER) {
+		else {
+			cout << "add player" << endl;
+			players[id].move(my_packet->x, my_packet->y);			
+			//strncpy(players[id].name, my_packet->name, strlen(my_packet->name));
+			//memcpy(avatar.name, my_packet->name, strlen(my_packet->name));			
 			players[id].show();
 		}
-		else {
-			//npc[id - NPC_START].x = my_packet->x;
-			//npc[id - NPC_START].y = my_packet->y;
-			//npc[id - NPC_START].attr |= BOB_ATTR_VISIBLE;
-		}
+		//}
+
 		break;
 	}
 	case SC_MOVE_OBJECT:
@@ -171,7 +169,7 @@ void ProcessPacket(char* ptr)
 		SC_MOVE_OBJECT_PACKET* my_packet = reinterpret_cast<SC_MOVE_OBJECT_PACKET*>(ptr);
 		int other_id = my_packet->id;
 		if (other_id == g_myid) {
-			myPlayer.move(my_packet->x, my_packet->y);		
+			myPlayer.move(my_packet->x, my_packet->y);
 			g_left_x = my_packet->x * TILE_WIDTH - 10 * TILE_WIDTH;
 			g_top_y = my_packet->y * TILE_WIDTH - 10 * TILE_WIDTH;
 
@@ -188,28 +186,23 @@ void ProcessPacket(char* ptr)
 			TextString += ")";
 
 
-		}
-		else if (other_id < MAX_USER) {
-			players[other_id].move(my_packet->x, my_packet->y);
-		}
+		}		
 		else {
-			//npc[other_id - NPC_START].x = my_packet->x;
-			//npc[other_id - NPC_START].y = my_packet->y;
+			players[my_packet->id].move(my_packet->x, my_packet->y);
 		}
 		break;
 	}
 
 	case SC_REMOVE_OBJECT:
 	{
+		cout << "remove player" << endl;
 		SC_REMOVE_OBJECT_PACKET* my_packet = reinterpret_cast<SC_REMOVE_OBJECT_PACKET*>(ptr);
 		int other_id = my_packet->id;
 		if (other_id == g_myid) {
 			myPlayer.hide();
-		}
-		else if (other_id < MAX_USER) {
-			players[other_id].hide();
-		}
+		}		
 		else {
+			players[other_id].hide();
 			//      npc[other_id - NPC_START].attr &= ~BOB_ATTR_VISIBLE;
 		}
 		break;
@@ -271,7 +264,7 @@ void client_main()
 	if (recv_result != sf::Socket::NotReady)
 		if (received > 0) process_data(net_buf, received);
 
-		//map rendering
+	//map rendering
 	if (g_left_x < 0) { // 홈 끝 점
 		if (g_top_y <= 0) {
 			gameHouseMap.a_move(abs(g_left_x), abs(g_top_y));
@@ -283,7 +276,7 @@ void client_main()
 			gameGeneralMap.a_move(abs(g_left_x), WINDOW_HEIGHT - abs(g_top_y));
 			gameGeneralMap.a_draw();
 		}
-		else if (g_top_y >= TILE_WIDTH * 20 * 10 - TILE_WIDTH * 20) {
+		else if (g_top_y >= TILE_WIDTH * 20 * 100 - TILE_WIDTH * 20) {
 			gameGeneralMap.a_move(abs(g_left_x), -abs(g_top_y % WINDOW_HEIGHT));
 			gameGeneralMap.a_draw();
 		}
@@ -311,7 +304,7 @@ void client_main()
 			gameGeneralMap.a_move(WINDOW_WIDTH - abs(g_left_x), WINDOW_HEIGHT - abs(g_top_y));
 			gameGeneralMap.a_draw();
 		}
-		else if (g_top_y >= TILE_WIDTH * 20 * 10 - TILE_WIDTH * 20) {
+		else if (g_top_y >= TILE_WIDTH * 20 * 100 - TILE_WIDTH * 20) {
 			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
 			gameGeneralMap.a_draw();
 			gameGeneralMap.a_move(WINDOW_WIDTH - abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
@@ -328,7 +321,7 @@ void client_main()
 			gameGeneralMap.a_draw();
 		}
 	}
-	else if (g_left_x > TILE_WIDTH * 20 * 10 - TILE_WIDTH * 20) { //끝점
+	else if (g_left_x > TILE_WIDTH * 20 * 100 - TILE_WIDTH * 20) { //끝점
 		if (g_top_y <= 0) {
 			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), abs(g_top_y));
 			gameGeneralMap.a_draw();
@@ -339,7 +332,7 @@ void client_main()
 			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), WINDOW_HEIGHT - abs(g_top_y));
 			gameGeneralMap.a_draw();
 		}
-		else if (g_top_y >= TILE_WIDTH * 20 * 10 - TILE_WIDTH * 20) {
+		else if (g_top_y >= TILE_WIDTH * 20 * 100 - TILE_WIDTH * 20) {
 			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
 			gameGeneralMap.a_draw();
 		}
@@ -357,7 +350,7 @@ void client_main()
 			gameGeneralMap.a_move(WINDOW_WIDTH - abs(g_left_x % WINDOW_WIDTH), abs(g_top_y % WINDOW_HEIGHT));
 			gameGeneralMap.a_draw();
 		}
-		else if (g_top_y >= TILE_WIDTH * 20 * 10 - TILE_WIDTH * 20) {
+		else if (g_top_y >= TILE_WIDTH * 20 * 100 - TILE_WIDTH * 20) {
 			gameGeneralMap.a_move(-abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
 			gameGeneralMap.a_draw();
 			gameGeneralMap.a_move(WINDOW_WIDTH - abs(g_left_x % WINDOW_WIDTH), -abs(g_top_y % WINDOW_HEIGHT));
@@ -376,7 +369,8 @@ void client_main()
 	}
 
 	myPlayer.draw();
-	//for (auto& pl : players) pl.draw();
+	for (auto& pl : players)
+		pl.draw();
 }
 
 void send_packet(void* packet)

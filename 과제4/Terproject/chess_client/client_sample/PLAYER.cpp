@@ -8,14 +8,16 @@ void PLAYER::move(int x, int y)
 }
 
 void PLAYER::draw() {
+	//g_left_x = myPlayer.m_x * TILE_WIDTH - TILE_WIDTH * 10;
+
 	if (false == m_showing) return;
-	float rx = 10 * TILE_WIDTH;
-	float ry = 10 * TILE_WIDTH;
+	;
+	float rx = m_x * TILE_WIDTH - g_left_x;
+	float ry = m_y * TILE_WIDTH - g_top_y;
 	nameText.setPosition(rx, ry - 20);
 	m_sprite.setPosition(rx, ry - 5);
 	g_window->draw(nameText);
 	g_window->draw(m_sprite);
-
 }
 
 void PLAYER::SetNameText()

@@ -61,7 +61,7 @@ void SESSION::send_remove_player_packet(int c_id)
 	do_send(&p);
 }
 
-void SESSION::send_move_packet(int c_id, std::array<SESSION, MAX_USER>& clients)
+void SESSION::send_move_packet(int c_id, std::array<SESSION, MAX_USER + MAX_NPC>& clients)
 {
 	SC_MOVE_OBJECT_PACKET p;
 	p.id = c_id;
@@ -73,7 +73,7 @@ void SESSION::send_move_packet(int c_id, std::array<SESSION, MAX_USER>& clients)
 	do_send(&p);
 }
 
-void SESSION::send_add_player_packet(int c_id, std::array<SESSION, MAX_USER>& clients)
+void SESSION::send_add_player_packet(int c_id, std::array<SESSION, MAX_USER + MAX_NPC>& clients)
 {
 	SC_ADD_OBJECT_PACKET add_packet;
 	add_packet.id = c_id;

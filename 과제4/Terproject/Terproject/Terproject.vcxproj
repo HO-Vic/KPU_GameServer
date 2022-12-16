@@ -143,6 +143,7 @@
     <ClInclude Include="LUA_OBJECT.h" />
     <ClInclude Include="protocol_2022.h" />
     <ClInclude Include="SESSION.h" />
+    <ClInclude Include="TIMER_EVENT.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="lua_script\boss.lua" />

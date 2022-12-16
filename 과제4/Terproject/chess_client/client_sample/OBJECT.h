@@ -42,3 +42,5 @@ public:
 	void a_draw();	
 };
 
+extern int g_left_x;
+extern int g_top_y;

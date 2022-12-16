@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <atomic>
 #include "protocol_2022.h"
 extern "C"
 {
@@ -16,7 +17,8 @@ enum NPC_TYPE {
 class SESSION;
 class LUA_OBJECT
 {
-private:
+private:	
+	std::atomic_bool isActive = false;
 	lua_State* myLuaState = nullptr;
 public:
 	NPC_TYPE type = AGRO;
@@ -26,4 +28,7 @@ public:
 	LUA_OBJECT(int id, const char* luaName);
 
 	~LUA_OBJECT() {}
+
+	bool ActiveNPC();
+	bool InActiveNPC();
 };

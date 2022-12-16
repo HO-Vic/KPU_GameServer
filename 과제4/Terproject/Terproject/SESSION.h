@@ -9,7 +9,7 @@
 using namespace std;
 
 enum S_STATE { ST_FREE, ST_ALLOC, ST_INGAME };
-enum COMP_TYPE { OP_ACCEPT, OP_RECV, OP_SEND, OP_DB_GET_PLAYER_INFO};
+enum COMP_TYPE { OP_ACCEPT, OP_RECV, OP_SEND, OP_DB_GET_PLAYER_INFO, OP_NPC_MOVE};
 
 class EXP_OVER
 {
@@ -63,9 +63,9 @@ public:
 
 	void do_send(void* packet);
 	void send_login_info_packet();
-	void send_move_packet(int c_id, std::array<SESSION, MAX_USER>& clients);
-	void send_add_player_packet(int c_id, std::array<SESSION, MAX_USER>& clients);
+	void send_move_packet(int c_id, std::array<SESSION, MAX_USER + MAX_NPC>& clients);
+	void send_add_player_packet(int c_id, std::array<SESSION, MAX_USER + MAX_NPC>& clients);
 	void send_remove_player_packet(int c_id);
 };
 
-extern array<SESSION, MAX_USER> clients;
+extern array<SESSION, MAX_USER + MAX_NPC> clients;
