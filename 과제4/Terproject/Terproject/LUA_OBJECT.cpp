@@ -85,17 +85,14 @@ bool LUA_OBJECT::InActiveChase()
 	return false;
 }
 
-pair<int, int> LUA_OBJECT::AStarLoad(int DestinyId, int npcId)
+pair<int, int> LUA_OBJECT::AStarLoad(int StartX, int startY, int destinyX, int destinyY)
 {
 	std::list<AStarNode> open;
 	std::list<AStarNode> close;
-	int startX = clients[npcId].x;
-	int startY = clients[npcId].y;
-	close.push_back(AStarNode{ 0,0,0,make_pair(startX, startY), make_pair(startX, startY) });
+	
+	close.push_back(AStarNode{ 0,0,0,make_pair(StartX, startY), make_pair(StartX, startY) });
 
-	int destinyX = clients[DestinyId].x;
-	int destinyY = clients[DestinyId].y;
-	pair<int, int> currentNode = make_pair(startX, startY);
+	pair<int, int> currentNode = make_pair(StartX, startY);
 
 	while (true) {
 		if (!CollideObstacle(currentNode.first - 1, currentNode.second)) {
@@ -195,6 +192,11 @@ pair<int, int> LUA_OBJECT::AStarLoad(int DestinyId, int npcId)
 		AStarNode GetNode = *open.begin();
 		open.erase(open.begin());
 		close.push_back(GetNode);
+
+		if (open.size() > 2000'000 || close.size() > 2000'000) {
+			return GetNode.myNode;
+		}
+
 		currentNode = GetNode.myNode;
 
 		if (GetNode.myNode.first == destinyX && GetNode.myNode.second == destinyY) {

@@ -435,11 +435,12 @@ void worker_thread()
 						eventTimerQueue.push(ev);
 					}
 					else {
-						pair<int, int> res = clients[key].myLua->AStarLoad(chaseId, key);
+
+						pair<int, int> res = clients[key].myLua->AStarLoad(clients[key].x, clients[key].y, clients[chaseId].x, clients[chaseId].y);
 						//Àû¿ë
 						clients[key].x = res.first;
 						clients[key].y = res.second;
-						
+
 
 						clients[key]._vl.lock();
 						unordered_set<int> old_vlist = clients[key]._view_list;

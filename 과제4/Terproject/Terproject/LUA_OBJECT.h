@@ -52,7 +52,7 @@ public:
 	bool InActiveNPC();
 	bool ActiveChase();
 	bool InActiveChase();
-	std::pair<int, int> AStarLoad(int DestinyId, int npcId);
+	std::pair<int, int> AStarLoad(int StartX, int startY, int destinyX, int destinyY);
 	std::pair<int, int> GetNextNode() 
 	{
 		GetNodeLock.lock();
