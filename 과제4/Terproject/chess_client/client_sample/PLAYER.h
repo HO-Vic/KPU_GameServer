@@ -18,7 +18,7 @@ public:
 
 	void move(int x, int y);
 	void draw();
-	void SetNameText();
+	void SetNameText(char* name);
 	void set_chat(const char str[]);
 
 };

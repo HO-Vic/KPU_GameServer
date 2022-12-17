@@ -20,9 +20,9 @@ void PLAYER::draw() {
 	g_window->draw(m_sprite);
 }
 
-void PLAYER::SetNameText()
+void PLAYER::SetNameText(char* name)
 {
-	nameText.setString("");
+	nameText.setString(name);
 	nameText.setFont(font);
 	nameText.setCharacterSize(20);
 	nameText.setPosition(0, 0);

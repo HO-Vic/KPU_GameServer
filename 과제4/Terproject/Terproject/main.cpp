@@ -45,7 +45,7 @@ void UpdateNearList(std::unordered_set<int>& newNearList, int c_id);
 //NPC func
 void InitializeNPC();
 void WakeUpNPC(int npcId, int waker);
-void MoveRandNPC(int npcId);
+bool MoveRandNPC(int npcId);
 bool Agro_NPC(int npcId, int cId);
 
 //Timer
@@ -153,7 +153,7 @@ bool can_see(int from, int to)
 	if ((int)abs(clients[from].x - clients[to].x) > VIEW_RANGE)
 		return false;
 	if ((int)abs(clients[from].y - clients[to].y) > VIEW_RANGE)
-		return false;	
+		return false;
 	return true;
 }
 
@@ -399,15 +399,121 @@ void worker_thread()
 				}
 			}
 			if (true == keep_alive) {
-				MoveRandNPC(static_cast<int>(key));
-				TIMER_EVENT ev{ key, chrono::system_clock::now() + 1s, EV_RANDOM_MOVE, 0 };
+				if (MoveRandNPC(static_cast<int>(key))) {
+					TIMER_EVENT ev{ key, chrono::system_clock::now() + 1s, EV_RANDOM_MOVE, 0 };
+					eventTimerQueue.push(ev);
+				}
+			}
+			else {
+				if (clients[key].myLua != nullptr) {
+					clients[key].myLua->InActiveNPC();
+					if (clients[key].myLua->InActiveChase())
+						clients[key].myLua->SetChaseId(-1);
+				}
+			}
+			delete ex_over;
+		}
+		break;
+		case OP_NPC_CHASE_MOVE:
+		{
+			//이미 붙어 있다면
+			int chaseId = clients[key].myLua->GetChaseId();
+			if (chaseId < 0);
+			else if (clients[key].x == clients[chaseId].x && clients[key].y == clients[chaseId].y) {
+				TIMER_EVENT ev{ key, chrono::system_clock::now() + 4s, EV_CHASE_MOVE, 0 };
 				eventTimerQueue.push(ev);
 			}
 			else {
-				if (clients[key].myLua != nullptr)
-					clients[key].myLua->InActiveNPC();
+				//길찾기 실행
+				pair<int, int> res = clients[key].myLua->GetNextNode();
+				//결과 값(길 list)이 비었다면
+				if (res.first < 0 || res.second < 0) {
+					//새로 길 찾기 실행
+					if (!Agro_NPC(key, chaseId)) {
+						clients[key].myLua->InActiveChase();
+						TIMER_EVENT ev{ key, chrono::system_clock::now() + 2s, EV_RANDOM_MOVE, 0 };
+						eventTimerQueue.push(ev);
+					}
+					else {
+						pair<int, int> res = clients[key].myLua->AStarLoad(chaseId, key);
+						//적용
+						clients[key].x = res.first;
+						clients[key].y = res.second;
+						
+
+						clients[key]._vl.lock();
+						unordered_set<int> old_vlist = clients[key]._view_list;
+						clients[key]._vl.unlock();
+
+						gameMap[clients[key].myLocalSectionIndex.first][clients[key].myLocalSectionIndex.second].UpdatePlayers(clients[key], gameMap);//현재 로컬 최신화
+						UpdateNearList(clients[key]._view_list, key);
+
+						//npc not send
+						//clients[npcId].send_move_packet(npcId, clients);
+
+						for (auto& pl : clients[key]._view_list) {
+							auto& cpl = clients[pl];
+							cpl._vl.lock();
+							if (cpl._view_list.count(key) > 0) {
+								cpl._vl.unlock();
+								if (isPc(pl))
+									cpl.send_move_packet(key, clients);
+							}
+							else {
+								cpl._vl.unlock();
+								if (isPc(pl))
+									clients[pl].send_add_player_packet(key, clients);
+							}
+						}
+
+						for (auto& pl : old_vlist)
+							if (0 == clients[key]._view_list.count(pl))
+								if (isPc(pl))
+									clients[pl].send_remove_player_packet(key);
+
+						TIMER_EVENT ev{ key, chrono::system_clock::now() + 1s, EV_CHASE_MOVE, 0 };
+						eventTimerQueue.push(ev);
+					}
+				}
+				else {
+					//길이 존재 한다면 고고
+					clients[key].x = res.first;
+					clients[key].y = res.second;
+
+					clients[key]._vl.lock();
+					unordered_set<int> old_vlist = clients[key]._view_list;
+					clients[key]._vl.unlock();
+
+					gameMap[clients[key].myLocalSectionIndex.first][clients[key].myLocalSectionIndex.second].UpdatePlayers(clients[key], gameMap);//현재 로컬 최신화
+					UpdateNearList(clients[key]._view_list, key);
+
+					//npc not send
+					//clients[npcId].send_move_packet(npcId, clients);
+
+					for (auto& pl : clients[key]._view_list) {
+						auto& cpl = clients[pl];
+						cpl._vl.lock();
+						if (cpl._view_list.count(key) > 0) {
+							cpl._vl.unlock();
+							if (isPc(pl))
+								cpl.send_move_packet(key, clients);
+						}
+						else {
+							cpl._vl.unlock();
+							if (isPc(pl))
+								clients[pl].send_add_player_packet(key, clients);
+						}
+					}
+
+					for (auto& pl : old_vlist)
+						if (0 == clients[key]._view_list.count(pl))
+							if (isPc(pl))
+								clients[pl].send_remove_player_packet(key);
+
+					TIMER_EVENT ev{ key, chrono::system_clock::now() + 1s, EV_CHASE_MOVE, 0 };
+					eventTimerQueue.push(ev);
+				}
 			}
-			delete ex_over;
 		}
 		break;
 		/*case OP_DB_SET_PLAYER_POSITION:
@@ -887,51 +993,43 @@ void WakeUpNPC(int npcId, int waker)
 	}
 }
 
-void MoveRandNPC(int npcId)
+bool MoveRandNPC(int npcId)
 {
-	//cout << "npc move" << endl;
-	bool chase = false;
+	//cout << "npc move" << endl;	
 	if (clients[npcId].myLua->type == NPC_TYPE::AGRO) {
 		for (auto& vlIndex : clients[npcId]._view_list) {
 			if (Agro_NPC(npcId, vlIndex)) {
 				if (clients[npcId].myLua->ActiveChase()) {
 					clients[npcId].myLua->SetChaseId(vlIndex);
+					EXP_OVER* expOver = new EXP_OVER();
+					expOver->_comp_type = OP_NPC_CHASE_MOVE;
+					PostQueuedCompletionStatus(g_iocpHandle, 1, npcId, &expOver->_over);
 				}
-				chase = true;
-				break;
+				return false;
 			}
 		}
 	}
-	if (!chase) {
-		if (clients[npcId].myLua->InActiveChase())
-			clients[npcId].myLua->SetChaseId(-1);
-		
-		int x = clients[npcId].x;
-		int y = clients[npcId].y;
-		switch (npcRandDirUid(npcDre)) {
-		case 0: if (x < (W_WIDTH - 1)) x++; break;
-		case 1: if (x > 0) x--; break;
-		case 2: if (y < (W_HEIGHT - 1)) y++; break;
-		case 3:if (y > 0) y--; break;
-		}
+	if (clients[npcId].myLua->InActiveChase())
+		clients[npcId].myLua->SetChaseId(-1);
 
-		//map Object Collision
-		if (gameMap[clients[npcId].myLocalSectionIndex.first][clients[npcId].myLocalSectionIndex.second].CollisionObject(x, y)) {
-			x = clients[npcId].x;
-			y = clients[npcId].y;
-		}
+	int x = clients[npcId].x;
+	int y = clients[npcId].y;
+	switch (npcRandDirUid(npcDre)) {
+	case 0: if (x < (W_WIDTH - 1)) x++; break;
+	case 1: if (x > 0) x--; break;
+	case 2: if (y < (W_HEIGHT - 1)) y++; break;
+	case 3:if (y > 0) y--; break;
+	}
 
-		clients[npcId].x = x;
-		clients[npcId].y = y;
+	//map Object Collision
+	if (gameMap[clients[npcId].myLocalSectionIndex.first][clients[npcId].myLocalSectionIndex.second].CollisionObject(x, y)) {
+		x = clients[npcId].x;
+		y = clients[npcId].y;
 	}
-	else if (clients[npcId].myLua->GetChaseId() != -1) {
-		list<AStarNode> npcLoad;
-		clients[npcId].myLua->AStarLoad(clients[npcId].myLua->GetChaseId(), npcId, npcLoad);
-					
-		clients[npcId].x = (*npcLoad.rbegin()).myNode.first;
-		clients[npcId].y = (*npcLoad.rbegin()).myNode.second;
-	}
-	
+
+	clients[npcId].x = x;
+	clients[npcId].y = y;
+
 	clients[npcId]._vl.lock();
 	unordered_set<int> old_vlist = clients[npcId]._view_list;
 	clients[npcId]._vl.unlock();
@@ -961,13 +1059,14 @@ void MoveRandNPC(int npcId)
 		if (0 == clients[npcId]._view_list.count(pl))
 			if (isPc(pl))
 				clients[pl].send_remove_player_packet(npcId);
+	return true;
 }
 
 bool Agro_NPC(int npcId, int cId)
 {
-	if ((int)abs(clients[npcId].x - clients[cId].x) > AGRO_RANGE)
+	if (abs(clients[npcId].x - clients[cId].x) > AGRO_RANGE)
 		return false;
-	if ((int)abs(clients[npcId].y - clients[cId].y) > AGRO_RANGE)
+	if (abs(clients[npcId].y - clients[cId].y) > AGRO_RANGE)
 		return false;
 	return true;
 }
@@ -989,6 +1088,13 @@ void TimerWorkerThread()
 			{
 				EXP_OVER* ov = new EXP_OVER;
 				ov->_comp_type = OP_NPC_MOVE;
+				PostQueuedCompletionStatus(g_iocpHandle, 1, ev.objId, &ov->_over);
+			}
+			break;
+			case EV_CHASE_MOVE:
+			{
+				EXP_OVER* ov = new EXP_OVER;
+				ov->_comp_type = OP_NPC_CHASE_MOVE;
 				PostQueuedCompletionStatus(g_iocpHandle, 1, ev.objId, &ov->_over);
 			}
 			break;

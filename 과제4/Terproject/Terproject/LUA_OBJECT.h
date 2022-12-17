@@ -3,6 +3,8 @@
 #include <atomic>
 #include <list>
 #include <utility>
+#include <mutex>
+
 
 extern "C"
 {
@@ -35,6 +37,8 @@ private:
 	std::atomic_bool isChase = false;
 	lua_State* myLuaState = nullptr;
 	int chaseId = -1;
+	std::list<AStarNode> npcNavigateList;
+	std::mutex GetNodeLock;
 public:
 	NPC_TYPE type = AGRO;
 	LUA_OBJECT() {}
@@ -48,7 +52,20 @@ public:
 	bool InActiveNPC();
 	bool ActiveChase();
 	bool InActiveChase();
-	void AStarLoad(int DestinyId, int npcId, std::list<AStarNode>& res);
+	std::pair<int, int> AStarLoad(int DestinyId, int npcId);
+	std::pair<int, int> GetNextNode() 
+	{
+		GetNodeLock.lock();
+		if (!npcNavigateList.empty()) {
+			std::pair<int, int> retVal = npcNavigateList.rbegin()->myNode;
+			npcNavigateList.pop_back();
+			GetNodeLock.unlock();
+			return retVal;
+		}
+		GetNodeLock.unlock();
+		return std::make_pair(-100, -100);
+	}
 	int GetChaseId() { return chaseId; }
 	void SetChaseId(int cId) { chaseId = cId; }
+
 };

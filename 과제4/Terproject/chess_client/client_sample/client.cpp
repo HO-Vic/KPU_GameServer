@@ -130,7 +130,7 @@ void ProcessPacket(char* ptr)
 		string str{ packet->name };
 
 		strncpy(myPlayer.name, packet->name, strlen(packet->name));
-		myPlayer.SetNameText();
+		myPlayer.SetNameText(myPlayer.name);
 
 		char xPos[7];
 		char yPos[7];
@@ -179,7 +179,8 @@ void ProcessPacket(char* ptr)
 		else {
 			cout << "add player" << endl;
 			players[id].move(my_packet->x, my_packet->y);
-			//strncpy(players[id].name, my_packet->name, strlen(my_packet->name));
+			strncpy(players[id].name, my_packet->name, strlen(my_packet->name));
+			players[id].SetNameText(players[id].name);
 			//memcpy(avatar.name, my_packet->name, strlen(my_packet->name));			
 			players[id].show();
 		}

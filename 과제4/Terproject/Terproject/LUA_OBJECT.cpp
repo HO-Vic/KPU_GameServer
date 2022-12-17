@@ -15,6 +15,7 @@ float LocalDistance(int destinyX, int destinyY, int startX, int startY);
 
 LUA_OBJECT::LUA_OBJECT(int id, NPC_TYPE t)
 {
+	npcNavigateList.clear();
 	type = t;
 	myLuaState = luaL_newstate();
 	luaL_openlibs(myLuaState);
@@ -34,6 +35,8 @@ LUA_OBJECT::LUA_OBJECT(int id, NPC_TYPE t)
 
 LUA_OBJECT::LUA_OBJECT(int id, const char* luaName)
 {
+	npcNavigateList.clear();
+	type = NPC_TYPE::AGRO;
 	myLuaState = luaL_newstate();
 	luaL_openlibs(myLuaState);
 	luaL_loadfile(myLuaState, luaName);
@@ -75,13 +78,14 @@ bool LUA_OBJECT::ActiveChase()
 
 bool LUA_OBJECT::InActiveChase()
 {
+	chaseId = -1;
 	bool old_state = true;
 	if (false == atomic_compare_exchange_strong(&isActive, &old_state, false))
 		return true;
 	return false;
 }
 
-void LUA_OBJECT::AStarLoad(int DestinyId, int npcId, list<AStarNode>& res)
+pair<int, int> LUA_OBJECT::AStarLoad(int DestinyId, int npcId)
 {
 	std::list<AStarNode> open;
 	std::list<AStarNode> close;
@@ -91,8 +95,8 @@ void LUA_OBJECT::AStarLoad(int DestinyId, int npcId, list<AStarNode>& res)
 
 	int destinyX = clients[DestinyId].x;
 	int destinyY = clients[DestinyId].y;
-
 	pair<int, int> currentNode = make_pair(startX, startY);
+
 	while (true) {
 		if (!CollideObstacle(currentNode.first - 1, currentNode.second)) {
 			AStarNode node;
@@ -106,7 +110,7 @@ void LUA_OBJECT::AStarLoad(int DestinyId, int npcId, list<AStarNode>& res)
 				return findNode.myNode == node.myNode;
 				});
 			if (findRetVal != open.end()) {
-				if(findRetVal->fScore > node.fScore)
+				if (findRetVal->fScore > node.fScore)
 					(*findRetVal) = node;
 			}
 			else {
@@ -192,21 +196,28 @@ void LUA_OBJECT::AStarLoad(int DestinyId, int npcId, list<AStarNode>& res)
 		open.erase(open.begin());
 		close.push_back(GetNode);
 		currentNode = GetNode.myNode;
+
 		if (GetNode.myNode.first == destinyX && GetNode.myNode.second == destinyY) {
-			res.push_back(GetNode);
-			if (GetNode.parentNode == GetNode.myNode)
-				return;
+			npcNavigateList.push_back(GetNode);
 			while (true) {
 				auto findIter = find_if(close.begin(), close.end(), [=](AStarNode findNode) {
 					return findNode.myNode == GetNode.parentNode;
 					});
-				if (findIter == close.end()) return;
-				if (findIter->myNode == findIter->parentNode)
-					return;
-				res.push_back(*findIter);
+				if (findIter == close.end()) {
+					open.clear();
+					close.clear();
+					return GetNode.myNode;
+				}
+				if (findIter->myNode == findIter->parentNode) {
+					pair<int, int> retVal = npcNavigateList.rbegin()->myNode;
+					npcNavigateList.pop_back();
+					open.clear();
+					close.clear();
+					return retVal;
+				}
+				npcNavigateList.push_back(*findIter);
 				GetNode = *findIter;
 			}
-			return;
 		}
 	}
 }
@@ -232,16 +243,15 @@ int API_get_y(lua_State* L)
 bool CollideObstacle(int inX, int inY)
 {
 	for (int i = 0; i < 31; i++)
-		if (inX == AStartObstacle[i].first && inY == AStartObstacle[i].second)
+		if (inX % 20 == AStartObstacle[i].first && inY % 20 == AStartObstacle[i].second)
 			return true;
 	return false;
 }
 
 float LocalDistance(int destinyX, int destinyY, int startX, int startY)
 {
-	return floorf(
-		(destinyX - startX) ^ 2 +
-		(destinyY - startY) ^ 2
+	return sqrt(
+		pow( (float)(destinyX - startX), 2 ) + pow( (float)(destinyY - startY), 2 ) 
 	);
 }
 
