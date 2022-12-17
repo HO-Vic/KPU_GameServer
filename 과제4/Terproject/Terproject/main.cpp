@@ -25,9 +25,6 @@ HANDLE g_iocpHandle;
 
 random_device npcRd;
 default_random_engine npcDre(npcRd());
-//uniform_int_distribution<int> npcRandPosUid(20, 2000 - 1);
-uniform_int_distribution<int> npcRandPosUid(0, 40);
-uniform_int_distribution<int> bossRandPosUid(1000, 1200 - 1);
 uniform_int_distribution<int> npcRandDirUid(0, 3); // inclusive
 chrono::system_clock::time_point g_nowTime = chrono::system_clock::now();
 concurrency::concurrent_priority_queue<TIMER_EVENT> eventTimerQueue;
@@ -946,41 +943,32 @@ void InitializeNPC()
 {
 	cout << "NPC intialize begin.\n";
 	for (int i = MAX_USER; i < MAX_USER + 3; ++i) {
-		clients[i].x = bossRandPosUid(npcDre);
-		clients[i].y = bossRandPosUid(npcDre);
-		clients[i]._id = i;
+		clients[i]._id = i;		
+		clients[i].myLua = new LUA_OBJECT(clients[i]._id, "lua_script\boss.lua");		
 		clients[i]._state = ST_INGAME;
 		memcpy(clients[i]._name, "boss", 4);
 		clients[i].myLocalSectionIndex = make_pair(clients[i].x / 20, clients[i].y / 20);
-		gameMap[clients[i].myLocalSectionIndex.first][clients[i].myLocalSectionIndex.second].InsertPlayers(clients[i]);
-		clients[i].myLua = new LUA_OBJECT(clients[i]._id, "lua_script\boss.lua");
-		sprintf_s(clients[i]._name, "NPC%d", i);
+		gameMap[clients[i].myLocalSectionIndex.first][clients[i].myLocalSectionIndex.second].InsertPlayers(clients[i]);		
 		clients[i]._state = ST_INGAME;
 	}
-	for (int i = MAX_USER + 3; i < MAX_USER + MAX_NPC / 2; ++i) {
-		clients[i].x = npcRandPosUid(npcDre);
-		clients[i].y = npcRandPosUid(npcDre);
+	for (int i = MAX_USER + 3; i < MAX_USER + MAX_NPC / 2; ++i) {		
 		clients[i]._id = i;
 		clients[i]._state = ST_INGAME;
+		clients[i].myLua = new LUA_OBJECT(clients[i]._id, NPC_TYPE::AGRO);
 		string name = "AGRO";
 		name.append(std::to_string(i));
 		memcpy(clients[i]._name, name.c_str(), name.size());
 		clients[i].myLocalSectionIndex = make_pair(clients[i].x / 20, clients[i].y / 20);
-		gameMap[clients[i].myLocalSectionIndex.first][clients[i].myLocalSectionIndex.second].InsertPlayers(clients[i]);
-		clients[i].myLua = new LUA_OBJECT(clients[i]._id, NPC_TYPE::AGRO);
-		clients[i]._state = ST_INGAME;
+		gameMap[clients[i].myLocalSectionIndex.first][clients[i].myLocalSectionIndex.second].InsertPlayers(clients[i]);		
 	}
-	for (int i = MAX_USER + MAX_NPC / 2; i < MAX_USER + MAX_NPC; ++i) {
-		clients[i].x = npcRandPosUid(npcDre);
-		clients[i].y = npcRandPosUid(npcDre);
+	for (int i = MAX_USER + MAX_NPC / 2; i < MAX_USER + MAX_NPC; ++i) {		
 		clients[i]._id = i;
 		string name = "PEACE";
 		name.append(std::to_string(i));
 		memcpy(clients[i]._name, name.c_str(), name.size());
-		clients[i]._state = ST_INGAME;
+		clients[i].myLua = new LUA_OBJECT(clients[i]._id, NPC_TYPE::PEACE);
 		clients[i].myLocalSectionIndex = make_pair(clients[i].x / 20, clients[i].y / 20);
 		gameMap[clients[i].myLocalSectionIndex.first][clients[i].myLocalSectionIndex.second].InsertPlayers(clients[i]);
-		clients[i].myLua = new LUA_OBJECT(clients[i]._id, NPC_TYPE::PEACE);
 		clients[i]._state = ST_INGAME;
 	}
 	cout << "NPC initialize end.\n";

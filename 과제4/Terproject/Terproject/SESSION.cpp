@@ -88,3 +88,4 @@ void SESSION::send_add_player_packet(int c_id, std::array<SESSION, MAX_USER + MA
 	_vl.unlock();
 	do_send(&add_packet);
 }
+

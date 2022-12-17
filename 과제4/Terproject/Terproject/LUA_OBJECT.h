@@ -4,8 +4,6 @@
 #include <list>
 #include <utility>
 #include <mutex>
-
-
 extern "C"
 {
 #include "include\lua.h"
@@ -67,5 +65,4 @@ public:
 	}
 	int GetChaseId() { return chaseId; }
 	void SetChaseId(int cId) { chaseId = cId; }
-
 };

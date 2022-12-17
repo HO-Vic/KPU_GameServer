@@ -2,6 +2,7 @@ myid = 99999;
 
 function set_uid(x)
 	myid = x;
+	API_NpcSetPosition(myid)
 end
 
 function event_player_move(player)
