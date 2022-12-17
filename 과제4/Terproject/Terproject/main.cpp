@@ -25,8 +25,8 @@ HANDLE g_iocpHandle;
 
 random_device npcRd;
 default_random_engine npcDre(npcRd());
-uniform_int_distribution<int> npcRandPosUid(20, 2000 - 1);
-//uniform_int_distribution<int> npcRandPosUid(0, 40);
+//uniform_int_distribution<int> npcRandPosUid(20, 2000 - 1);
+uniform_int_distribution<int> npcRandPosUid(0, 40);
 uniform_int_distribution<int> bossRandPosUid(1000, 1200 - 1);
 uniform_int_distribution<int> npcRandDirUid(0, 3); // inclusive
 chrono::system_clock::time_point g_nowTime = chrono::system_clock::now();
@@ -46,11 +46,13 @@ void UpdateNearList(std::unordered_set<int>& newNearList, int c_id);
 void InitializeNPC();
 void WakeUpNPC(int npcId, int waker);
 void MoveRandNPC(int npcId);
+bool Agro_NPC(int npcId, int cId);
 
 //Timer
 void TimerWorkerThread();
 
 constexpr int VIEW_RANGE = 8;
+constexpr int AGRO_RANGE = 6;
 int main()
 {
 	cout << "initialize Map" << endl;
@@ -150,7 +152,8 @@ bool can_see(int from, int to)
 {
 	if ((int)abs(clients[from].x - clients[to].x) > VIEW_RANGE)
 		return false;
-	return (int)abs(clients[from].y - clients[to].y) < VIEW_RANGE;
+	if ((int)abs(clients[from].y - clients[to].y) > VIEW_RANGE)
+		return false;	
 	return true;
 }
 
@@ -858,7 +861,6 @@ void InitializeNPC()
 		clients[i].myLocalSectionIndex = make_pair(clients[i].x / 20, clients[i].y / 20);
 		gameMap[clients[i].myLocalSectionIndex.first][clients[i].myLocalSectionIndex.second].InsertPlayers(clients[i]);
 		clients[i].myLua = new LUA_OBJECT(clients[i]._id, NPC_TYPE::AGRO);
-		sprintf_s(clients[i]._name, "NPC%d", i);
 		clients[i]._state = ST_INGAME;
 	}
 	for (int i = MAX_USER + MAX_NPC / 2; i < MAX_USER + MAX_NPC; ++i) {
@@ -872,7 +874,6 @@ void InitializeNPC()
 		clients[i].myLocalSectionIndex = make_pair(clients[i].x / 20, clients[i].y / 20);
 		gameMap[clients[i].myLocalSectionIndex.first][clients[i].myLocalSectionIndex.second].InsertPlayers(clients[i]);
 		clients[i].myLua = new LUA_OBJECT(clients[i]._id, NPC_TYPE::PEACE);
-		sprintf_s(clients[i]._name, "NPC%d", i);
 		clients[i]._state = ST_INGAME;
 	}
 	cout << "NPC initialize end.\n";
@@ -889,23 +890,47 @@ void WakeUpNPC(int npcId, int waker)
 void MoveRandNPC(int npcId)
 {
 	//cout << "npc move" << endl;
-	int x = clients[npcId].x;
-	int y = clients[npcId].y;
-	switch (npcRandDirUid(npcDre)) {
-	case 0: if (x < (W_WIDTH - 1)) x++; break;
-	case 1: if (x > 0) x--; break;
-	case 2: if (y < (W_HEIGHT - 1)) y++; break;
-	case 3:if (y > 0) y--; break;
+	bool chase = false;
+	if (clients[npcId].myLua->type == NPC_TYPE::AGRO) {
+		for (auto& vlIndex : clients[npcId]._view_list) {
+			if (Agro_NPC(npcId, vlIndex)) {
+				if (clients[npcId].myLua->ActiveChase()) {
+					clients[npcId].myLua->SetChaseId(vlIndex);
+				}
+				chase = true;
+				break;
+			}
+		}
 	}
+	if (!chase) {
+		if (clients[npcId].myLua->InActiveChase())
+			clients[npcId].myLua->SetChaseId(-1);
+		
+		int x = clients[npcId].x;
+		int y = clients[npcId].y;
+		switch (npcRandDirUid(npcDre)) {
+		case 0: if (x < (W_WIDTH - 1)) x++; break;
+		case 1: if (x > 0) x--; break;
+		case 2: if (y < (W_HEIGHT - 1)) y++; break;
+		case 3:if (y > 0) y--; break;
+		}
 
-	//map Object Collision
-	if (gameMap[clients[npcId].myLocalSectionIndex.first][clients[npcId].myLocalSectionIndex.second].CollisionObject(x, y)) {
-		x = clients[npcId].x;
-		y = clients[npcId].y;
+		//map Object Collision
+		if (gameMap[clients[npcId].myLocalSectionIndex.first][clients[npcId].myLocalSectionIndex.second].CollisionObject(x, y)) {
+			x = clients[npcId].x;
+			y = clients[npcId].y;
+		}
+
+		clients[npcId].x = x;
+		clients[npcId].y = y;
 	}
-
-	clients[npcId].x = x;
-	clients[npcId].y = y;
+	else if (clients[npcId].myLua->GetChaseId() != -1) {
+		list<AStarNode> npcLoad;
+		clients[npcId].myLua->AStarLoad(clients[npcId].myLua->GetChaseId(), npcId, npcLoad);
+					
+		clients[npcId].x = (*npcLoad.rbegin()).myNode.first;
+		clients[npcId].y = (*npcLoad.rbegin()).myNode.second;
+	}
 	
 	clients[npcId]._vl.lock();
 	unordered_set<int> old_vlist = clients[npcId]._view_list;
@@ -936,6 +961,15 @@ void MoveRandNPC(int npcId)
 		if (0 == clients[npcId]._view_list.count(pl))
 			if (isPc(pl))
 				clients[pl].send_remove_player_packet(npcId);
+}
+
+bool Agro_NPC(int npcId, int cId)
+{
+	if ((int)abs(clients[npcId].x - clients[cId].x) > AGRO_RANGE)
+		return false;
+	if ((int)abs(clients[npcId].y - clients[cId].y) > AGRO_RANGE)
+		return false;
+	return true;
 }
 
 void TimerWorkerThread()

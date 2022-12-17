@@ -30,6 +30,10 @@ sf::Texture* textureHouseMap;
 sf::Texture* textureGeneralMap;
 sf::Texture** textureCharacter;
 
+sf::Texture* textureBoss;
+sf::Texture* textureGhost;
+sf::Texture* textureDog;
+
 sf::String TextString = "(0, 0)";
 
 constexpr int IDLE_LEFT = 0;
@@ -75,9 +79,28 @@ void client_initialize()
 	textureGeneralMap = new sf::Texture;
 	textureGeneralMap->loadFromFile("images/generalMap.png");
 	gameGeneralMap = OBJECT{ *textureGeneralMap, 0, 0, 1000, 1000 };
-	for (auto& pl : players) {
-		pl = PLAYER{ *textureCharacter[0], 0, 0, 50, 50 };
-	}
+
+	textureBoss;
+	textureGhost;
+	textureDog;
+
+	textureBoss = new sf::Texture;
+	textureBoss->loadFromFile("images/boss.png");
+
+	textureGhost = new sf::Texture;
+	textureGhost->loadFromFile("images/ghost.png");
+
+	textureDog = new sf::Texture;
+	textureDog->loadFromFile("images/dog.png");
+
+	for (int i = MAX_USER; i < MAX_NPC + MAX_USER; i++) {
+		if (i < MAX_USER + 3)
+			players[i] = PLAYER{ *textureBoss, 0, 0, 50, 50 };
+		else if (i < MAX_USER + MAX_NPC / 2)
+			players[i] = PLAYER{ *textureDog, 0, 0, 50, 50 };
+		else
+			players[i] = PLAYER{ *textureGhost, 0, 0, 50, 50 };
+	}	
 }
 
 void client_finish()
@@ -155,7 +178,7 @@ void ProcessPacket(char* ptr)
 		//else if (id < MAX_USER) {
 		else {
 			cout << "add player" << endl;
-			players[id].move(my_packet->x, my_packet->y);			
+			players[id].move(my_packet->x, my_packet->y);
 			//strncpy(players[id].name, my_packet->name, strlen(my_packet->name));
 			//memcpy(avatar.name, my_packet->name, strlen(my_packet->name));			
 			players[id].show();
@@ -186,7 +209,7 @@ void ProcessPacket(char* ptr)
 			TextString += ")";
 
 
-		}		
+		}
 		else {
 			players[my_packet->id].move(my_packet->x, my_packet->y);
 		}
@@ -200,7 +223,7 @@ void ProcessPacket(char* ptr)
 		int other_id = my_packet->id;
 		if (other_id == g_myid) {
 			myPlayer.hide();
-		}		
+		}
 		else {
 			players[other_id].hide();
 			//      npc[other_id - NPC_START].attr &= ~BOB_ATTR_VISIBLE;

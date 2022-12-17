@@ -1,7 +1,6 @@
 #include "LUA_OBJECT.h"
 #include "SESSION.h"
 #include <math.h>
-#include <list>
 
 #include <vector>
 //lua func
@@ -12,21 +11,7 @@ int API_get_y(lua_State* L);
 extern pair<int, int> AStartObstacle[31];
 bool CollideObstacle(int inX, int inY);
 float LocalDistance(int destinyX, int destinyY, int startX, int startY);
-struct AStarNode {
-	float fScore;
-	float gScore;
-	float hScore;
-	pair<int, int> myNode;
-	pair<int, int> parentNode;
-	constexpr bool operator < (const AStarNode& L) const
-	{
-		return (fScore < L.fScore);
-	}
-	constexpr bool operator== (const AStarNode& L) const
-	{
-		return myNode == L.myNode;
-	}
-};
+
 
 LUA_OBJECT::LUA_OBJECT(int id, NPC_TYPE t)
 {
@@ -80,7 +65,23 @@ bool LUA_OBJECT::InActiveNPC()
 	return false;
 }
 
-void LUA_OBJECT::AStart(int DestinyId, int npcId)
+bool LUA_OBJECT::ActiveChase()
+{
+	bool old_state = false;
+	if (false == atomic_compare_exchange_strong(&isActive, &old_state, true))
+		return true;
+	return false;
+}
+
+bool LUA_OBJECT::InActiveChase()
+{
+	bool old_state = true;
+	if (false == atomic_compare_exchange_strong(&isActive, &old_state, false))
+		return true;
+	return false;
+}
+
+void LUA_OBJECT::AStarLoad(int DestinyId, int npcId, list<AStarNode>& res)
 {
 	std::list<AStarNode> open;
 	std::list<AStarNode> close;
@@ -91,29 +92,22 @@ void LUA_OBJECT::AStart(int DestinyId, int npcId)
 	int destinyX = clients[DestinyId].x;
 	int destinyY = clients[DestinyId].y;
 
-	pair<int, int> currentNode = make_pair(destinyX, destinyY);
+	pair<int, int> currentNode = make_pair(startX, startY);
 	while (true) {
-		/*std::vector<pair<int, int>> nextStep;
-		if(!CollideObstacle(startX-1, startY))
-			nextStep.push_back(make_pair(startX - 1, startY));
-		if (!CollideObstacle(startX + 1, startY))
-			nextStep.push_back(make_pair(startX + 1, startY));
-		if (!CollideObstacle(startX, startY - 1))
-			nextStep.push_back(make_pair(startX, startY - 1));
-		if (!CollideObstacle(startX, startY + 1))
-			nextStep.push_back(make_pair(startX, startY + 1));*/
+		if (!CollideObstacle(currentNode.first - 1, currentNode.second)) {
+			AStarNode node;
+			node.hScore = LocalDistance(destinyX, destinyY, currentNode.first - 1, currentNode.second);
+			node.gScore = 1;
+			node.fScore = node.hScore + node.gScore;
+			node.myNode = make_pair(currentNode.first - 1, currentNode.second);
+			node.parentNode = make_pair(currentNode.first, currentNode.second);
 
-		if (!CollideObstacle(startX - 1, startY)) {
-			AStarNode node;
-			node.hScore = LocalDistance(currentNode.first, currentNode.second, startX - 1, startY);
-			node.gScore = 1;
-			node.fScore = node.hScore + node.gScore;
-			node.myNode = make_pair(startX - 1, startY);
-			node.parentNode = make_pair(startX, startY);
-
-			auto findRetVal = find(open.begin(), open.end(), node);
+			auto findRetVal = find_if(open.begin(), open.end(), [=](const AStarNode findNode) {
+				return findNode.myNode == node.myNode;
+				});
 			if (findRetVal != open.end()) {
-				(*findRetVal) = node;
+				if(findRetVal->fScore > node.fScore)
+					(*findRetVal) = node;
 			}
 			else {
 				auto openNode = open.begin();
@@ -124,16 +118,19 @@ void LUA_OBJECT::AStart(int DestinyId, int npcId)
 				open.insert(openNode, node);
 			}
 		}
-		if (!CollideObstacle(startX + 1, startY)) {
+		if (!CollideObstacle(currentNode.first + 1, currentNode.second)) {
 			AStarNode node;
-			node.hScore = LocalDistance(currentNode.first, currentNode.second, startX + 1, startY);
+			node.hScore = LocalDistance(currentNode.first + 1, currentNode.second, destinyX, destinyY);
 			node.gScore = 1;
 			node.fScore = node.hScore + node.gScore;
-			node.myNode = make_pair(startX + 1, startY);
-			node.parentNode = make_pair(startX, startY);
-			auto findRetVal = find(open.begin(), open.end(), node);
+			node.myNode = make_pair(currentNode.first + 1, currentNode.second);
+			node.parentNode = make_pair(currentNode.first, currentNode.second);
+			auto findRetVal = find_if(open.begin(), open.end(), [=](const AStarNode findNode) {
+				return findNode.myNode == node.myNode;
+				});
 			if (findRetVal != open.end()) {
-				(*findRetVal) = node;
+				if (findRetVal->fScore > node.fScore)
+					(*findRetVal) = node;
 			}
 			else {
 				auto openNode = open.begin();
@@ -144,16 +141,19 @@ void LUA_OBJECT::AStart(int DestinyId, int npcId)
 				open.insert(openNode, node);
 			}
 		}
-		if (!CollideObstacle(startX, startY - 1)) {
+		if (!CollideObstacle(currentNode.first, currentNode.second - 1)) {
 			AStarNode node;
-			node.hScore = LocalDistance(currentNode.first, currentNode.second, startX, startY - 1);
+			node.hScore = LocalDistance(currentNode.first, currentNode.second - 1, destinyX, destinyY);
 			node.gScore = 1;
 			node.fScore = node.hScore + node.gScore;
-			node.myNode = make_pair(startX, startY - 1);
-			node.parentNode = make_pair(startX, startY);
-			auto findRetVal = find(open.begin(), open.end(), node);
+			node.myNode = make_pair(currentNode.first, currentNode.second - 1);
+			node.parentNode = make_pair(currentNode.first, currentNode.second);
+			auto findRetVal = find_if(open.begin(), open.end(), [=](const AStarNode findNode) {
+				return findNode.myNode == node.myNode;
+				});
 			if (findRetVal != open.end()) {
-				(*findRetVal) = node;
+				if (findRetVal->fScore > node.fScore)
+					(*findRetVal) = node;
 			}
 			else {
 				auto openNode = open.begin();
@@ -164,16 +164,19 @@ void LUA_OBJECT::AStart(int DestinyId, int npcId)
 				open.insert(openNode, node);
 			}
 		}
-		if (!CollideObstacle(startX, startY + 1)) {
+		if (!CollideObstacle(currentNode.first, currentNode.second + 1)) {
 			AStarNode node;
-			node.hScore = LocalDistance(currentNode.first, currentNode.second, startX, startY + 1);
+			node.hScore = LocalDistance(currentNode.first, currentNode.second + 1, destinyX, destinyY);
 			node.gScore = 1;
 			node.fScore = node.hScore + node.gScore;
-			node.myNode = make_pair(startX, startY + 1);
-			node.parentNode = make_pair(startX, startY);
-			auto findRetVal = find(open.begin(), open.end(), node);
+			node.myNode = make_pair(currentNode.first, currentNode.second + 1);
+			node.parentNode = make_pair(currentNode.first, currentNode.second);
+			auto findRetVal = find_if(open.begin(), open.end(), [=](const AStarNode findNode) {
+				return findNode.myNode == node.myNode;
+				});
 			if (findRetVal != open.end()) {
-				(*findRetVal) = node;
+				if (findRetVal->fScore > node.fScore)
+					(*findRetVal) = node;
 			}
 			else {
 				auto openNode = open.begin();
@@ -189,8 +192,22 @@ void LUA_OBJECT::AStart(int DestinyId, int npcId)
 		open.erase(open.begin());
 		close.push_back(GetNode);
 		currentNode = GetNode.myNode;
-		if (GetNode.myNode.first == destinyX && GetNode.myNode.second == destinyY)
+		if (GetNode.myNode.first == destinyX && GetNode.myNode.second == destinyY) {
+			res.push_back(GetNode);
+			if (GetNode.parentNode == GetNode.myNode)
+				return;
+			while (true) {
+				auto findIter = find_if(close.begin(), close.end(), [=](AStarNode findNode) {
+					return findNode.myNode == GetNode.parentNode;
+					});
+				if (findIter == close.end()) return;
+				if (findIter->myNode == findIter->parentNode)
+					return;
+				res.push_back(*findIter);
+				GetNode = *findIter;
+			}
 			return;
+		}
 	}
 }
 
