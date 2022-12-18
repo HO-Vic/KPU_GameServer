@@ -39,3 +39,22 @@ void PLAYER::set_chat(const char str[])
 	m_chat.setStyle(sf::Text::Bold);
 	m_mess_end_time = chrono::system_clock::now() + chrono::seconds(3);
 }
+
+void PLAYER::StartEffect(chrono::system_clock::time_point t)
+{
+	skillEffectTime = t;
+	showSkill = true;
+}
+
+chrono::system_clock::time_point PLAYER::GetSkillEffectTime()
+{
+	return skillEffectTime;
+}
+
+void PLAYER::SetPlayerStat(int hp, int maxHp, int exp, int level)
+{
+	this -> hp = hp;
+	this -> maxHp = maxHp;
+	this -> exp = exp;
+	this -> level = level;
+}

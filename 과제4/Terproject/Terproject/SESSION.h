@@ -55,7 +55,12 @@ public:
 	short level = 0;
 	short exp = 0;
 	short hp = 0;
+	short maxHp = 0;
+	short attackDamage = 0;
 	LUA_OBJECT* myLua = nullptr;
+
+private:
+	bool ableAttack = true;
 public:
 	SESSION();
 
@@ -68,6 +73,12 @@ public:
 	void send_move_packet(int c_id, std::array<SESSION, MAX_USER + MAX_NPC>& clients);
 	void send_add_player_packet(int c_id, std::array<SESSION, MAX_USER + MAX_NPC>& clients);
 	void send_remove_player_packet(int c_id);
+	
+	void SetAbleAttack(bool b)
+	{
+		ableAttack = b;
+	}
+	bool GetAbleAttack() { return ableAttack; }
 };
 
 extern array<SESSION, MAX_USER + MAX_NPC> clients;

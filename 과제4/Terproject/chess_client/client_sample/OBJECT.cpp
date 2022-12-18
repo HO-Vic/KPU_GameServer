@@ -24,5 +24,6 @@ void OBJECT::a_move(int x, int y) {
 }
 
 void OBJECT::a_draw() {
-	g_window->draw(m_sprite);
+	if(m_showing)
+		g_window->draw(m_sprite);
 }

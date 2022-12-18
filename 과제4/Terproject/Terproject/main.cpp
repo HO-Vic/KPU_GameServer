@@ -15,6 +15,8 @@
 
 using namespace std;
 
+array<int, 10> levelExp = { 100, 200, 300, 400 ,500, 600, 700, 800, 900, 1200 };
+array<int, 10> levelMaxHp = { 200, 500, 600 ,700, 900, 1000, 1100, 1200, 1500, 1700 };
 array<SESSION, MAX_USER + MAX_NPC> clients;
 array < array<LOCAL_SESSION, 100>, 100> gameMap;
 pair<int, int> AStartObstacle[31];
@@ -32,10 +34,12 @@ concurrency::concurrent_priority_queue<TIMER_EVENT> eventTimerQueue;
 //main func
 bool isPc(int id);
 bool can_see(int from, int to);
+bool canAttack(int from, int to);
 int get_new_client_id();
 void process_packet(int c_id, char* packet);
 void disconnect(int c_id);
 void worker_thread();
+void AttackNpc(int cId, int npcId);
 
 void UpdateNearList(std::unordered_set<int>& newNearList, int c_id);
 
@@ -50,6 +54,7 @@ void TimerWorkerThread();
 
 constexpr int VIEW_RANGE = 8;
 constexpr int AGRO_RANGE = 6;
+constexpr int Attack_RANGE = 3;
 int main()
 {
 	cout << "initialize Map" << endl;
@@ -150,6 +155,15 @@ bool can_see(int from, int to)
 	if ((int)abs(clients[from].x - clients[to].x) > VIEW_RANGE)
 		return false;
 	if ((int)abs(clients[from].y - clients[to].y) > VIEW_RANGE)
+		return false;
+	return true;
+}
+
+bool canAttack(int from, int to)
+{
+	if ((int)abs(clients[from].x - clients[to].x) > Attack_RANGE)
+		return false;
+	if ((int)abs(clients[from].y - clients[to].y) > Attack_RANGE)
 		return false;
 	return true;
 }
@@ -257,6 +271,25 @@ void process_packet(int c_id, char* packet)
 			}
 	}
 	break;
+	case CS_ATTACK:
+	{
+		if (clients[c_id].GetAbleAttack()) {
+			SC_ATTACK_PACKET packet;
+			packet.size = sizeof(SC_ATTACK_PACKET);
+			packet.type = SC_ATTACK;
+			clients[c_id].do_send(&packet);
+
+			TIMER_EVENT ev{ c_id, chrono::system_clock::now() + 1s, EV_PLAYER_ATTACK_COOL, 0 };
+			eventTimerQueue.push(ev);
+
+			for (auto& npc : clients[c_id]._view_list) {
+				if (!isPc(npc) && canAttack(c_id, npc))
+					AttackNpc(c_id, npc);
+			}
+			clients[c_id].SetAbleAttack(false);
+		}
+	}
+	break;
 	}
 }
 
@@ -355,7 +388,7 @@ void worker_thread()
 			userId.assign(userStr.begin(), userStr.end());
 			wstring playerName;
 
-			dbObj.GetPlayerInfo(userId, playerName, clients[key].x, clients[key].y, clients[key].level, clients[key].exp, clients[key].hp);
+			dbObj.GetPlayerInfo(userId, playerName, clients[key].x, clients[key].y, clients[key].level, clients[key].exp, clients[key].hp, clients[key].maxHp, clients[key].attackDamage);
 
 			if (playerName.empty()) {
 				SC_LOGIN_FAIL_PACKET failPacket;
@@ -526,6 +559,28 @@ void worker_thread()
 		break;*/
 		}
 
+	}
+}
+
+void AttackNpc(int cId, int npcId)
+{
+	clients[npcId].hp = clients[npcId].hp - clients[cId].attackDamage;
+	if (clients[npcId].hp < 0) {
+		clients[cId].exp += clients[npcId].exp;
+		if (levelExp[clients[cId].level - 1] < clients[cId].exp) {
+			clients[cId].exp -= levelExp[clients[npcId].level - 1];
+			clients[npcId].level += 1;
+			clients[cId].maxHp = levelMaxHp[clients[npcId].level - 2];
+			clients[cId].hp = clients[cId].maxHp;
+		}
+		SC_STAT_CHANGEL_PACKET sendPakcet;
+		sendPakcet.size = sizeof(SC_STAT_CHANGEL_PACKET);
+		sendPakcet.hp = clients[cId].hp;
+		sendPakcet.level = clients[cId].level;
+		sendPakcet.max_hp = clients[cId].maxHp;
+		sendPakcet.type = SC_STAT_CHANGE;
+		sendPakcet.exp = clients[cId].exp;
+		clients[cId].do_send(&sendPakcet);
 	}
 }
 
@@ -943,15 +998,15 @@ void InitializeNPC()
 {
 	cout << "NPC intialize begin.\n";
 	for (int i = MAX_USER; i < MAX_USER + 3; ++i) {
-		clients[i]._id = i;		
-		clients[i].myLua = new LUA_OBJECT(clients[i]._id, "lua_script\boss.lua");		
+		clients[i]._id = i;
+		clients[i].myLua = new LUA_OBJECT(clients[i]._id, "lua_script\boss.lua");
 		clients[i]._state = ST_INGAME;
 		memcpy(clients[i]._name, "boss", 4);
 		clients[i].myLocalSectionIndex = make_pair(clients[i].x / 20, clients[i].y / 20);
-		gameMap[clients[i].myLocalSectionIndex.first][clients[i].myLocalSectionIndex.second].InsertPlayers(clients[i]);		
+		gameMap[clients[i].myLocalSectionIndex.first][clients[i].myLocalSectionIndex.second].InsertPlayers(clients[i]);
 		clients[i]._state = ST_INGAME;
 	}
-	for (int i = MAX_USER + 3; i < MAX_USER + MAX_NPC / 2; ++i) {		
+	for (int i = MAX_USER + 3; i < MAX_USER + MAX_NPC / 2; ++i) {
 		clients[i]._id = i;
 		clients[i]._state = ST_INGAME;
 		clients[i].myLua = new LUA_OBJECT(clients[i]._id, NPC_TYPE::AGRO);
@@ -959,9 +1014,9 @@ void InitializeNPC()
 		name.append(std::to_string(i));
 		memcpy(clients[i]._name, name.c_str(), name.size());
 		clients[i].myLocalSectionIndex = make_pair(clients[i].x / 20, clients[i].y / 20);
-		gameMap[clients[i].myLocalSectionIndex.first][clients[i].myLocalSectionIndex.second].InsertPlayers(clients[i]);		
+		gameMap[clients[i].myLocalSectionIndex.first][clients[i].myLocalSectionIndex.second].InsertPlayers(clients[i]);
 	}
-	for (int i = MAX_USER + MAX_NPC / 2; i < MAX_USER + MAX_NPC; ++i) {		
+	for (int i = MAX_USER + MAX_NPC / 2; i < MAX_USER + MAX_NPC; ++i) {
 		clients[i]._id = i;
 		string name = "PEACE";
 		name.append(std::to_string(i));
@@ -1085,6 +1140,15 @@ void TimerWorkerThread()
 				EXP_OVER* ov = new EXP_OVER;
 				ov->_comp_type = OP_NPC_CHASE_MOVE;
 				PostQueuedCompletionStatus(g_iocpHandle, 1, ev.objId, &ov->_over);
+			}
+			break;
+			case EV_PLAYER_ATTACK_COOL:
+			{
+				SC_ATTACK_COOL_PACKET packet;
+				packet.size = sizeof(SC_ATTACK_COOL_PACKET);
+				packet.type = SC_ATTACK_COOL;
+				clients[ev.objId].do_send(&packet);
+				clients[ev.objId].SetAbleAttack(true);
 			}
 			break;
 			default: break;

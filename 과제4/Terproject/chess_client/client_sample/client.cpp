@@ -24,11 +24,12 @@ PLAYER players[MAX_USER + MAX_NPC];
 
 OBJECT gameHouseMap;
 OBJECT gameGeneralMap;
-
+OBJECT playerAttackEffect;
 
 sf::Texture* textureHouseMap;
 sf::Texture* textureGeneralMap;
 sf::Texture** textureCharacter;
+sf::Texture* texturePlayerAttck;
 
 sf::Texture* textureBoss;
 sf::Texture* textureGhost;
@@ -75,10 +76,11 @@ void client_initialize()
 	textureHouseMap = new sf::Texture;
 	textureHouseMap->loadFromFile("images/houseMap.png");
 	gameHouseMap = OBJECT{ *textureHouseMap, 0, 0, 1000, 1000 };
-
+	gameHouseMap.show();
 	textureGeneralMap = new sf::Texture;
 	textureGeneralMap->loadFromFile("images/generalMap.png");
 	gameGeneralMap = OBJECT{ *textureGeneralMap, 0, 0, 1000, 1000 };
+	gameGeneralMap.show();
 
 	textureBoss;
 	textureGhost;
@@ -93,6 +95,9 @@ void client_initialize()
 	textureDog = new sf::Texture;
 	textureDog->loadFromFile("images/dog.png");
 
+	texturePlayerAttck = new sf::Texture;
+	texturePlayerAttck->loadFromFile("images/player/Attack.png");
+
 	for (int i = MAX_USER; i < MAX_NPC + MAX_USER; i++) {
 		if (i < MAX_USER + 3)
 			players[i] = PLAYER{ *textureBoss, 0, 0, 50, 50 };
@@ -100,7 +105,10 @@ void client_initialize()
 			players[i] = PLAYER{ *textureDog, 0, 0, 50, 50 };
 		else
 			players[i] = PLAYER{ *textureGhost, 0, 0, 50, 50 };
-	}	
+	}
+	playerAttackEffect = OBJECT{ *texturePlayerAttck, 0, 0, 150, 150 };
+	playerAttackEffect.show();
+
 }
 
 void client_finish()
@@ -131,6 +139,7 @@ void ProcessPacket(char* ptr)
 
 		strncpy(myPlayer.name, packet->name, strlen(packet->name));
 		myPlayer.SetNameText(myPlayer.name);
+		myPlayer.SetPlayerStat(packet->hp, packet->max_hp, packet->exp, packet->level);
 
 		char xPos[7];
 		char yPos[7];
@@ -181,11 +190,9 @@ void ProcessPacket(char* ptr)
 			players[id].move(my_packet->x, my_packet->y);
 			strncpy(players[id].name, my_packet->name, strlen(my_packet->name));
 			players[id].SetNameText(players[id].name);
-			//memcpy(avatar.name, my_packet->name, strlen(my_packet->name));			
 			players[id].show();
 		}
 		//}
-
 		break;
 	}
 	case SC_MOVE_OBJECT:
@@ -244,6 +251,24 @@ void ProcessPacket(char* ptr)
 
 		break;
 	}
+	case SC_STAT_CHANGE:
+	{
+		SC_STAT_CHANGEL_PACKET* packet = reinterpret_cast<SC_STAT_CHANGEL_PACKET*>(ptr);
+		myPlayer.SetPlayerStat(packet->hp, packet->max_hp, packet->exp, packet->level);
+	}
+	case SC_ATTACK:
+	{
+		SC_ATTACK_PACKET* packet = reinterpret_cast<SC_ATTACK_PACKET*>(ptr);
+		myPlayer.ableSkill = false;
+	}
+	break;
+	case SC_ATTACK_COOL:
+	{
+		SC_ATTACK_COOL_PACKET* packet = reinterpret_cast<SC_ATTACK_COOL_PACKET*>(ptr);
+		myPlayer.ableSkill = true;
+	}
+	break;
+	break;
 	default:
 		printf("Unknown PACKET type [%d]\n", ptr[1]);
 	}
@@ -393,8 +418,23 @@ void client_main()
 	}
 
 	myPlayer.draw();
-	for (auto& pl : players)
+	if (myPlayer.GetshowSkill()) {
+		playerAttackEffect.a_move(myPlayer.m_x * TILE_WIDTH - g_left_x - 50, myPlayer.m_y * TILE_WIDTH - g_top_y - 50 - 5);
+		playerAttackEffect.a_draw();
+		if (myPlayer.GetSkillEffectTime() < chrono::system_clock::now()) {
+			myPlayer.HidSkill();
+		}
+	}
+	for (auto& pl : players) {
 		pl.draw();
+		if (pl.GetshowSkill()) {
+			playerAttackEffect.a_move(pl.m_x * TILE_WIDTH - g_left_x - 50, pl.m_y * TILE_WIDTH - g_top_y - 50 - 5);
+			playerAttackEffect.a_draw();
+			if (pl.GetSkillEffectTime() < chrono::system_clock::now()) {
+				pl.HidSkill();
+			}
+		}
+	}
 }
 
 void send_packet(void* packet)
@@ -434,6 +474,7 @@ int main()
 	whiletBardTexture->loadFromFile("white.png");
 	OBJECT whiteBoard;
 	whiteBoard = OBJECT{ *whiletBardTexture, 0, 0, 300, 100 };
+	whiteBoard.show();
 	g_window = &loginWindow;
 
 	wstring loginId;
@@ -532,6 +573,17 @@ int main()
 					logoutPakcet.type = CS_LOGOUT;
 					send_packet(&logoutPakcet);
 					window.close();
+				}
+				break;
+				case sf::Keyboard::A:
+				{
+					if (myPlayer.ableSkill) {
+						CS_ATTACK_PACKET attackPacket;
+						attackPacket.size = sizeof(CS_ATTACK_PACKET);
+						attackPacket.type = CS_ATTACK;
+						send_packet(&attackPacket);
+						myPlayer.StartEffect(chrono::system_clock::now() + 600ms);
+					}
 				}
 				break;
 				}

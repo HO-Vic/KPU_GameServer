@@ -51,7 +51,7 @@ DB_OBJ::DB_OBJ()
 	}	
 }
 
-bool DB_OBJ::GetPlayerInfo(wstring PlayerLoginId, wstring& outputPlayerName, short& pos_X, short& pos_Y, short& level, short& Exp, short& hp)
+bool DB_OBJ::GetPlayerInfo(wstring PlayerLoginId, wstring& outputPlayerName, short& pos_X, short& pos_Y, short& level, short& Exp, short& hp, short& maxHp, short& attackDamage)
 {
 	SQLRETURN retcode;
 
@@ -79,6 +79,12 @@ bool DB_OBJ::GetPlayerInfo(wstring PlayerLoginId, wstring& outputPlayerName, sho
 	SQLINTEGER szHp = 0;
 	SQLLEN cbHp = 0;
 
+	SQLINTEGER szMaxHp = 0;
+	SQLLEN cbMaxHp = 0;
+
+	SQLINTEGER szAttackDamage = 0;
+	SQLLEN cbAttackDamage = 0;
+
 	wstring oper = L"EXEC select_user_Info ";
 	oper.append(PlayerLoginId);
 	oper.append(L"\0");
@@ -90,6 +96,8 @@ bool DB_OBJ::GetPlayerInfo(wstring PlayerLoginId, wstring& outputPlayerName, sho
 		retcode = SQLBindCol(hstmt, 4, SQL_C_SHORT, &szLevel, 2, &cbLevel);
 		retcode = SQLBindCol(hstmt, 5, SQL_C_SHORT, &szExp, 2, &cbExp);
 		retcode = SQLBindCol(hstmt, 6, SQL_C_SHORT, &szHp, 2, &cbHp);
+		retcode = SQLBindCol(hstmt, 6, SQL_C_SHORT, &szMaxHp, 2, &cbMaxHp);
+		retcode = SQLBindCol(hstmt, 6, SQL_C_SHORT, &szAttackDamage, 2, &cbAttackDamage);
 
 		// Fetch and print each row of data. On an error, display a message and exit.
 		retcode = SQLFetch(hstmt); // 다음 행일 가져와라 명령어
@@ -106,6 +114,8 @@ bool DB_OBJ::GetPlayerInfo(wstring PlayerLoginId, wstring& outputPlayerName, sho
 			level = szLevel;
 			Exp = szExp;
 			hp = szHp;
+			maxHp = szMaxHp;
+			attackDamage = szAttackDamage;
 		}
 		if (retcode == SQL_SUCCESS_WITH_INFO) {
 			outputPlayerName.append(szName);
@@ -114,6 +124,8 @@ bool DB_OBJ::GetPlayerInfo(wstring PlayerLoginId, wstring& outputPlayerName, sho
 			level = szLevel;
 			Exp = szExp;
 			hp = szHp;
+			maxHp = szMaxHp;
+			attackDamage = szAttackDamage;
 			HandleDiagnosticRecord(hstmt, SQL_HANDLE_STMT, retcode);
 		}
 	}

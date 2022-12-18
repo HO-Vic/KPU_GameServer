@@ -4,7 +4,7 @@
 using namespace std;
 using namespace chrono;
 
-enum EVENT_TYPE { EV_NONE, EV_RANDOM_MOVE, EV_CHASE_MOVE };
+enum EVENT_TYPE { EV_NONE, EV_RANDOM_MOVE, EV_CHASE_MOVE, EV_PLAYER_ATTACK_COOL };
 
 struct TIMER_EVENT
 {
