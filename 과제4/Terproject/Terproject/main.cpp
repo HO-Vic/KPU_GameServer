@@ -1000,6 +1000,12 @@ void InitializeNPC()
 	for (int i = MAX_USER; i < MAX_USER + 3; ++i) {
 		clients[i]._id = i;
 		clients[i].myLua = new LUA_OBJECT(clients[i]._id, "lua_script\boss.lua");
+		clients[i].maxHp = 5000;
+		clients[i].hp = 5000;
+		clients[i].level = 10;
+		clients[i].exp = 600;
+		clients[i].attackDamage = 1000;
+
 		clients[i]._state = ST_INGAME;
 		memcpy(clients[i]._name, "boss", 4);
 		clients[i].myLocalSectionIndex = make_pair(clients[i].x / 20, clients[i].y / 20);
@@ -1010,6 +1016,11 @@ void InitializeNPC()
 		clients[i]._id = i;
 		clients[i]._state = ST_INGAME;
 		clients[i].myLua = new LUA_OBJECT(clients[i]._id, NPC_TYPE::AGRO);
+		clients[i].maxHp = 600;
+		clients[i].hp = 600;
+		clients[i].level = 4;
+		clients[i].exp = 250;
+		clients[i].attackDamage = 300;
 		string name = "AGRO";
 		name.append(std::to_string(i));
 		memcpy(clients[i]._name, name.c_str(), name.size());
@@ -1019,6 +1030,11 @@ void InitializeNPC()
 	for (int i = MAX_USER + MAX_NPC / 2; i < MAX_USER + MAX_NPC; ++i) {
 		clients[i]._id = i;
 		string name = "PEACE";
+		clients[i].maxHp = 250;
+		clients[i].hp = 250;
+		clients[i].level = 2;
+		clients[i].exp = 120;
+		clients[i].attackDamage = 80;
 		name.append(std::to_string(i));
 		memcpy(clients[i]._name, name.c_str(), name.size());
 		clients[i].myLua = new LUA_OBJECT(clients[i]._id, NPC_TYPE::PEACE);
