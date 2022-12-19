@@ -14,8 +14,8 @@ int API_bossNpcSetPosition(lua_State* L);
 
 random_device npcRdPos;
 default_random_engine npcPosDre(npcRdPos());
-//uniform_int_distribution<int> npcRandPosUid(20, 2000 - 1);
-uniform_int_distribution<int> npcRandPosUid(0, 40);
+uniform_int_distribution<int> npcRandPosUid(20, 2000 - 1);
+//uniform_int_distribution<int> npcRandPosUid(0, 40);
 uniform_int_distribution<int> bossRandPosUid(1000, 2000 - 1);
 
 //AStart

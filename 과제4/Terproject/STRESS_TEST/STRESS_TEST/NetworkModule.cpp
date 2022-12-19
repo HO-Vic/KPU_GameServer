@@ -127,8 +127,8 @@ void SendPacket(int cl, void* packet)
 void ProcessPacket(int ci, unsigned char packet[])
 {
 	switch (packet[1]) {
-	case SC_MOVE_PLAYER: {
-		SC_MOVE_PLAYER_PACKET* move_packet = reinterpret_cast<SC_MOVE_PLAYER_PACKET*>(packet);
+	case SC_MOVE_OBJECT: {
+		SC_MOVE_OBJECT_PACKET* move_packet = reinterpret_cast<SC_MOVE_OBJECT_PACKET*>(packet);
 		if (move_packet->id < MAX_CLIENTS) {
 			int my_id = client_map[move_packet->id];
 			if (-1 != my_id) {
@@ -138,7 +138,6 @@ void ProcessPacket(int ci, unsigned char packet[])
 			if (ci == my_id) {
 				if (0 != move_packet->move_time) {
 					auto d_ms = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count() - move_packet->move_time;
-
 					if (global_delay < d_ms) global_delay++;
 					else if (global_delay > d_ms) global_delay--;
 				}
@@ -146,8 +145,8 @@ void ProcessPacket(int ci, unsigned char packet[])
 		}
 	}
 					   break;
-	case SC_ADD_PLAYER: break;
-	case SC_REMOVE_PLAYER: break;
+	case SC_ADD_OBJECT: break;
+	case SC_REMOVE_OBJECT: break;
 	case SC_LOGIN_INFO:
 	{
 		g_clients[ci].connected = true;
@@ -166,6 +165,7 @@ void ProcessPacket(int ci, unsigned char packet[])
 	}
 	break;
 	case SC_CHAT:
+	case SC_STAT_CHANGE:
 		break;
 	default: MessageBox(hWnd, L"Unknown Packet Type", L"ERROR", 0);
 		while (true);
@@ -318,7 +318,7 @@ void Adjust_Number_Of_Client()
 	CS_LOGIN_PACKET l_packet;
 
 	int temp = num_connections;
-	sprintf_s(l_packet.name, "%d", temp);
+	sprintf_s(l_packet.name, "Test%d", temp);
 	l_packet.size = sizeof(l_packet);
 	l_packet.type = CS_LOGIN;
 	SendPacket(num_connections, &l_packet);
