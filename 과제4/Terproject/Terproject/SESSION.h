@@ -82,3 +82,4 @@ public:
 };
 
 extern array<SESSION, MAX_USER + MAX_NPC> clients;
+extern array<int, 11> levelExp;

@@ -42,6 +42,7 @@ void SESSION::send_login_info_packet()
 	p.max_hp = hp;
 	p.exp = exp;
 	p.level = level;
+	p.max_exp = levelExp[level];
 	do_send(&p);
 }
 

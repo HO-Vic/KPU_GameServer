@@ -33,9 +33,10 @@ class LUA_OBJECT
 private:
 	std::atomic_bool isActive = false;
 	std::atomic_bool isChase = false;
+	std::atomic_bool isArrive = true;
 	lua_State* myLuaState = nullptr;
 	int chaseId = -1;
-	std::list<AStarNode> npcNavigateList;
+	//std::list<AStarNode> npcNavigateList;
 	std::mutex GetNodeLock;
 public:
 	NPC_TYPE type = AGRO;
@@ -50,10 +51,25 @@ public:
 	bool InActiveNPC();
 	bool ActiveChase();
 	bool InActiveChase();
+	bool DieNpc()
+	{
+		bool old_state = true;
+		if (atomic_compare_exchange_strong(&isArrive, &old_state, false))
+			return true;
+		return false;
+	}
+	bool RespawnNpc()
+	{
+		bool old_state = false;
+		if (atomic_compare_exchange_strong(&isArrive, &old_state, true))
+			return true;
+		return false;
+	}
+	bool GetArrive() { return isArrive; }
 	std::pair<int, int> AStarLoad(int StartX, int startY, int destinyX, int destinyY);
 	std::pair<int, int> GetNextNode() 
 	{
-		GetNodeLock.lock();
+		/*GetNodeLock.lock();
 		if (!npcNavigateList.empty()) {
 			std::pair<int, int> retVal = npcNavigateList.begin()->myNode;		
 			if(!npcNavigateList.empty())
@@ -62,7 +78,7 @@ public:
 			return retVal;
 		}
 		GetNodeLock.unlock();
-		return std::make_pair(-100, -100);
+		return std::make_pair(-100, -100);*/
 	}
 	int GetChaseId() { return chaseId; }
 	void SetChaseId(int cId) { chaseId = cId; }

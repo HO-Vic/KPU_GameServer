@@ -15,8 +15,8 @@
 
 using namespace std;
 
-array<int, 10> levelExp = { 100, 200, 300, 400 ,500, 600, 700, 800, 900, 1200 };
-array<int, 10> levelMaxHp = { 200, 500, 600 ,700, 900, 1000, 1100, 1200, 1500, 1700 };
+array<int, 11> levelExp = { 0, 100, 200, 300, 400 ,500, 600, 700, 800, 900, 1200 };
+array<int, 11> levelMaxHp = { 100, 200, 500, 600 ,700, 900, 1000, 1100, 1200, 1500, 1700 };
 array<SESSION, MAX_USER + MAX_NPC> clients;
 array < array<LOCAL_SESSION, 100>, 100> gameMap;
 pair<int, int> AStartObstacle[31];
@@ -46,8 +46,9 @@ void UpdateNearList(std::unordered_set<int>& newNearList, int c_id);
 //NPC func
 void InitializeNPC();
 void WakeUpNPC(int npcId, int waker);
-bool MoveRandNPC(int npcId);
+void MoveRandNPC(int npcId);
 bool Agro_NPC(int npcId, int cId);
+bool AbleAttack_NPC(int npcId, int cId);
 
 //Timer
 void TimerWorkerThread();
@@ -188,7 +189,7 @@ void process_packet(int c_id, char* packet)
 
 		EXP_OVER* exOver = new EXP_OVER();
 		exOver->_comp_type = OP_DB_GET_PLAYER_INFO;
-		memcpy(exOver->_send_buf, p->name, strlen(p->name));
+		std::memcpy(exOver->_send_buf, p->name, strlen(p->name));
 		exOver->_send_buf[strlen(p->name)] = 0;
 		PostQueuedCompletionStatus(g_iocpHandle, strlen(p->name), c_id, &exOver->_over);
 	}
@@ -211,6 +212,9 @@ void process_packet(int c_id, char* packet)
 			y = clients[c_id].y;
 		}
 
+		if (clients[c_id].x == x && clients[c_id].y == y)
+			return;
+
 		clients[c_id].x = x;
 		clients[c_id].y = y;
 
@@ -228,12 +232,13 @@ void process_packet(int c_id, char* packet)
 		for (auto& pl : near_list) {
 			auto& cpl = clients[pl];
 			cpl._vl.lock();
-			if (cpl._view_list.count(c_id) > 0) {
+			if (cpl._view_list.count(c_id) > 0) { // 상대 클라에 내가 존재 한다면
 				cpl._vl.unlock();
 				if (isPc(pl))
 					cpl.send_move_packet(c_id, clients);
+				else WakeUpNPC(pl, c_id);
 			}
-			else {
+			else {// 없다면
 				cpl._vl.unlock();
 				if (isPc(pl))
 					cpl.send_add_player_packet(c_id, clients);
@@ -244,28 +249,28 @@ void process_packet(int c_id, char* packet)
 					WakeUpNPC(pl, c_id);
 				}
 			}
-
-			if (old_vlist.count(pl) == 0) {
-				if (isPc(pl))
+			if (old_vlist.count(pl) == 0) {// 이전 리스트에 상대 클라가 없다면
+				/*if (isPc(pl))
 					clients[pl].send_add_player_packet(c_id, clients);
 				else {
 					clients[pl]._vl.lock();
 					clients[pl]._view_list.insert(c_id);
 					clients[pl]._vl.unlock();
 					WakeUpNPC(pl, c_id);
-				}
+				}*/
 				clients[c_id].send_add_player_packet(pl, clients);
 			}
 		}
 
-		for (auto& pl : old_vlist)
-			if (0 == near_list.count(pl)) {
+		for (auto& pl : old_vlist) // 이전 리스트 중에
+			if (0 == near_list.count(pl)) { // 현재 리스트에 존재 안한다 => 삭제
 				clients[c_id].send_remove_player_packet(pl);
 				if (isPc(pl))
 					clients[pl].send_remove_player_packet(c_id);
 				else {
 					clients[pl]._vl.lock();
-					clients[pl]._view_list.erase(c_id);
+					if (clients[pl]._view_list.count(c_id) != 0)
+						clients[pl]._view_list.erase(c_id);
 					clients[pl]._vl.unlock();
 				}
 			}
@@ -283,7 +288,7 @@ void process_packet(int c_id, char* packet)
 			eventTimerQueue.push(ev);
 
 			for (auto& npc : clients[c_id]._view_list) {
-				if (!isPc(npc) && canAttack(c_id, npc))
+				if (!isPc(npc) && canAttack(c_id, npc) && clients[npc].myLua->GetArrive())
 					AttackNpc(c_id, npc);
 			}
 			clients[c_id].SetAbleAttack(false);
@@ -373,7 +378,7 @@ void worker_thread()
 			}
 			clients[key]._prev_remain = remain_data;
 			if (remain_data > 0) {
-				memcpy(ex_over->_send_buf, p, remain_data);
+				std::memcpy(ex_over->_send_buf, p, remain_data);
 			}
 			clients[key].do_recv();
 			break;
@@ -399,7 +404,7 @@ void worker_thread()
 			else {
 				string playerStr;
 				playerStr.assign(playerName.begin(), playerName.end());
-				memcpy(clients[key]._name, playerStr.c_str(), NAME_SIZE);
+				std::memcpy(clients[key]._name, playerStr.c_str(), NAME_SIZE);
 				clients[key].send_login_info_packet();
 
 				clients[key].myLocalSectionIndex.first = clients[key].x / 20;
@@ -409,8 +414,8 @@ void worker_thread()
 					clients[key]._state = ST_INGAME;
 				}
 				UpdateNearList(clients[key]._view_list, key);
-				for (auto& pl : clients[key]._view_list) {
 
+				for (auto& pl : clients[key]._view_list) {
 					if (isPc(pl)) clients[pl].send_add_player_packet(key, clients);
 					else WakeUpNPC(pl, key);
 					clients[key].send_add_player_packet(clients[pl]._id, clients);
@@ -421,24 +426,45 @@ void worker_thread()
 		case OP_NPC_MOVE:
 		{
 			bool keep_alive = false;
-			for (auto index : clients[key]._view_list) {
-				if (clients[index]._state != ST_INGAME) continue;
-				if (can_see(static_cast<int>(key), index)) {
-					keep_alive = true;
-					break;
+			bool isAgro = false;
+			if (clients[key].myLua->GetArrive()) {
+				for (auto index : clients[key]._view_list) {
+					if (clients[index]._state != ST_INGAME) continue;
+					if (can_see(static_cast<int>(key), index)) {
+						if (clients[key].myLua->type == NPC_TYPE::AGRO) {
+							for (auto& vlIndex : clients[key]._view_list) {
+								if (Agro_NPC(key, vlIndex)) {
+									if (clients[key].myLua->ActiveChase()) {
+										clients[key].myLua->SetChaseId(vlIndex);										
+										isAgro = true;
+										break;
+									}
+								}
+							}
+						}
+						keep_alive = true;
+						break;
+					}
 				}
-			}
-			if (true == keep_alive) {
-				if (MoveRandNPC(static_cast<int>(key))) {
-					TIMER_EVENT ev{ key, chrono::system_clock::now() + 1s, EV_RANDOM_MOVE, 0 };
-					eventTimerQueue.push(ev);
+				if (isAgro) {
+					EXP_OVER* expOver = new EXP_OVER();
+					expOver->_comp_type = OP_NPC_CHASE_MOVE;
+					PostQueuedCompletionStatus(g_iocpHandle, 1, key, &expOver->_over);
+					//cout << "AGRO NPC: " << key << endl;
 				}
-			}
-			else {
-				if (clients[key].myLua != nullptr) {
-					clients[key].myLua->InActiveNPC();
-					if (clients[key].myLua->InActiveChase())
-						clients[key].myLua->SetChaseId(-1);
+				else if (true == keep_alive) {
+					MoveRandNPC(static_cast<int>(key));
+					{
+						TIMER_EVENT ev{ key, chrono::system_clock::now() + 1s, EV_RANDOM_MOVE, 0 };
+						eventTimerQueue.push(ev);
+					}
+				}
+				else {
+					if (clients[key].myLua != nullptr) {
+						clients[key].myLua->InActiveNPC();
+						if (clients[key].myLua->InActiveChase())
+							clients[key].myLua->SetChaseId(-1);
+					}
 				}
 			}
 			delete ex_over;
@@ -446,70 +472,117 @@ void worker_thread()
 		break;
 		case OP_NPC_CHASE_MOVE:
 		{
-			//이미 붙어 있다면
-			int chaseId = clients[key].myLua->GetChaseId();
-			if (chaseId < 0);
-			else if (clients[key].x == clients[chaseId].x && clients[key].y == clients[chaseId].y) {
-				TIMER_EVENT ev{ key, chrono::system_clock::now() + 4s, EV_CHASE_MOVE, 0 };
-				eventTimerQueue.push(ev);
-			}
-			else {
-				//길찾기 실행
-				pair<int, int> res = clients[key].myLua->GetNextNode();
-				//결과 값(길 list)이 비었다면
-				if (res.first < 0 || res.second < 0) {
-					//새로 길 찾기 실행
-					if (!Agro_NPC(key, chaseId)) {
-						clients[key].myLua->InActiveChase();
+			if (clients[key].myLua->GetArrive()) {
+				//이미 붙어 있다면
+				int chaseId = clients[key].myLua->GetChaseId();
+				if (chaseId < 0)
+				{
+					if (clients[key].myLua->InActiveChase()) {
 						TIMER_EVENT ev{ key, chrono::system_clock::now() + 2s, EV_RANDOM_MOVE, 0 };
 						eventTimerQueue.push(ev);
 					}
-					else {
+				}
+				else if (clients[key].x == clients[chaseId].x && clients[key].y == clients[chaseId].y) {
+					if (AbleAttack_NPC(key, chaseId) && clients[key].myLua->GetArrive()) {
+						clients[chaseId].hp = clients[chaseId].hp - clients[key].attackDamage;
+						if (clients[chaseId].hp < 0) {
+							clients[chaseId].exp /= 2;
+							clients[chaseId].maxHp = levelMaxHp[clients[chaseId].level - 1];
+							clients[chaseId].hp = clients[chaseId].maxHp;
 
-						pair<int, int> res = clients[key].myLua->AStarLoad(clients[key].x, clients[key].y, clients[chaseId].x, clients[chaseId].y);
-						//적용
-						clients[key].x = res.first;
-						clients[key].y = res.second;
+							clients[chaseId].x = 0;
+							clients[chaseId].y = 0;
+
+							gameMap[clients[chaseId].myLocalSectionIndex.first][clients[chaseId].myLocalSectionIndex.second].DeletePlayers(clients[chaseId]);//현재 로컬 최신화
+							clients[chaseId].myLocalSectionIndex = std::make_pair(0, 0);
+							gameMap[0][0].InsertPlayers(clients[chaseId]);
+
+							clients[chaseId].send_move_packet(chaseId, clients);
+
+							//뷰 리스트 업데이트를 위한 new near List 생성							
+							clients[chaseId]._vl.lock();
+							unordered_set<int> old_vlist = clients[chaseId]._view_list;
+							clients[chaseId]._vl.unlock();
 
 
-						clients[key]._vl.lock();
-						unordered_set<int> old_vlist = clients[key]._view_list;
-						clients[key]._vl.unlock();
+							UpdateNearList(clients[chaseId]._view_list, chaseId);
+							for (auto& pl : clients[chaseId]._view_list) {
+								auto& cpl = clients[pl];
+								cpl._vl.lock();
+								if (cpl._view_list.count(chaseId) > 0) {
+									cpl._vl.unlock();
+									if (isPc(pl))
+										cpl.send_move_packet(chaseId, clients);
+								}
+								else {
+									cpl._vl.unlock();
+									if (isPc(pl))
+										cpl.send_add_player_packet(chaseId, clients);
+									else {
+										clients[pl]._vl.lock();
+										clients[pl]._view_list.insert(chaseId);
+										clients[pl]._vl.unlock();
+										WakeUpNPC(pl, chaseId);
+									}
+								}
 
-						gameMap[clients[key].myLocalSectionIndex.first][clients[key].myLocalSectionIndex.second].UpdatePlayers(clients[key], gameMap);//현재 로컬 최신화
-						UpdateNearList(clients[key]._view_list, key);
-
-						//npc not send
-						//clients[npcId].send_move_packet(npcId, clients);
-
-						for (auto& pl : clients[key]._view_list) {
-							auto& cpl = clients[pl];
-							cpl._vl.lock();
-							if (cpl._view_list.count(key) > 0) {
-								cpl._vl.unlock();
-								if (isPc(pl))
-									cpl.send_move_packet(key, clients);
+								if (old_vlist.count(pl) == 0) {
+									/*if (isPc(pl))
+										clients[pl].send_add_player_packet(chaseId, clients);
+									else {
+										clients[pl]._vl.lock();
+										clients[pl]._view_list.insert(chaseId);
+										clients[pl]._vl.unlock();
+										WakeUpNPC(pl, chaseId);
+									}*/
+									clients[chaseId].send_add_player_packet(pl, clients);
+								}
 							}
-							else {
-								cpl._vl.unlock();
-								if (isPc(pl))
-									clients[pl].send_add_player_packet(key, clients);
-							}
+
+							for (auto& pl : old_vlist)
+								if (0 == clients[chaseId]._view_list.count(pl)) {
+									clients[chaseId].send_remove_player_packet(pl);
+									if (isPc(pl))
+										clients[pl].send_remove_player_packet(chaseId);
+									else {
+										clients[pl]._vl.lock();
+										clients[pl]._view_list.erase(chaseId);
+										clients[pl]._vl.unlock();
+									}
+								}
+
+							SC_STAT_CHANGEL_PACKET sendPakcet;
+							sendPakcet.size = sizeof(SC_STAT_CHANGEL_PACKET);
+							sendPakcet.hp = clients[chaseId].maxHp;
+							sendPakcet.level = clients[chaseId].level;
+							sendPakcet.max_hp = clients[chaseId].maxHp;
+							sendPakcet.type = SC_STAT_CHANGE;
+							sendPakcet.exp = clients[chaseId].exp;
+							sendPakcet.max_exp = levelExp[clients[chaseId].level];
+							clients[chaseId].do_send(&sendPakcet);
+						}
+						else {
+							SC_STAT_CHANGEL_PACKET sendPakcet;
+							sendPakcet.size = sizeof(SC_STAT_CHANGEL_PACKET);
+							sendPakcet.hp = clients[chaseId].hp;
+							sendPakcet.level = clients[chaseId].level;
+							sendPakcet.max_hp = clients[chaseId].maxHp;
+							sendPakcet.type = SC_STAT_CHANGE;
+							sendPakcet.exp = clients[chaseId].exp;
+							sendPakcet.max_exp = levelExp[clients[chaseId].level];
+							clients[chaseId].do_send(&sendPakcet);
 						}
 
-						for (auto& pl : old_vlist)
-							if (0 == clients[key]._view_list.count(pl))
-								if (isPc(pl))
-									clients[pl].send_remove_player_packet(key);
-
-						TIMER_EVENT ev{ key, chrono::system_clock::now() + 1s, EV_CHASE_MOVE, 0 };
-						eventTimerQueue.push(ev);
 					}
+					TIMER_EVENT ev{ key, chrono::system_clock::now() + 2s, EV_CHASE_MOVE, 0 };
+					eventTimerQueue.push(ev);
 				}
 				else {
-					//길이 존재 한다면 고고
+					//길찾기 실행
+					pair<int, int> res = clients[key].myLua->AStarLoad(clients[key].x, clients[key].y, clients[chaseId].x, clients[chaseId].y);
 					clients[key].x = res.first;
 					clients[key].y = res.second;
+
 
 					clients[key]._vl.lock();
 					unordered_set<int> old_vlist = clients[key]._view_list;
@@ -543,6 +616,94 @@ void worker_thread()
 
 					TIMER_EVENT ev{ key, chrono::system_clock::now() + 1s, EV_CHASE_MOVE, 0 };
 					eventTimerQueue.push(ev);
+					//결과 값(길 list)이 비었다면
+					//if (res.first < 0 || res.second < 0) {
+					//	//새로 길 찾기 실행
+					//	if (!Agro_NPC(key, chaseId)) {
+					//		clients[key].myLua->InActiveChase();
+					//		TIMER_EVENT ev{ key, chrono::system_clock::now() + 2s, EV_RANDOM_MOVE, 0 };
+					//		eventTimerQueue.push(ev);
+					//	}
+					//	else {
+
+					//		pair<int, int> res = clients[key].myLua->AStarLoad(clients[key].x, clients[key].y, clients[chaseId].x, clients[chaseId].y);
+					//		//적용
+					//		clients[key].x = res.first;
+					//		clients[key].y = res.second;
+
+
+					//		clients[key]._vl.lock();
+					//		unordered_set<int> old_vlist = clients[key]._view_list;
+					//		clients[key]._vl.unlock();
+
+					//		gameMap[clients[key].myLocalSectionIndex.first][clients[key].myLocalSectionIndex.second].UpdatePlayers(clients[key], gameMap);//현재 로컬 최신화
+					//		UpdateNearList(clients[key]._view_list, key);
+
+					//		//npc not send
+					//		//clients[npcId].send_move_packet(npcId, clients);
+
+					//		for (auto& pl : clients[key]._view_list) {
+					//			auto& cpl = clients[pl];
+					//			cpl._vl.lock();
+					//			if (cpl._view_list.count(key) > 0) {
+					//				cpl._vl.unlock();
+					//				if (isPc(pl))
+					//					cpl.send_move_packet(key, clients);
+					//			}
+					//			else {
+					//				cpl._vl.unlock();
+					//				if (isPc(pl))
+					//					clients[pl].send_add_player_packet(key, clients);
+					//			}
+					//		}
+
+					//		for (auto& pl : old_vlist)
+					//			if (0 == clients[key]._view_list.count(pl))
+					//				if (isPc(pl))
+					//					clients[pl].send_remove_player_packet(key);
+
+					//		TIMER_EVENT ev{ key, chrono::system_clock::now() + 1s, EV_CHASE_MOVE, 0 };
+					//		eventTimerQueue.push(ev);
+					//	}
+					//}
+					//else {
+					//	//길이 존재 한다면 고고
+					//	clients[key].x = res.first;
+					//	clients[key].y = res.second;
+
+					//	clients[key]._vl.lock();
+					//	unordered_set<int> old_vlist = clients[key]._view_list;
+					//	clients[key]._vl.unlock();
+
+					//	gameMap[clients[key].myLocalSectionIndex.first][clients[key].myLocalSectionIndex.second].UpdatePlayers(clients[key], gameMap);//현재 로컬 최신화
+					//	UpdateNearList(clients[key]._view_list, key);
+
+					//	//npc not send
+					//	//clients[npcId].send_move_packet(npcId, clients);
+
+					//	for (auto& pl : clients[key]._view_list) {
+					//		auto& cpl = clients[pl];
+					//		cpl._vl.lock();
+					//		if (cpl._view_list.count(key) > 0) {
+					//			cpl._vl.unlock();
+					//			if (isPc(pl))
+					//				cpl.send_move_packet(key, clients);
+					//		}
+					//		else {
+					//			cpl._vl.unlock();
+					//			if (isPc(pl))
+					//				clients[pl].send_add_player_packet(key, clients);
+					//		}
+					//	}
+
+					//	for (auto& pl : old_vlist)
+					//		if (0 == clients[key]._view_list.count(pl))
+					//			if (isPc(pl))
+					//				clients[pl].send_remove_player_packet(key);
+
+					//	TIMER_EVENT ev{ key, chrono::system_clock::now() + 1s, EV_CHASE_MOVE, 0 };
+					//	eventTimerQueue.push(ev);
+					//}
 				}
 			}
 		}
@@ -565,22 +726,36 @@ void worker_thread()
 void AttackNpc(int cId, int npcId)
 {
 	clients[npcId].hp = clients[npcId].hp - clients[cId].attackDamage;
-	if (clients[npcId].hp < 0 && clients[cId].hp > 0) {
-		clients[cId].exp += clients[npcId].exp;
-		if (levelExp[clients[cId].level - 1] < clients[cId].exp) {
-			clients[cId].exp -= levelExp[clients[npcId].level - 1];
-			clients[npcId].level += 1;
-			clients[cId].maxHp = levelMaxHp[clients[npcId].level - 2];
-			clients[cId].hp = clients[cId].maxHp;
+	if (clients[npcId].hp < 0) {
+		if (clients[npcId].myLua->DieNpc()) {
+			clients[cId].exp += clients[npcId].exp;
+			if (levelExp[clients[cId].level] < clients[cId].exp) {
+				clients[cId].exp -= levelExp[clients[cId].level];
+				clients[cId].level += 1;
+				clients[cId].maxHp = levelMaxHp[clients[cId].level - 1];
+				clients[cId].hp = clients[cId].maxHp;
+			}
+			SC_STAT_CHANGEL_PACKET sendPakcet;
+			sendPakcet.size = sizeof(SC_STAT_CHANGEL_PACKET);
+			sendPakcet.hp = clients[cId].hp;
+			sendPakcet.level = clients[cId].level;
+			sendPakcet.max_hp = clients[cId].maxHp;
+			sendPakcet.type = SC_STAT_CHANGE;
+			sendPakcet.exp = clients[cId].exp;
+			sendPakcet.max_exp = levelExp[clients[cId].level];
+			clients[cId].do_send(&sendPakcet);
+
+			SC_REMOVE_OBJECT_PACKET removePakcet;// 죽었으니 제거
+			removePakcet.type = SC_REMOVE_OBJECT;
+			removePakcet.size = sizeof(SC_REMOVE_OBJECT_PACKET);
+			removePakcet.id = npcId;
+
+			for (auto& vlIndex : clients[npcId]._view_list)// npc의 뷰 리스트가 가지고 있는 클라이언트들에게 전송
+				clients[vlIndex].do_send(&removePakcet);
+
+			TIMER_EVENT ev{ npcId, chrono::system_clock::now() + 30s, EV_RESPAWN_NPC, 0 };
+			eventTimerQueue.push(ev);
 		}
-		SC_STAT_CHANGEL_PACKET sendPakcet;
-		sendPakcet.size = sizeof(SC_STAT_CHANGEL_PACKET);
-		sendPakcet.hp = clients[cId].hp;
-		sendPakcet.level = clients[cId].level;
-		sendPakcet.max_hp = clients[cId].maxHp;
-		sendPakcet.type = SC_STAT_CHANGE;
-		sendPakcet.exp = clients[cId].exp;
-		clients[cId].do_send(&sendPakcet);
 	}
 }
 
@@ -590,6 +765,10 @@ void UpdateNearList(std::unordered_set<int>& newNearList, int c_id)
 		for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second].GetPlayer()) { // current my local
 			if (clients[id]._state != ST_INGAME) continue;
 			if (clients[id]._id == c_id) continue;
+			if (!isPc(id)) {
+				if (!clients[id].myLua->GetArrive())
+					continue;
+			}
 			if (can_see(c_id, id))
 				newNearList.insert(id);
 		}
@@ -600,18 +779,30 @@ void UpdateNearList(std::unordered_set<int>& newNearList, int c_id)
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second - 1].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
@@ -620,6 +811,10 @@ void UpdateNearList(std::unordered_set<int>& newNearList, int c_id)
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
@@ -628,6 +823,10 @@ void UpdateNearList(std::unordered_set<int>& newNearList, int c_id)
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
@@ -638,18 +837,30 @@ void UpdateNearList(std::unordered_set<int>& newNearList, int c_id)
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second + 1].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
@@ -658,6 +869,10 @@ void UpdateNearList(std::unordered_set<int>& newNearList, int c_id)
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
@@ -666,6 +881,10 @@ void UpdateNearList(std::unordered_set<int>& newNearList, int c_id)
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
@@ -675,6 +894,10 @@ void UpdateNearList(std::unordered_set<int>& newNearList, int c_id)
 				for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second].GetPlayer()) {
 					if (clients[id]._state != ST_INGAME) continue;
 					if (clients[id]._id == c_id) continue;
+					if (!isPc(id)) {
+						if (!clients[id].myLua->GetArrive())
+							continue;
+					}
 					if (can_see(c_id, id))
 						newNearList.insert(id);
 				}
@@ -686,18 +909,30 @@ void UpdateNearList(std::unordered_set<int>& newNearList, int c_id)
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second - 1].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
@@ -706,6 +941,10 @@ void UpdateNearList(std::unordered_set<int>& newNearList, int c_id)
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
@@ -714,6 +953,10 @@ void UpdateNearList(std::unordered_set<int>& newNearList, int c_id)
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
@@ -724,18 +967,30 @@ void UpdateNearList(std::unordered_set<int>& newNearList, int c_id)
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second + 1].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
@@ -744,6 +999,10 @@ void UpdateNearList(std::unordered_set<int>& newNearList, int c_id)
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
@@ -752,6 +1011,10 @@ void UpdateNearList(std::unordered_set<int>& newNearList, int c_id)
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
@@ -761,6 +1024,10 @@ void UpdateNearList(std::unordered_set<int>& newNearList, int c_id)
 				for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].GetPlayer()) {
 					if (clients[id]._state != ST_INGAME) continue;
 					if (clients[id]._id == c_id) continue;
+					if (!isPc(id)) {
+						if (!clients[id].myLua->GetArrive())
+							continue;
+					}
 					if (can_see(c_id, id))
 						newNearList.insert(id);
 				}
@@ -772,6 +1039,10 @@ void UpdateNearList(std::unordered_set<int>& newNearList, int c_id)
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
@@ -782,6 +1053,10 @@ void UpdateNearList(std::unordered_set<int>& newNearList, int c_id)
 					for (auto& id : gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].GetPlayer()) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
+						if (!isPc(id)) {
+							if (!clients[id].myLua->GetArrive())
+								continue;
+						}
 						if (can_see(c_id, id))
 							newNearList.insert(id);
 					}
@@ -1007,7 +1282,7 @@ void InitializeNPC()
 		clients[i].attackDamage = 1000;
 
 		clients[i]._state = ST_INGAME;
-		memcpy(clients[i]._name, "boss", 4);
+		std::memcpy(clients[i]._name, "boss", 4);
 		clients[i].myLocalSectionIndex = make_pair(clients[i].x / 20, clients[i].y / 20);
 		gameMap[clients[i].myLocalSectionIndex.first][clients[i].myLocalSectionIndex.second].InsertPlayers(clients[i]);
 		clients[i]._state = ST_INGAME;
@@ -1017,13 +1292,13 @@ void InitializeNPC()
 		clients[i]._state = ST_INGAME;
 		clients[i].myLua = new LUA_OBJECT(clients[i]._id, NPC_TYPE::AGRO);
 		clients[i].maxHp = 600;
-		clients[i].hp = 600;
+		clients[i].hp = 100;
 		clients[i].level = 4;
 		clients[i].exp = 250;
 		clients[i].attackDamage = 300;
 		string name = "AGRO";
 		name.append(std::to_string(i));
-		memcpy(clients[i]._name, name.c_str(), name.size());
+		std::memcpy(clients[i]._name, name.c_str(), name.size());
 		clients[i].myLocalSectionIndex = make_pair(clients[i].x / 20, clients[i].y / 20);
 		gameMap[clients[i].myLocalSectionIndex.first][clients[i].myLocalSectionIndex.second].InsertPlayers(clients[i]);
 	}
@@ -1036,8 +1311,9 @@ void InitializeNPC()
 		clients[i].exp = 120;
 		clients[i].attackDamage = 80;
 		name.append(std::to_string(i));
-		memcpy(clients[i]._name, name.c_str(), name.size());
-		clients[i].myLua = new LUA_OBJECT(clients[i]._id, NPC_TYPE::PEACE);
+		std::memcpy(clients[i]._name, name.c_str(), name.size());
+		//clients[i].myLua = new LUA_OBJECT(clients[i]._id, NPC_TYPE::PEACE);
+		clients[i].myLua = new LUA_OBJECT(clients[i]._id, NPC_TYPE::AGRO);
 		clients[i].myLocalSectionIndex = make_pair(clients[i].x / 20, clients[i].y / 20);
 		gameMap[clients[i].myLocalSectionIndex.first][clients[i].myLocalSectionIndex.second].InsertPlayers(clients[i]);
 		clients[i]._state = ST_INGAME;
@@ -1047,16 +1323,17 @@ void InitializeNPC()
 
 void WakeUpNPC(int npcId, int waker)
 {
-	if (clients[npcId].myLua->ActiveNPC()) {
+	if (clients[npcId].myLua->ActiveNPC() && clients[npcId].myLua->GetArrive()) {
+		cout << "wakeUp npc: " << npcId << endl;
 		TIMER_EVENT ev{ npcId, chrono::system_clock::now() + 1s, EV_RANDOM_MOVE, 0 };
 		eventTimerQueue.push(ev);
 	}
 }
 
-bool MoveRandNPC(int npcId)
+void MoveRandNPC(int npcId)
 {
-	//cout << "npc move" << endl;	
-	if (clients[npcId].myLua->type == NPC_TYPE::AGRO) {
+	//cout << "npc move" << endl;
+	/*if (clients[npcId].myLua->type == NPC_TYPE::AGRO) {
 		for (auto& vlIndex : clients[npcId]._view_list) {
 			if (Agro_NPC(npcId, vlIndex)) {
 				if (clients[npcId].myLua->ActiveChase()) {
@@ -1064,11 +1341,12 @@ bool MoveRandNPC(int npcId)
 					EXP_OVER* expOver = new EXP_OVER();
 					expOver->_comp_type = OP_NPC_CHASE_MOVE;
 					PostQueuedCompletionStatus(g_iocpHandle, 1, npcId, &expOver->_over);
+					cout << "AGRO NPC: " << npcId << endl;
 				}
 				return false;
 			}
 		}
-	}
+	}*/
 	if (clients[npcId].myLua->InActiveChase())
 		clients[npcId].myLua->SetChaseId(-1);
 
@@ -1086,7 +1364,7 @@ bool MoveRandNPC(int npcId)
 		x = clients[npcId].x;
 		y = clients[npcId].y;
 	}
-
+	//if (clients[npcId].x == x && clients[npcId].y == y) return true;// 안움직인거.
 	clients[npcId].x = x;
 	clients[npcId].y = y;
 
@@ -1099,7 +1377,7 @@ bool MoveRandNPC(int npcId)
 
 	//npc not send
 	//clients[npcId].send_move_packet(npcId, clients);
-
+	//if (clients[npcId]._view_list.size() < 1)return true;
 	for (auto& pl : clients[npcId]._view_list) {
 		auto& cpl = clients[pl];
 		cpl._vl.lock();
@@ -1119,7 +1397,7 @@ bool MoveRandNPC(int npcId)
 		if (0 == clients[npcId]._view_list.count(pl))
 			if (isPc(pl))
 				clients[pl].send_remove_player_packet(npcId);
-	return true;
+	//return true;
 }
 
 bool Agro_NPC(int npcId, int cId)
@@ -1172,6 +1450,11 @@ void TimerWorkerThread()
 				packet.type = SC_ATTACK_COOL;
 				clients[ev.objId].do_send(&packet);
 				clients[ev.objId].SetAbleAttack(true);
+			}
+			break;
+			case EV_RESPAWN_NPC:
+			{
+				clients[ev.objId].myLua->RespawnNpc();
 			}
 			break;
 			default: break;

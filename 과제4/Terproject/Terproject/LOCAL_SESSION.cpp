@@ -102,6 +102,14 @@ void LOCAL_SESSION::UpdatePlayers(SESSION& player, std::array< std::array<LOCAL_
 	}	
 }
 
+void LOCAL_SESSION::DeletePlayers(SESSION& player)
+{
+	playersLock.lock();
+	if (players.count(player._id))
+		players.erase(player._id);
+	playersLock.unlock();
+}
+
 const std::unordered_set<int>& LOCAL_SESSION::GetPlayer()
 {
 	return players;

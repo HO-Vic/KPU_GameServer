@@ -25,7 +25,11 @@ PLAYER players[MAX_USER + MAX_NPC];
 OBJECT gameHouseMap;
 OBJECT gameGeneralMap;
 OBJECT playerAttackEffect;
+
 OBJECT hpBar;
+OBJECT BG_hpBar;
+OBJECT EXPBar;
+OBJECT BG_EXPBar;
 
 sf::Texture* textureHouseMap;
 sf::Texture* textureGeneralMap;
@@ -35,11 +39,16 @@ sf::Texture* texturePlayerAttck;
 sf::Texture* textureBoss;
 sf::Texture* textureGhost;
 sf::Texture* textureDog;
+
 sf::Texture* textureHPBar;
+sf::Texture* textureBG_HPBar;
+sf::Texture* textureEXPBar;
+sf::Texture* textureBG_EXPBar;
 
 sf::String TextString = "(0, 0)";
 
 sf::Text HPText;
+sf::Text EXPText;
 
 
 constexpr int IDLE_LEFT = 0;
@@ -89,10 +98,34 @@ void client_initialize()
 
 	textureHPBar = new sf::Texture;
 	textureHPBar->loadFromFile("red.png");
+	textureBG_HPBar = new sf::Texture;
+	textureBG_HPBar->loadFromFile("gray.png");
+	textureEXPBar = new sf::Texture;
+	textureEXPBar->loadFromFile("yellow.png");
+	textureBG_EXPBar = new sf::Texture;
+	textureBG_EXPBar->loadFromFile("gray.png");
+
+
 	hpBar = OBJECT{ *textureHPBar, 0, 0, 1, 30 };
 	hpBar.SetScale(WINDOW_WIDTH - 500, 1);
 	hpBar.a_move(WINDOW_WIDTH - 750, 900);
 	hpBar.show();
+
+	BG_hpBar = OBJECT{ *textureBG_HPBar, 0, 0, 1, 30 };
+	BG_hpBar.SetScale(WINDOW_WIDTH - 500, 1);
+	BG_hpBar.a_move(WINDOW_WIDTH - 750, 900);
+	BG_hpBar.show();
+
+	EXPBar = OBJECT{ *textureEXPBar, 0, 0, 1, 7 };
+	EXPBar.SetScale(WINDOW_WIDTH - 500, 1);
+	EXPBar.a_move(WINDOW_WIDTH - 750, 900 + 30);
+	EXPBar.show();
+
+	BG_EXPBar = OBJECT{ *textureBG_EXPBar, 0, 0, 1, 7 };
+	BG_EXPBar.SetScale(WINDOW_WIDTH - 500, 1);
+	BG_EXPBar.a_move(WINDOW_WIDTH - 750, 900 + 30);
+	BG_EXPBar.show();
+
 	HPText.setString("HP 100/100");
 	HPText.setPosition(WINDOW_WIDTH - 750, 900);
 	HPText.setFont(font);
@@ -100,6 +133,14 @@ void client_initialize()
 	HPText.setFillColor(sf::Color::Black);
 	HPText.setOutlineColor(sf::Color::Black);
 	HPText.setOutlineThickness(1.f);
+
+	EXPText.setString("EXP 0/100");
+	EXPText.setPosition(WINDOW_WIDTH - 750, 900 + 30);
+	EXPText.setFont(font);
+	EXPText.setCharacterSize(10);
+	EXPText.setFillColor(sf::Color::Black);
+	EXPText.setOutlineColor(sf::Color::Black);
+	EXPText.setOutlineThickness(1.f);
 
 	textureBoss = new sf::Texture;
 	textureBoss->loadFromFile("images/boss.png");
@@ -159,6 +200,10 @@ void ProcessPacket(char* ptr)
 		std::string hpStr = "HP ";
 		hpStr.append(std::to_string(packet->hp) + " / " + std::to_string(packet->max_hp));
 		HPText.setString(hpStr);
+
+		EXPBar.SetScale((float)(WINDOW_WIDTH - 500) * ((float)packet->exp / (float)packet->max_exp), 1);				
+		EXPText.setString("EXP");
+
 		char xPos[7];
 		char yPos[7];
 
@@ -218,6 +263,9 @@ void ProcessPacket(char* ptr)
 		SC_MOVE_OBJECT_PACKET* my_packet = reinterpret_cast<SC_MOVE_OBJECT_PACKET*>(ptr);
 		int other_id = my_packet->id;
 		if (other_id == g_myid) {
+			if (my_packet->x == 0 && my_packet->y == 0) {
+				cout << "fasfasd" << endl;
+			}
 			myPlayer.move(my_packet->x, my_packet->y);
 			g_left_x = my_packet->x * TILE_WIDTH - 10 * TILE_WIDTH;
 			g_top_y = my_packet->y * TILE_WIDTH - 10 * TILE_WIDTH;
@@ -233,8 +281,6 @@ void ProcessPacket(char* ptr)
 			TextString += ", ";
 			TextString += yPos;
 			TextString += ")";
-
-
 		}
 		else {
 			players[my_packet->id].move(my_packet->x, my_packet->y);
@@ -273,7 +319,15 @@ void ProcessPacket(char* ptr)
 	{
 		SC_STAT_CHANGEL_PACKET* packet = reinterpret_cast<SC_STAT_CHANGEL_PACKET*>(ptr);
 		myPlayer.SetPlayerStat(packet->hp, packet->max_hp, packet->exp, packet->level);
+		myPlayer.SetPlayerStat(packet->hp, packet->max_hp, packet->exp, packet->level);
+		hpBar.SetScale((float)(WINDOW_WIDTH - 500) * ((float)packet->hp / (float)packet->max_hp), 1);
+		std::string hpStr = "HP ";
+		hpStr.append(std::to_string(packet->hp) + " / " + std::to_string(packet->max_hp));
+		HPText.setString(hpStr);
+		EXPBar.SetScale((float)(WINDOW_WIDTH - 500) * ((float)packet->exp / (float)packet->max_exp), 1);
+		EXPText.setString("EXP");
 	}
+	break;
 	case SC_ATTACK:
 	{
 		SC_ATTACK_PACKET* packet = reinterpret_cast<SC_ATTACK_PACKET*>(ptr);
@@ -453,8 +507,12 @@ void client_main()
 			}
 		}
 	}
+	BG_hpBar.a_draw();
+	BG_EXPBar.a_draw();
 	hpBar.a_draw();
+	EXPBar.a_draw();
 	g_window->draw(HPText);
+	g_window->draw(EXPText);
 }
 
 void send_packet(void* packet)

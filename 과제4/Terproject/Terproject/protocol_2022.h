@@ -69,6 +69,7 @@ struct SC_LOGIN_INFO_PACKET {
 	int		exp;
 	int		level;
 	short	x, y;
+	int		max_exp;
 	char	name[NAME_SIZE];
 };
 
@@ -119,6 +120,7 @@ struct SC_STAT_CHANGEL_PACKET {
 	int		max_hp;
 	int		exp;
 	int		level;
+	int max_exp;
 };
 
 //add
