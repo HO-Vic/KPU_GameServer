@@ -111,7 +111,7 @@ pair<int, int> LUA_OBJECT::AStarLoad(int StartX, int startY, int destinyX, int d
 {
 	std::list<AStarNode> open;
 	std::list<AStarNode> close;
-	
+
 	close.push_back(AStarNode{ 0,0,0,make_pair(StartX, startY), make_pair(StartX, startY) });
 
 	pair<int, int> currentNode = make_pair(StartX, startY);
@@ -221,9 +221,13 @@ pair<int, int> LUA_OBJECT::AStarLoad(int StartX, int startY, int destinyX, int d
 		}
 
 		currentNode = GetNode.myNode;
-
 		if (GetNode.myNode.first == destinyX && GetNode.myNode.second == destinyY) {
-			npcNavigateList.push_back(GetNode);
+			if (GetNode.fScore >= 0)
+				npcNavigateList.push_front(GetNode);
+			else {
+				npcNavigateList.clear();
+				return make_pair(StartX, startY);
+			}
 			while (true) {
 				auto findIter = find_if(close.begin(), close.end(), [=](AStarNode findNode) {
 					return findNode.myNode == GetNode.parentNode;
@@ -234,13 +238,18 @@ pair<int, int> LUA_OBJECT::AStarLoad(int StartX, int startY, int destinyX, int d
 					return GetNode.myNode;
 				}
 				if (findIter->myNode == findIter->parentNode) {
-					pair<int, int> retVal = npcNavigateList.rbegin()->myNode;
-					npcNavigateList.pop_back();
+					pair<int, int> retVal = npcNavigateList.begin()->myNode;
+					npcNavigateList.pop_front();
 					open.clear();
 					close.clear();
 					return retVal;
 				}
-				npcNavigateList.push_back(*findIter);
+				if (GetNode.fScore >= 0)
+					npcNavigateList.push_front(*findIter);
+				else {
+					npcNavigateList.clear();
+					return make_pair(StartX, startY);
+				}
 				GetNode = *findIter;
 			}
 		}
@@ -276,7 +285,7 @@ bool CollideObstacle(int inX, int inY)
 float LocalDistance(int destinyX, int destinyY, int startX, int startY)
 {
 	return sqrt(
-		pow( (float)(destinyX - startX), 2 ) + pow( (float)(destinyY - startY), 2 ) 
+		pow((float)(destinyX - startX), 2) + pow((float)(destinyY - startY), 2)
 	);
 }
 

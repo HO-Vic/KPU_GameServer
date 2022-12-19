@@ -25,6 +25,7 @@ PLAYER players[MAX_USER + MAX_NPC];
 OBJECT gameHouseMap;
 OBJECT gameGeneralMap;
 OBJECT playerAttackEffect;
+OBJECT hpBar;
 
 sf::Texture* textureHouseMap;
 sf::Texture* textureGeneralMap;
@@ -34,8 +35,12 @@ sf::Texture* texturePlayerAttck;
 sf::Texture* textureBoss;
 sf::Texture* textureGhost;
 sf::Texture* textureDog;
+sf::Texture* textureHPBar;
 
 sf::String TextString = "(0, 0)";
+
+sf::Text HPText;
+
 
 constexpr int IDLE_LEFT = 0;
 constexpr int IDLE_RIGHT = 1;
@@ -82,9 +87,19 @@ void client_initialize()
 	gameGeneralMap = OBJECT{ *textureGeneralMap, 0, 0, 1000, 1000 };
 	gameGeneralMap.show();
 
-	textureBoss;
-	textureGhost;
-	textureDog;
+	textureHPBar = new sf::Texture;
+	textureHPBar->loadFromFile("red.png");
+	hpBar = OBJECT{ *textureHPBar, 0, 0, 1, 30 };
+	hpBar.SetScale(WINDOW_WIDTH - 500, 1);
+	hpBar.a_move(WINDOW_WIDTH - 750, 900);
+	hpBar.show();
+	HPText.setString("HP 100/100");
+	HPText.setPosition(WINDOW_WIDTH - 750, 900);
+	HPText.setFont(font);
+	HPText.setCharacterSize(20);
+	HPText.setFillColor(sf::Color::Black);
+	HPText.setOutlineColor(sf::Color::Black);
+	HPText.setOutlineThickness(1.f);
 
 	textureBoss = new sf::Texture;
 	textureBoss->loadFromFile("images/boss.png");
@@ -140,7 +155,10 @@ void ProcessPacket(char* ptr)
 		strncpy(myPlayer.name, packet->name, strlen(packet->name));
 		myPlayer.SetNameText(myPlayer.name);
 		myPlayer.SetPlayerStat(packet->hp, packet->max_hp, packet->exp, packet->level);
-
+		hpBar.SetScale((float)(WINDOW_WIDTH - 500) * ((float)packet->hp / (float)packet->max_hp), 1);
+		std::string hpStr = "HP ";
+		hpStr.append(std::to_string(packet->hp) + " / " + std::to_string(packet->max_hp));
+		HPText.setString(hpStr);
 		char xPos[7];
 		char yPos[7];
 
@@ -435,6 +453,8 @@ void client_main()
 			}
 		}
 	}
+	hpBar.a_draw();
+	g_window->draw(HPText);
 }
 
 void send_packet(void* packet)

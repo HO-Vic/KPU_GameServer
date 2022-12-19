@@ -55,8 +55,9 @@ public:
 	{
 		GetNodeLock.lock();
 		if (!npcNavigateList.empty()) {
-			std::pair<int, int> retVal = npcNavigateList.rbegin()->myNode;
-			npcNavigateList.pop_back();
+			std::pair<int, int> retVal = npcNavigateList.begin()->myNode;		
+			if(!npcNavigateList.empty())
+				npcNavigateList.pop_front();
 			GetNodeLock.unlock();
 			return retVal;
 		}

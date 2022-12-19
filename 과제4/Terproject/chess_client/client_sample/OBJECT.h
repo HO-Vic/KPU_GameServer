@@ -40,6 +40,13 @@ public:
 	void hide();
 	void a_move(int x, int y);
 	void a_draw();	
+
+	void SetScale(float x, float y) //체력 바 퍼센트
+	{
+		//m_sprite.setTextureRect(sf::IntRect(0, 0, 1, 30));
+		m_sprite.setScale(1, 1);
+		m_sprite.scale(x, y);
+	}
 };
 
 extern int g_left_x;

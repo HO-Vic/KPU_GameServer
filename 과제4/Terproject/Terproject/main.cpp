@@ -565,7 +565,7 @@ void worker_thread()
 void AttackNpc(int cId, int npcId)
 {
 	clients[npcId].hp = clients[npcId].hp - clients[cId].attackDamage;
-	if (clients[npcId].hp < 0) {
+	if (clients[npcId].hp < 0 && clients[cId].hp > 0) {
 		clients[cId].exp += clients[npcId].exp;
 		if (levelExp[clients[cId].level - 1] < clients[cId].exp) {
 			clients[cId].exp -= levelExp[clients[npcId].level - 1];
@@ -1128,6 +1128,13 @@ bool Agro_NPC(int npcId, int cId)
 		return false;
 	if (abs(clients[npcId].y - clients[cId].y) > AGRO_RANGE)
 		return false;
+	return true;
+}
+
+bool AbleAttack_NPC(int npcId, int cId)
+{
+	if (abs(clients[npcId].x - clients[cId].x) > 3) return false;
+	if (abs(clients[npcId].y - clients[cId].y) > 3) return false;
 	return true;
 }
 

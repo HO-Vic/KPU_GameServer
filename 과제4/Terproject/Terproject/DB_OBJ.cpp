@@ -91,13 +91,13 @@ bool DB_OBJ::GetPlayerInfo(wstring PlayerLoginId, wstring& outputPlayerName, sho
 	retcode = SQLExecDirect(hstmt, (SQLWCHAR*)oper.c_str(), SQL_NTS);
 	if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
 		retcode = SQLBindCol(hstmt, 1, SQL_C_WCHAR, szName, NAME_SIZE, &cbName);
-		retcode = SQLBindCol(hstmt, 2, SQL_C_SHORT, &szPos_X, 2, &cbPos_X);
-		retcode = SQLBindCol(hstmt, 3, SQL_C_SHORT, &szPos_Y, 2, &cbPos_Y);
-		retcode = SQLBindCol(hstmt, 4, SQL_C_SHORT, &szLevel, 2, &cbLevel);
-		retcode = SQLBindCol(hstmt, 5, SQL_C_SHORT, &szExp, 2, &cbExp);
-		retcode = SQLBindCol(hstmt, 6, SQL_C_SHORT, &szHp, 2, &cbHp);
-		retcode = SQLBindCol(hstmt, 6, SQL_C_SHORT, &szMaxHp, 2, &cbMaxHp);
-		retcode = SQLBindCol(hstmt, 6, SQL_C_SHORT, &szAttackDamage, 2, &cbAttackDamage);
+		retcode = SQLBindCol(hstmt, 2, SQL_C_SHORT, &szPos_X, SQL_INTEGER, &cbPos_X);
+		retcode = SQLBindCol(hstmt, 3, SQL_C_SHORT, &szPos_Y, SQL_INTEGER, &cbPos_Y);
+		retcode = SQLBindCol(hstmt, 4, SQL_C_SHORT, &szLevel, SQL_INTEGER, &cbLevel);
+		retcode = SQLBindCol(hstmt, 5, SQL_C_SHORT, &szExp, SQL_INTEGER, &cbExp);
+		retcode = SQLBindCol(hstmt, 6, SQL_C_SHORT, &szHp, SQL_INTEGER, &cbHp);
+		retcode = SQLBindCol(hstmt, 7, SQL_C_SHORT, &szMaxHp, SQL_INTEGER, &cbMaxHp);
+		retcode = SQLBindCol(hstmt, 8, SQL_C_SHORT, &szAttackDamage, SQL_INTEGER, &cbAttackDamage);
 
 		// Fetch and print each row of data. On an error, display a message and exit.
 		retcode = SQLFetch(hstmt); // 다음 행일 가져와라 명령어
