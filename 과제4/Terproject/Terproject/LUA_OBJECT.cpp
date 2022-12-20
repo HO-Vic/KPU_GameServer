@@ -26,7 +26,7 @@ float LocalDistance(int destinyX, int destinyY, int startX, int startY);
 
 LUA_OBJECT::LUA_OBJECT(int id, NPC_TYPE t)
 {
-	//npcNavigateList.clear();
+	npcNavigateList.clear();
 	type = t;
 	myLuaState = luaL_newstate();
 	luaL_openlibs(myLuaState);
@@ -51,7 +51,7 @@ LUA_OBJECT::LUA_OBJECT(int id, NPC_TYPE t)
 
 LUA_OBJECT::LUA_OBJECT(int id, const char* luaName)
 {
-	//npcNavigateList.clear();
+	npcNavigateList.clear();
 	type = NPC_TYPE::AGRO;
 	myLuaState = luaL_newstate();
 	luaL_openlibs(myLuaState);
@@ -119,7 +119,7 @@ pair<int, int> LUA_OBJECT::AStarLoad(int StartX, int startY, int destinyX, int d
 	close.push_back(AStarNode{ 0,0,0,make_pair(StartX, startY), make_pair(StartX, startY) });
 
 	pair<int, int> currentNode = make_pair(StartX, startY);
-	std::list<AStarNode> npcNavigateList;
+
 	while (true) {
 		if (!CollideObstacle(currentNode.first - 1, currentNode.second)) {
 			AStarNode node;
@@ -220,11 +220,12 @@ pair<int, int> LUA_OBJECT::AStarLoad(int StartX, int startY, int destinyX, int d
 		close.push_back(GetNode);
 
 		if (open.size() > 2000'000 || close.size() > 2000'000) {
-			//npcNavigateList.clear();
+			npcNavigateList.clear();
 			open.clear();
 			close.clear();
 			return GetNode.myNode;
-		}		
+		}
+
 		currentNode = GetNode.myNode;
 		if (GetNode.myNode.first == destinyX && GetNode.myNode.second == destinyY) {
 			if (GetNode.fScore >= 0)

@@ -11,9 +11,10 @@ private:
 	int x, y;
 	int obstacleCount = 0;
 
+public:
 	std::unordered_set<int> players;
 	std::mutex playersLock;
-public:
+	//std::lock_guard<std::mutex> lg;
 	LOCAL_SESSION();
 	LOCAL_SESSION(int posX, int posY);
 	LOCAL_SESSION(LOCAL_SESSION& rhs);
