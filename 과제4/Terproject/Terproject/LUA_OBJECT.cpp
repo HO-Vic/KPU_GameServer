@@ -95,7 +95,7 @@ bool LUA_OBJECT::InActiveNPC()
 bool LUA_OBJECT::ActiveChase()
 {
 	bool old_state = false;
-	if (atomic_compare_exchange_strong(&isActive, &old_state, true))
+	if (atomic_compare_exchange_strong(&isChase, &old_state, true))
 		return true;
 	//cout << "chase NPC: " << isActive << endl;	
 	return false;
@@ -105,13 +105,13 @@ bool LUA_OBJECT::InActiveChase()
 {
 	chaseId = -1;
 	bool old_state = true;
-	if (atomic_compare_exchange_strong(&isActive, &old_state, false))
+	if (atomic_compare_exchange_strong(&isChase, &old_state, false))
 		return true;
 	//cout << "InActive chase NPC: " << isActive << endl;
 	return false;
 }
 
-pair<int, int> LUA_OBJECT::AStarLoad(int StartX, int startY, int destinyX, int destinyY)
+void LUA_OBJECT::AStarLoad(int StartX, int startY, int destinyX, int destinyY)
 {
 	std::list<AStarNode> open;
 	std::list<AStarNode> close;
@@ -121,7 +121,7 @@ pair<int, int> LUA_OBJECT::AStarLoad(int StartX, int startY, int destinyX, int d
 	pair<int, int> currentNode = make_pair(StartX, startY);
 
 	while (true) {
-		if (!CollideObstacle(currentNode.first - 1, currentNode.second)) {
+		if (!CollideObstacle(currentNode.first - 1, currentNode.second) && CheckInside(currentNode.first - 1, currentNode.second)) {
 			AStarNode node;
 			node.hScore = LocalDistance(destinyX, destinyY, currentNode.first - 1, currentNode.second);
 			node.gScore = 1;
@@ -145,7 +145,7 @@ pair<int, int> LUA_OBJECT::AStarLoad(int StartX, int startY, int destinyX, int d
 				open.insert(openNode, node);
 			}
 		}
-		if (!CollideObstacle(currentNode.first + 1, currentNode.second)) {
+		if (!CollideObstacle(currentNode.first + 1, currentNode.second) && CheckInside(currentNode.first + 1, currentNode.second)) {
 			AStarNode node;
 			node.hScore = LocalDistance(currentNode.first + 1, currentNode.second, destinyX, destinyY);
 			node.gScore = 1;
@@ -168,7 +168,7 @@ pair<int, int> LUA_OBJECT::AStarLoad(int StartX, int startY, int destinyX, int d
 				open.insert(openNode, node);
 			}
 		}
-		if (!CollideObstacle(currentNode.first, currentNode.second - 1)) {
+		if (!CollideObstacle(currentNode.first, currentNode.second - 1) && CheckInside(currentNode.first, currentNode.second - 1)) {
 			AStarNode node;
 			node.hScore = LocalDistance(currentNode.first, currentNode.second - 1, destinyX, destinyY);
 			node.gScore = 1;
@@ -191,7 +191,7 @@ pair<int, int> LUA_OBJECT::AStarLoad(int StartX, int startY, int destinyX, int d
 				open.insert(openNode, node);
 			}
 		}
-		if (!CollideObstacle(currentNode.first, currentNode.second + 1)) {
+		if (!CollideObstacle(currentNode.first, currentNode.second + 1) && CheckInside(currentNode.first, currentNode.second + 1)) {
 			AStarNode node;
 			node.hScore = LocalDistance(currentNode.first, currentNode.second + 1, destinyX, destinyY);
 			node.gScore = 1;
@@ -223,7 +223,7 @@ pair<int, int> LUA_OBJECT::AStarLoad(int StartX, int startY, int destinyX, int d
 			npcNavigateList.clear();
 			open.clear();
 			close.clear();
-			return GetNode.myNode;
+			return;
 		}
 
 		currentNode = GetNode.myNode;
@@ -232,7 +232,7 @@ pair<int, int> LUA_OBJECT::AStarLoad(int StartX, int startY, int destinyX, int d
 				npcNavigateList.push_front(GetNode);
 			else {
 				npcNavigateList.clear();
-				return make_pair(StartX, startY);
+				return;
 			}
 			while (true) {
 				auto findIter = find_if(close.begin(), close.end(), [=](AStarNode findNode) {
@@ -241,25 +241,34 @@ pair<int, int> LUA_OBJECT::AStarLoad(int StartX, int startY, int destinyX, int d
 				if (findIter == close.end()) {
 					open.clear();
 					close.clear();
-					return GetNode.myNode;
+					return;
 				}
 				if (findIter->myNode == findIter->parentNode) {
-					pair<int, int> retVal = npcNavigateList.begin()->myNode;
-					npcNavigateList.pop_front();
+					//pair<int, int> retVal = npcNavigateList.begin()->myNode;
+					//npcNavigateList.pop_front();
 					open.clear();
 					close.clear();
-					return retVal;
+					return;
 				}
 				if (GetNode.fScore >= 0)
 					npcNavigateList.push_front(*findIter);
 				else {
 					npcNavigateList.clear();
-					return make_pair(StartX, startY);
+					return;
 				}
 				GetNode = *findIter;
 			}
 		}
 	}
+}
+
+bool LUA_OBJECT::CheckInside(int x, int y)
+{
+	if (x < 0) return false;
+	if (x > 1999) return false;
+	if (y < 0) return false;
+	if (y > 1999) return false;
+	return true;
 }
 
 int API_get_x(lua_State* L)

@@ -461,12 +461,15 @@ void worker_thread()
 					if (clients[index]._state != ST_INGAME) continue;
 					if (can_see(static_cast<int>(key), index)) {
 						if (clients[key].myLua->type == NPC_TYPE::AGRO) {
-							for (auto& vlIndex : clients[key]._view_list) {
-								if (Agro_NPC(key, vlIndex)) {
-									if (clients[key].myLua->ActiveChase()) {
-										clients[key].myLua->SetChaseId(vlIndex);
-										isAgro = true;
-										break;
+							if (!clients[key].myLua->isChase) {
+								for (auto& vlIndex : clients[key]._view_list) {
+									if (Agro_NPC(key, vlIndex)) {
+										if (clients[key].myLua->ActiveChase()) {
+											clients[key].myLua->SetChaseId(vlIndex);
+											clients[key].myLua->AStarLoad(clients[key].x, clients[key].y, clients[vlIndex].x, clients[vlIndex].y);
+											isAgro = true;
+											break;
+										}
 									}
 								}
 							}
@@ -512,7 +515,8 @@ void worker_thread()
 					}
 				}
 				else if (clients[key].x == clients[chaseId].x && clients[key].y == clients[chaseId].y) {
-					if (AbleAttack_NPC(key, chaseId) && clients[key].myLua->GetArrive() && clients[key]._name[0] != 'T') {
+					if (AbleAttack_NPC(key, chaseId) && clients[key].myLua->GetArrive() && clients[chaseId]._name[0] != 'T') {
+						cout << "attack" << endl;
 						clients[chaseId].hp = clients[chaseId].hp - clients[key].attackDamage;
 						if (clients[chaseId].hp < 0) {
 							clients[chaseId].exp /= 2;
@@ -655,12 +659,12 @@ void worker_thread()
 							eventTimerQueue.push(ev);
 						}
 						else {
-
-							pair<int, int> res = clients[key].myLua->AStarLoad(clients[key].x, clients[key].y, clients[chaseId].x, clients[chaseId].y);
-
-							clients[key].x = res.first;
-							clients[key].y = res.second;
-
+							clients[key].myLua->AStarLoad(clients[key].x, clients[key].y, clients[chaseId].x, clients[chaseId].y);
+							pair<int, int> res = clients[key].myLua->GetNextNode();
+							if (res.first > 0 && res.second > 0) {
+								clients[key].x = res.first;
+								clients[key].y = res.second;
+							}
 
 							clients[key]._vl.lock();
 							unordered_set<int> old_vlist = clients[key]._view_list;

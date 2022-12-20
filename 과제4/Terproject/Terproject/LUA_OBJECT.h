@@ -66,7 +66,7 @@ public:
 		return false;
 	}
 	bool GetArrive() { return isArrive; }
-	std::pair<int, int> AStarLoad(int StartX, int startY, int destinyX, int destinyY);
+	void AStarLoad(int StartX, int startY, int destinyX, int destinyY);
 	std::pair<int, int> GetNextNode() 
 	{
 		GetNodeLock.lock();
@@ -82,4 +82,6 @@ public:
 	}
 	int GetChaseId() { return chaseId; }
 	void SetChaseId(int cId) { chaseId = cId; }
+private:
+	bool CheckInside(int x, int y);
 };
