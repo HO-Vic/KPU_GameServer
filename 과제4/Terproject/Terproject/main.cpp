@@ -606,7 +606,10 @@ void worker_thread()
 							EXP_OVER* expOver = new EXP_OVER();
 							expOver->_comp_type = OP_DB_SAVE_PLAYER;
 							PostQueuedCompletionStatus(g_iocpHandle, 1, chaseId, &expOver->_over);
-
+							if (clients[key].myLua->InActiveChase()) {
+								TIMER_EVENT ev{ key, chrono::system_clock::now() + 2s, EV_RANDOM_MOVE, 0 };
+								eventTimerQueue.push(ev);
+							}
 						}
 						else {
 							SC_STAT_CHANGEL_PACKET sendPakcet;
@@ -619,8 +622,7 @@ void worker_thread()
 							sendPakcet.exp = clients[chaseId].exp;
 							sendPakcet.max_exp = levelExp[clients[chaseId].level];
 							clients[chaseId].do_send(&sendPakcet);
-						}
-
+						}						
 					}
 					TIMER_EVENT ev{ key, chrono::system_clock::now() + 2s, EV_CHASE_MOVE, 0 };
 					eventTimerQueue.push(ev);

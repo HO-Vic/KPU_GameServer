@@ -341,7 +341,6 @@ void ProcessPacket(char* ptr)
 		SC_STAT_CHANGEL_PACKET* packet = reinterpret_cast<SC_STAT_CHANGEL_PACKET*>(ptr);
 		if (packet->id == g_myid) {
 			myPlayer.SetPlayerStat(packet->hp, packet->max_hp, packet->exp, packet->level);
-			myPlayer.SetPlayerStat(packet->hp, packet->max_hp, packet->exp, packet->level);
 			hpBar.SetScale((float)(WINDOW_WIDTH - 500) * ((float)packet->hp / (float)packet->max_hp), 1);
 			std::string hpStr = "HP ";
 			hpStr.append(std::to_string(packet->hp) + " / " + std::to_string(packet->max_hp));
@@ -349,8 +348,8 @@ void ProcessPacket(char* ptr)
 			EXPBar.SetScale((float)(WINDOW_WIDTH - 500) * ((float)packet->exp / (float)packet->max_exp), 1);
 			EXPText.setString("EXP");
 		}
-		else {
-			players[packet->id].SetPlayerStat(packet->hp, packet->max_hp, packet->exp, packet->level);
+		else {			
+			cout << "NPC Stat: " << packet->hp << " " << packet->max_hp << endl;
 			players[packet->id].SetPlayerStat(packet->hp, packet->max_hp, packet->exp, packet->level);			
 		}
 	}
@@ -537,7 +536,7 @@ void client_main()
 			if (pl.m_showing) {
 				BG_monsterHpBar.a_move(pl.m_x * TILE_WIDTH - g_left_x, pl.m_y * TILE_WIDTH - g_top_y - 17);
 				monsterHpBar.a_move(pl.m_x * TILE_WIDTH - g_left_x, pl.m_y * TILE_WIDTH - g_top_y - 17);
-				monsterHpBar.SetScale(50.0f * (float)(pl.hp / pl.maxHp), 1);
+				monsterHpBar.SetScale(50.0f * ((float)pl.hp / (float)pl.maxHp), 1);
 				BG_monsterHpBar.a_draw();
 				monsterHpBar.a_draw();
 			}
