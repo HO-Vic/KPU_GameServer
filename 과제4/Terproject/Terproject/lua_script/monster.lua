@@ -16,7 +16,3 @@ function event_player_move(player)
 		end
 	end
 end
-
-function event_player_bye(player)
-	SendByeMessage(myid, player, "BYE");
-end

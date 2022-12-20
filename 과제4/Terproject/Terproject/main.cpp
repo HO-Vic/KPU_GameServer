@@ -17,6 +17,7 @@ using namespace std;
 
 array<int, 11> levelExp = { 0, 100, 200, 300, 400 ,500, 600, 700, 800, 900, 1200 };
 array<int, 11> levelMaxHp = { 100, 200, 500, 600 ,700, 900, 1000, 1100, 1200, 1500, 1700 };
+array<int, 11> levelAttackDamage = { 50, 70, 100, 120 ,150, 200, 220, 250, 300, 330, 400 };
 array<SESSION, MAX_USER + MAX_NPC> clients;
 array < array<LOCAL_SESSION, 100>, 100> gameMap;
 pair<int, int> AStartObstacle[31];
@@ -325,6 +326,13 @@ void process_packet(int c_id, char* packet)
 		}
 	}
 	break;
+	case CS_LOGOUT:
+	{
+		EXP_OVER* expOver = new EXP_OVER();
+		expOver->_comp_type = OP_DB_SAVE_PLAYER;
+		PostQueuedCompletionStatus(g_iocpHandle, 1, c_id, &expOver->_over);
+	}
+	break;
 	}
 }
 
@@ -586,6 +594,7 @@ void worker_thread()
 
 							SC_STAT_CHANGEL_PACKET sendPakcet;
 							sendPakcet.size = sizeof(SC_STAT_CHANGEL_PACKET);
+							sendPakcet.id = chaseId;
 							sendPakcet.hp = clients[chaseId].maxHp;
 							sendPakcet.level = clients[chaseId].level;
 							sendPakcet.max_hp = clients[chaseId].maxHp;
@@ -602,6 +611,7 @@ void worker_thread()
 						else {
 							SC_STAT_CHANGEL_PACKET sendPakcet;
 							sendPakcet.size = sizeof(SC_STAT_CHANGEL_PACKET);
+							sendPakcet.id = chaseId;
 							sendPakcet.hp = clients[chaseId].hp;
 							sendPakcet.level = clients[chaseId].level;
 							sendPakcet.max_hp = clients[chaseId].maxHp;
@@ -790,6 +800,18 @@ void worker_thread()
 void AttackNpc(int cId, int npcId)
 {
 	clients[npcId].hp = clients[npcId].hp - clients[cId].attackDamage;
+	if (clients[npcId].hp > 0) {
+		SC_STAT_CHANGEL_PACKET sendPakcet;
+		sendPakcet.id = npcId;
+		sendPakcet.size = sizeof(SC_STAT_CHANGEL_PACKET);
+		sendPakcet.hp = clients[npcId].hp;
+		sendPakcet.level = clients[npcId].level;
+		sendPakcet.max_hp = clients[npcId].maxHp;
+		sendPakcet.type = SC_STAT_CHANGE;
+		sendPakcet.exp = clients[npcId].exp;
+		sendPakcet.max_exp = levelExp[clients[npcId].level];
+		clients[cId].do_send(&sendPakcet);
+	}
 	if (clients[npcId].hp < 0) {
 		if (clients[npcId].myLua->DieNpc()) {
 			clients[cId].exp += clients[npcId].exp;
@@ -798,18 +820,32 @@ void AttackNpc(int cId, int npcId)
 					clients[cId].exp -= levelExp[clients[cId].level];
 					clients[cId].level += 1;
 					clients[cId].maxHp = levelMaxHp[clients[cId].level - 1];
+					clients[cId].attackDamage = levelAttackDamage[clients[cId].level - 1];
 					clients[cId].hp = clients[cId].maxHp;
 				}
 			}
+
 			SC_STAT_CHANGEL_PACKET sendPakcet;
+			sendPakcet.id = npcId;
 			sendPakcet.size = sizeof(SC_STAT_CHANGEL_PACKET);
-			sendPakcet.hp = clients[cId].hp;
-			sendPakcet.level = clients[cId].level;
-			sendPakcet.max_hp = clients[cId].maxHp;
+			sendPakcet.hp = 0;
+			sendPakcet.level = clients[npcId].level;
+			sendPakcet.max_hp = clients[npcId].maxHp;
 			sendPakcet.type = SC_STAT_CHANGE;
-			sendPakcet.exp = clients[cId].exp;
-			sendPakcet.max_exp = levelExp[clients[cId].level];
+			sendPakcet.exp = clients[npcId].exp;
+			sendPakcet.max_exp = levelExp[clients[npcId].level];
 			clients[cId].do_send(&sendPakcet);
+
+			SC_STAT_CHANGEL_PACKET npcsendPakcet;
+			npcsendPakcet.size = sizeof(SC_STAT_CHANGEL_PACKET);
+			npcsendPakcet.id = cId;
+			npcsendPakcet.hp = clients[cId].hp;
+			npcsendPakcet.level = clients[cId].level;
+			npcsendPakcet.max_hp = clients[cId].maxHp;
+			npcsendPakcet.type = SC_STAT_CHANGE;
+			npcsendPakcet.exp = clients[cId].exp;
+			npcsendPakcet.max_exp = levelExp[clients[cId].level];
+			clients[cId].do_send(&npcsendPakcet);
 
 			if (clients[cId]._name[0] != 'T') {
 				EXP_OVER* expOver = new EXP_OVER();
@@ -842,7 +878,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 			if (clients[id]._state != ST_INGAME) continue;
 			if (clients[id]._id == c_id) continue;
 			if (!isPc(id)) {
-				if (!clients[id].myLua->GetArrive())
+				if (!clients[id].myLua->GetArrive() || clients[id].hp < 1)
 					continue;
 			}
 			if (can_see(c_id, id)) {
@@ -1899,11 +1935,11 @@ void InitializeNPC()
 	cout << "NPC intialize begin.\n";
 	for (int i = MAX_USER; i < MAX_USER + 3; ++i) {
 		clients[i]._id = i;
-		clients[i].myLua = new LUA_OBJECT(clients[i]._id, "lua_script\boss.lua");
+		clients[i].myLua = new LUA_OBJECT(clients[i]._id, "lua_script/boss.lua");
 		clients[i].maxHp = 5000;
 		clients[i].hp = 5000;
 		clients[i].level = 10;
-		clients[i].exp = 600;
+		clients[i].exp = 250;
 		clients[i].attackDamage = 1000;
 
 		clients[i]._state = ST_INGAME;
@@ -1916,11 +1952,11 @@ void InitializeNPC()
 		clients[i]._id = i;
 		clients[i]._state = ST_INGAME;
 		clients[i].myLua = new LUA_OBJECT(clients[i]._id, NPC_TYPE::AGRO);
-		clients[i].maxHp = 600;
-		clients[i].hp = 100;
+		clients[i].maxHp = 250;
+		clients[i].hp = 250;
 		clients[i].level = 4;
-		clients[i].exp = 250;
-		clients[i].attackDamage = 300;
+		clients[i].exp = 70;
+		clients[i].attackDamage = 70;
 		string name = "AGRO";
 		name.append(std::to_string(i));
 		std::memcpy(clients[i]._name, name.c_str(), name.size());
@@ -1930,21 +1966,21 @@ void InitializeNPC()
 	for (int i = MAX_USER + MAX_NPC / 2; i < MAX_USER + MAX_NPC; ++i) {
 		clients[i]._id = i;
 		string name = "PEACE";
-		clients[i].maxHp = 250;
-		clients[i].hp = 250;
+		clients[i].maxHp = 600;
+		clients[i].hp = 600;
 		clients[i].level = 2;
 		clients[i].exp = 120;
-		clients[i].attackDamage = 80;
+		clients[i].attackDamage = 120;
 		name.append(std::to_string(i));
 		std::memcpy(clients[i]._name, name.c_str(), name.size());
-		//clients[i].myLua = new LUA_OBJECT(clients[i]._id, NPC_TYPE::PEACE);
-		clients[i].myLua = new LUA_OBJECT(clients[i]._id, NPC_TYPE::AGRO);
+		clients[i].myLua = new LUA_OBJECT(clients[i]._id, NPC_TYPE::PEACE);
+		//clients[i].myLua = new LUA_OBJECT(clients[i]._id, NPC_TYPE::AGRO);
 		clients[i].myLocalSectionIndex = make_pair(clients[i].x / 20, clients[i].y / 20);
 		gameMap[clients[i].myLocalSectionIndex.first][clients[i].myLocalSectionIndex.second].InsertPlayers(clients[i]);
 		clients[i]._state = ST_INGAME;
 	}
 	cout << "NPC initialize end.\n";
-	TIMER_EVENT ev{ 1, chrono::system_clock::now() + 300s, EV_AUTO_SAVE, 0 };//5분 마다 오토 세이브
+	TIMER_EVENT ev{ 1, chrono::system_clock::now() + 300s, EV_AUTO_SAVE, 0 };//5분 마다 오토 세이브 시작
 	eventTimerQueue.push(ev);
 }
 

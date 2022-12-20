@@ -31,9 +31,9 @@ constexpr auto TILE_WIDTH = 50;
 
 class OBJECT {
 protected:
-	bool m_showing;
 	sf::Sprite m_sprite;
 public:
+	bool m_showing;
 	OBJECT(sf::Texture& t, int x, int y, int x2, int y2);
 	OBJECT();
 	void show();

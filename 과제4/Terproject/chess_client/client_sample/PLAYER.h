@@ -19,9 +19,10 @@ public:
 	int m_x, m_y;
 
 	int hp = 0;
-	int maxHp = 0;
+	int maxHp = 1;
 	int exp = 0;
 	int level = 0;
+	int id = -1;
 
 	char name[NAME_SIZE] = { 0 };
 

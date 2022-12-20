@@ -84,6 +84,8 @@ void SESSION::send_add_player_packet(int c_id, std::array<SESSION, MAX_USER + MA
 	add_packet.type = SC_ADD_OBJECT;
 	add_packet.x = clients[c_id].x;
 	add_packet.y = clients[c_id].y;
+	add_packet.hp = clients[c_id].hp;
+	add_packet.max_hp = clients[c_id].maxHp;
 	_vl.lock();
 	_view_list.insert(c_id);
 	_vl.unlock();

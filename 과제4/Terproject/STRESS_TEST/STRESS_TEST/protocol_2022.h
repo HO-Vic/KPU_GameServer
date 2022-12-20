@@ -78,6 +78,8 @@ struct SC_ADD_OBJECT_PACKET {
 	char	type;
 	int		id;
 	short	x, y;
+	int		hp;
+	int		max_hp;
 	char	name[NAME_SIZE];
 };
 
@@ -116,6 +118,7 @@ struct SC_LOGIN_FAIL_PACKET {
 struct SC_STAT_CHANGEL_PACKET {
 	unsigned char size;
 	char	type;
+	int		id;
 	int		hp;
 	int		max_hp;
 	int		exp;

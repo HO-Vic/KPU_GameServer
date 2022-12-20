@@ -43,10 +43,6 @@ LUA_OBJECT::LUA_OBJECT(int id, NPC_TYPE t)
 	lua_pop(myLuaState, 1);// eliminate set_uid from stack after call
 
 	lua_settop(myLuaState, 0);
-	lua_getglobal(myLuaState, "set_pos");
-	lua_pcall(myLuaState, 1, 0, 0);
-	lua_pop(myLuaState, 1);
-	lua_settop(myLuaState, 0);
 }
 
 LUA_OBJECT::LUA_OBJECT(int id, const char* luaName)
@@ -58,19 +54,15 @@ LUA_OBJECT::LUA_OBJECT(int id, const char* luaName)
 	luaL_loadfile(myLuaState, luaName);
 	lua_pcall(myLuaState, 0, 0, 0);
 
-	lua_getglobal(myLuaState, "set_uid");
-	lua_pushnumber(myLuaState, id);
-	lua_pcall(myLuaState, 1, 0, 0);
-	lua_pop(myLuaState, 1);// eliminate set_uid from stack after call
-
 	lua_register(myLuaState, "API_get_x", API_get_x);
 	lua_register(myLuaState, "API_get_y", API_get_y);
 	lua_register(myLuaState, "API_NpcSetPosition", API_bossNpcSetPosition);
 
-	lua_settop(myLuaState, 0);
-	lua_getglobal(myLuaState, "set_pos");
+	lua_getglobal(myLuaState, "set_uid");
+	lua_pushnumber(myLuaState, id);
 	lua_pcall(myLuaState, 1, 0, 0);
-	lua_pop(myLuaState, 1);
+	lua_pop(myLuaState, 1);// eliminate set_uid from stack after call
+	
 	lua_settop(myLuaState, 0);
 }
 

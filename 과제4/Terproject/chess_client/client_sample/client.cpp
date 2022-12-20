@@ -31,6 +31,9 @@ OBJECT BG_hpBar;
 OBJECT EXPBar;
 OBJECT BG_EXPBar;
 
+OBJECT monsterHpBar;
+OBJECT BG_monsterHpBar;
+
 sf::Texture* textureHouseMap;
 sf::Texture* textureGeneralMap;
 sf::Texture** textureCharacter;
@@ -44,6 +47,9 @@ sf::Texture* textureHPBar;
 sf::Texture* textureBG_HPBar;
 sf::Texture* textureEXPBar;
 sf::Texture* textureBG_EXPBar;
+
+sf::Texture* textureMonsterHPBar;
+sf::Texture* textureMonsterBG_HPBar;
 
 sf::String TextString = "(0, 0)";
 
@@ -105,6 +111,17 @@ void client_initialize()
 	textureBG_EXPBar = new sf::Texture;
 	textureBG_EXPBar->loadFromFile("gray.png");
 
+	textureMonsterHPBar = new sf::Texture;
+	textureMonsterHPBar->loadFromFile("red.png");
+	textureMonsterBG_HPBar = new sf::Texture;
+	textureMonsterBG_HPBar->loadFromFile("gray.png");
+
+	monsterHpBar = OBJECT{ *textureMonsterHPBar, 0, 0, 1, 7 };
+	monsterHpBar.SetScale(50, 1);
+	monsterHpBar.show();
+	BG_monsterHpBar = OBJECT{ *textureMonsterBG_HPBar, 0, 0, 1, 7 };
+	BG_monsterHpBar.SetScale(50, 1);
+	BG_monsterHpBar.show();
 
 	hpBar = OBJECT{ *textureHPBar, 0, 0, 1, 30 };
 	hpBar.SetScale(WINDOW_WIDTH - 500, 1);
@@ -201,7 +218,7 @@ void ProcessPacket(char* ptr)
 		hpStr.append(std::to_string(packet->hp) + " / " + std::to_string(packet->max_hp));
 		HPText.setString(hpStr);
 
-		EXPBar.SetScale((float)(WINDOW_WIDTH - 500) * ((float)packet->exp / (float)packet->max_exp), 1);				
+		EXPBar.SetScale((float)(WINDOW_WIDTH - 500) * ((float)packet->exp / (float)packet->max_exp), 1);
 		EXPText.setString("EXP");
 
 		char xPos[7];
@@ -230,6 +247,7 @@ void ProcessPacket(char* ptr)
 		int id = my_packet->id;
 
 		if (id == g_myid) {
+			players[id].id = -1;
 			myPlayer.move(my_packet->x, my_packet->y);
 			g_left_x = my_packet->x - 10 * 50;
 			g_top_y = my_packet->y - 10 * 50;
@@ -253,6 +271,9 @@ void ProcessPacket(char* ptr)
 			players[id].move(my_packet->x, my_packet->y);
 			strncpy(players[id].name, my_packet->name, strlen(my_packet->name));
 			players[id].SetNameText(players[id].name);
+			players[id].hp = my_packet->hp;
+			players[id].maxHp = my_packet->max_hp;
+			players[id].id = id;
 			players[id].show();
 		}
 		//}
@@ -318,14 +339,20 @@ void ProcessPacket(char* ptr)
 	case SC_STAT_CHANGE:
 	{
 		SC_STAT_CHANGEL_PACKET* packet = reinterpret_cast<SC_STAT_CHANGEL_PACKET*>(ptr);
-		myPlayer.SetPlayerStat(packet->hp, packet->max_hp, packet->exp, packet->level);
-		myPlayer.SetPlayerStat(packet->hp, packet->max_hp, packet->exp, packet->level);
-		hpBar.SetScale((float)(WINDOW_WIDTH - 500) * ((float)packet->hp / (float)packet->max_hp), 1);
-		std::string hpStr = "HP ";
-		hpStr.append(std::to_string(packet->hp) + " / " + std::to_string(packet->max_hp));
-		HPText.setString(hpStr);
-		EXPBar.SetScale((float)(WINDOW_WIDTH - 500) * ((float)packet->exp / (float)packet->max_exp), 1);
-		EXPText.setString("EXP");
+		if (packet->id == g_myid) {
+			myPlayer.SetPlayerStat(packet->hp, packet->max_hp, packet->exp, packet->level);
+			myPlayer.SetPlayerStat(packet->hp, packet->max_hp, packet->exp, packet->level);
+			hpBar.SetScale((float)(WINDOW_WIDTH - 500) * ((float)packet->hp / (float)packet->max_hp), 1);
+			std::string hpStr = "HP ";
+			hpStr.append(std::to_string(packet->hp) + " / " + std::to_string(packet->max_hp));
+			HPText.setString(hpStr);
+			EXPBar.SetScale((float)(WINDOW_WIDTH - 500) * ((float)packet->exp / (float)packet->max_exp), 1);
+			EXPText.setString("EXP");
+		}
+		else {
+			players[packet->id].SetPlayerStat(packet->hp, packet->max_hp, packet->exp, packet->level);
+			players[packet->id].SetPlayerStat(packet->hp, packet->max_hp, packet->exp, packet->level);			
+		}
 	}
 	break;
 	case SC_ATTACK:
@@ -498,13 +525,25 @@ void client_main()
 		}
 	}
 	for (auto& pl : players) {
-		pl.draw();
-		if (pl.GetshowSkill()) {
-			playerAttackEffect.a_move(pl.m_x * TILE_WIDTH - g_left_x - 50, pl.m_y * TILE_WIDTH - g_top_y - 50 - 5);
-			playerAttackEffect.a_draw();
-			if (pl.GetSkillEffectTime() < chrono::system_clock::now()) {
-				pl.HidSkill();
+		if (pl.id != g_myid) {
+			pl.draw();
+			if (pl.GetshowSkill()) {
+				playerAttackEffect.a_move(pl.m_x * TILE_WIDTH - g_left_x - 50, pl.m_y * TILE_WIDTH - g_top_y - 50 - 5);
+				playerAttackEffect.a_draw();
+				if (pl.GetSkillEffectTime() < chrono::system_clock::now()) {
+					pl.HidSkill();
+				}
 			}
+			if (pl.m_showing) {
+				BG_monsterHpBar.a_move(pl.m_x * TILE_WIDTH - g_left_x, pl.m_y * TILE_WIDTH - g_top_y - 17);
+				monsterHpBar.a_move(pl.m_x * TILE_WIDTH - g_left_x, pl.m_y * TILE_WIDTH - g_top_y - 17);
+				monsterHpBar.SetScale(50.0f * (float)(pl.hp / pl.maxHp), 1);
+				BG_monsterHpBar.a_draw();
+				monsterHpBar.a_draw();
+			}
+		}
+		else {
+			cout << "sadf" << endl;
 		}
 	}
 	BG_hpBar.a_draw();
