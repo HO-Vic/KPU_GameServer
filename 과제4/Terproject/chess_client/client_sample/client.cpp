@@ -267,6 +267,7 @@ void ProcessPacket(char* ptr)
 		}
 		//else if (id < MAX_USER) {
 		else {
+			players[id] = PLAYER{ *textureCharacter[IDLE_LEFT], 0, 0, 50, 50 };
 			cout << "add player" << endl;
 			players[id].move(my_packet->x, my_packet->y);
 			strncpy(players[id].name, my_packet->name, strlen(my_packet->name));

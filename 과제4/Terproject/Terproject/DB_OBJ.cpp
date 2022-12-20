@@ -193,6 +193,44 @@ void DB_OBJ::SavePlayerInfo(wstring PlayerLoginId, short& pos_X, short& pos_Y, s
 	}
 }
 
+void DB_OBJ::AddUser(wstring PlayerLoginId)
+{
+	SQLRETURN retcode;
+
+	SQLHSTMT hstmt;
+
+	// Allocate statement handle  
+	retcode = SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);
+
+
+	wstring oper = L"EXEC add_user ";
+	oper.append(PlayerLoginId);	
+	oper.append(L"\0");
+	retcode = SQLExecDirect(hstmt, (SQLWCHAR*)oper.c_str(), SQL_NTS);
+	if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
+
+		// Fetch and print each row of data. On an error, display a message and exit.
+		retcode = SQLFetch(hstmt); // 다음 행일 가져와라 명령어
+		if (retcode == SQL_ERROR/* || retcode == SQL_SUCCESS_WITH_INFO*/) {
+			HandleDiagnosticRecord(hstmt, SQL_HANDLE_STMT, retcode);
+		}
+		////show_error();
+		else if (retcode == SQL_SUCCESS)
+		{
+
+		}
+		if (retcode == SQL_SUCCESS_WITH_INFO) {
+
+			HandleDiagnosticRecord(hstmt, SQL_HANDLE_STMT, retcode);
+		}
+	}
+	// Process data  
+	if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
+		SQLCancel(hstmt);///종료
+		SQLFreeHandle(SQL_HANDLE_STMT, hstmt);//리소스 해제
+	}
+}
+
 void DB_OBJ::HandleDiagnosticRecord(SQLHANDLE hHandle, SQLSMALLINT hType, RETCODE RetCode) {
 	SQLSMALLINT iRec = 0;
 	SQLINTEGER  iError = RetCode;

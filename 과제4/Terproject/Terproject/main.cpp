@@ -331,6 +331,7 @@ void process_packet(int c_id, char* packet)
 		EXP_OVER* expOver = new EXP_OVER();
 		expOver->_comp_type = OP_DB_SAVE_PLAYER;
 		PostQueuedCompletionStatus(g_iocpHandle, 1, c_id, &expOver->_over);
+		disconnect(c_id);
 	}
 	break;
 	}
@@ -433,6 +434,10 @@ void worker_thread()
 			dbObj.GetPlayerInfo(userId, playerName, clients[key].x, clients[key].y, clients[key].level, clients[key].exp, clients[key].hp, clients[key].maxHp, clients[key].attackDamage);
 
 			if (playerName.empty()) {
+				string userStr{ ex_over->_send_buf, strlen(ex_over->_send_buf) };
+				wstring userId;
+				userId.assign(userStr.begin(), userStr.end());				
+				dbObj.AddUser(userId);
 				SC_LOGIN_FAIL_PACKET failPacket;
 				failPacket.size = 2;
 				failPacket.type = SC_LOGIN_FAIL;
