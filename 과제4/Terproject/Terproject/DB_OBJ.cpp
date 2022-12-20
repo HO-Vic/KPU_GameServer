@@ -141,7 +141,7 @@ bool DB_OBJ::GetPlayerInfo(wstring PlayerLoginId, wstring& outputPlayerName, sho
 	return true;
 }
 
-void DB_OBJ::SetPlayerPosition(wstring PlayerLoginId, short pos_X, short pos_Y)
+void DB_OBJ::SavePlayerInfo(wstring PlayerLoginId, short& pos_X, short& pos_Y, short& level, short& Exp, short& hp, short& maxHp, short& attackDamage)
 {
 	SQLRETURN retcode;
 
@@ -151,13 +151,22 @@ void DB_OBJ::SetPlayerPosition(wstring PlayerLoginId, short pos_X, short pos_Y)
 	retcode = SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);
 
 
-	wstring oper = L"EXEC set_user_position ";
+	wstring oper = L"EXEC save_user_info ";
 	oper.append(PlayerLoginId);
 	oper.append(L", ");
 	oper.append(to_wstring(pos_X));
 	oper.append(L", ");
 	oper.append(to_wstring(pos_Y));
-
+	oper.append(L", ");
+	oper.append(to_wstring(level));
+	oper.append(L", ");
+	oper.append(to_wstring(Exp));
+	oper.append(L", ");
+	oper.append(to_wstring(hp));
+	oper.append(L", ");
+	oper.append(to_wstring(maxHp));
+	oper.append(L", ");
+	oper.append(to_wstring(attackDamage));
 	oper.append(L"\0");
 	retcode = SQLExecDirect(hstmt, (SQLWCHAR*)oper.c_str(), SQL_NTS);
 	if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {

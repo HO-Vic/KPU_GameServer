@@ -22,6 +22,6 @@ public:
 
 	}
 	bool GetPlayerInfo(wstring PlayerLoginId, wstring& outputPlayerName, short& pos_X, short& pos_Y, short& level, short& Exp, short& hp, short& maxHp, short& attackDamage);
-	void SetPlayerPosition(wstring PlayerLoginId, short pos_X, short pos_Y);
+	void SavePlayerInfo(wstring PlayerLoginId, short& pos_X, short& pos_Y, short& level, short& Exp, short& hp, short& maxHp, short& attackDamage);
 	void HandleDiagnosticRecord(SQLHANDLE hHandle, SQLSMALLINT hType, RETCODE RetCode);
 };

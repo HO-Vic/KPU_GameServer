@@ -218,6 +218,7 @@ void process_packet(int c_id, char* packet)
 			EXP_OVER* exOver = new EXP_OVER();
 			exOver->_comp_type = OP_DB_GET_PLAYER_INFO;
 			std::memcpy(exOver->_send_buf, p->name, strlen(p->name));
+			std::memcpy(clients[c_id].playerID, p->name, strlen(p->name));
 			exOver->_send_buf[strlen(p->name)] = 0;
 			PostQueuedCompletionStatus(g_iocpHandle, strlen(p->name), c_id, &exOver->_over);
 		}
@@ -365,7 +366,6 @@ void worker_thread()
 				continue;
 			}
 		}
-
 		switch (ex_over->_comp_type) {
 		case OP_ACCEPT: {
 			int client_id = get_new_client_id();
@@ -450,6 +450,7 @@ void worker_thread()
 					clients[key].send_add_player_packet(clients[pl]._id, clients);
 				}
 			}
+			delete ex_over;
 		}
 		break;
 		case OP_NPC_MOVE:
@@ -516,7 +517,6 @@ void worker_thread()
 				}
 				else if (clients[key].x == clients[chaseId].x && clients[key].y == clients[chaseId].y) {
 					if (AbleAttack_NPC(key, chaseId) && clients[key].myLua->GetArrive() && clients[chaseId]._name[0] != 'T') {
-						cout << "attack" << endl;
 						clients[chaseId].hp = clients[chaseId].hp - clients[key].attackDamage;
 						if (clients[chaseId].hp < 0) {
 							clients[chaseId].exp /= 2;
@@ -593,6 +593,11 @@ void worker_thread()
 							sendPakcet.exp = clients[chaseId].exp;
 							sendPakcet.max_exp = levelExp[clients[chaseId].level];
 							clients[chaseId].do_send(&sendPakcet);
+
+							EXP_OVER* expOver = new EXP_OVER();
+							expOver->_comp_type = OP_DB_SAVE_PLAYER;
+							PostQueuedCompletionStatus(g_iocpHandle, 1, chaseId, &expOver->_over);
+
 						}
 						else {
 							SC_STAT_CHANGEL_PACKET sendPakcet;
@@ -740,6 +745,31 @@ void worker_thread()
 					}
 				}
 			}
+			delete ex_over;
+		}
+		break;
+		case OP_DB_SAVE_PLAYER:
+		{
+			std::string idStr = clients[key].playerID;
+			std::wstring idWstr;
+			idWstr.assign(idStr.begin(), idStr.end());
+			dbObj.SavePlayerInfo(idWstr, clients[key].x, clients[key].y, clients[key].level, clients[key].exp, clients[key].hp, clients[key].maxHp, clients[key].attackDamage);
+			delete ex_over;
+		}
+		break;
+		case OP_DB_AUTO_SAVE_PLAYER:
+		{
+			for (int i = 0; i < MAX_USER; i++) {
+				if (clients[i]._name[0] != 'T') {
+					std::string idStr = clients[i].playerID;
+					std::wstring idWstr;
+					idWstr.assign(idStr.begin(), idStr.end());
+					dbObj.SavePlayerInfo(idWstr, clients[i].x, clients[i].y, clients[i].level, clients[i].exp, clients[i].hp, clients[i].maxHp, clients[i].attackDamage);
+				}
+			}
+			TIMER_EVENT ev{ key, chrono::system_clock::now() + 300s, EV_AUTO_SAVE, 0 };//5분 마다 오토 세이브
+			eventTimerQueue.push(ev);
+			delete ex_over;
 		}
 		break;
 		/*case OP_DB_SET_PLAYER_POSITION:
@@ -781,6 +811,11 @@ void AttackNpc(int cId, int npcId)
 			sendPakcet.max_exp = levelExp[clients[cId].level];
 			clients[cId].do_send(&sendPakcet);
 
+			if (clients[cId]._name[0] != 'T') {
+				EXP_OVER* expOver = new EXP_OVER();
+				expOver->_comp_type = OP_DB_SAVE_PLAYER;
+				PostQueuedCompletionStatus(g_iocpHandle, 1, cId, &expOver->_over);
+			}
 			SC_REMOVE_OBJECT_PACKET removePakcet;// 죽었으니 제거
 			removePakcet.type = SC_REMOVE_OBJECT;
 			removePakcet.size = sizeof(SC_REMOVE_OBJECT_PACKET);
@@ -1909,6 +1944,8 @@ void InitializeNPC()
 		clients[i]._state = ST_INGAME;
 	}
 	cout << "NPC initialize end.\n";
+	TIMER_EVENT ev{ 1, chrono::system_clock::now() + 300s, EV_AUTO_SAVE, 0 };//5분 마다 오토 세이브
+	eventTimerQueue.push(ev);
 }
 
 void WakeUpNPC(int npcId, int waker)
@@ -2045,6 +2082,13 @@ void TimerWorkerThread()
 			case EV_RESPAWN_NPC:
 			{
 				clients[ev.objId].myLua->RespawnNpc();
+			}
+			break;
+			case EV_AUTO_SAVE:
+			{
+				EXP_OVER* ov = new EXP_OVER;
+				ov->_comp_type = OP_DB_AUTO_SAVE_PLAYER;
+				PostQueuedCompletionStatus(g_iocpHandle, 1, ev.objId, &ov->_over);
 			}
 			break;
 			default: break;

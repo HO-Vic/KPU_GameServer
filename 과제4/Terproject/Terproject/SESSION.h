@@ -10,7 +10,7 @@
 using namespace std;
 
 enum S_STATE { ST_FREE, ST_ALLOC, ST_INGAME };
-enum COMP_TYPE { OP_ACCEPT, OP_RECV, OP_SEND, OP_DB_GET_PLAYER_INFO, OP_NPC_MOVE, OP_NPC_CHASE_MOVE};
+enum COMP_TYPE { OP_ACCEPT, OP_RECV, OP_SEND, OP_DB_GET_PLAYER_INFO, OP_NPC_MOVE, OP_NPC_CHASE_MOVE, OP_DB_SAVE_PLAYER, OP_DB_AUTO_SAVE_PLAYER};
 
 class LUA_OBJECT;
 class EXP_OVER
@@ -51,7 +51,8 @@ public:
 	mutex	_vl; // 뷰 리스트 전용 락
 	
 	pair<int, int> myLocalSectionIndex = make_pair(0, 0); // 현재 위치한 땅의 인덱스
-
+	
+	char playerID[NAME_SIZE];
 	short level = 0;
 	short exp = 0;
 	short hp = 0;
