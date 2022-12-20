@@ -3,8 +3,8 @@
 #include "Game_OBJECT.h"
 #include "SESSION.h"
 LOCAL_SESSION::LOCAL_SESSION()
-{	
-	obstacleCount = 31;	
+{
+	obstacleCount = 31;
 	obstacle = new  Game_OBJECT[obstacleCount];
 	obstacle[0] = Game_OBJECT(make_pair(5, 1));
 	obstacle[1] = Game_OBJECT(make_pair(6, 1));
@@ -43,7 +43,7 @@ LOCAL_SESSION::LOCAL_SESSION()
 
 LOCAL_SESSION::LOCAL_SESSION(int posX, int posY) : x(posX), y(posY)
 {
-	if (posX < 3 || posY < 3) {		
+	if (posX < 3 || posY < 3) {
 		obstacle = nullptr;
 		return;
 	}
@@ -62,23 +62,25 @@ LOCAL_SESSION::~LOCAL_SESSION()
 {
 	if (obstacle != nullptr)
 		delete[] obstacle;
-	
+
 }
 
 void LOCAL_SESSION::InsertPlayers(SESSION& player)
 {
-	playersLock.lock();
-	players.emplace(player._id);
-	playersLock.unlock();
+	{
+		std::lock_guard<std::mutex> pl{ playersLock };
+		players.emplace(player._id);
+	}
 }
 
 void LOCAL_SESSION::UpdatePlayers(SESSION& player, std::array< std::array<LOCAL_SESSION, 100>, 100>& maps)
 {
 	if (20 * x > player.x || 20 * x + 19 < player.x) {
-		playersLock.lock();
-		if(players.count(player._id))
-			players.erase(player._id);
-		playersLock.unlock();
+		{
+			std::lock_guard<std::mutex> pl{ playersLock };
+			if (players.count(player._id))
+				players.erase(player._id);
+		}
 		if (player.x < 20 * x) {
 			maps[x - 1][y].InsertPlayers(player);
 			player.myLocalSectionIndex = std::make_pair(x - 1, y);
@@ -88,10 +90,11 @@ void LOCAL_SESSION::UpdatePlayers(SESSION& player, std::array< std::array<LOCAL_
 		player.myLocalSectionIndex = std::make_pair(x + 1, y);
 	}
 	else if (20 * y > player.y || 20 * y + 19 < player.y) {
-		playersLock.lock();
-		if (players.count(player._id))
-			players.erase(player._id);
-		playersLock.unlock();
+		{
+			std::lock_guard<std::mutex> pl{ playersLock };
+			if (players.count(player._id))
+				players.erase(player._id);
+		}
 		if (player.y < 20 * y) {
 			maps[x][y - 1].InsertPlayers(player);
 			player.myLocalSectionIndex = std::make_pair(x, y - 1);
@@ -99,15 +102,14 @@ void LOCAL_SESSION::UpdatePlayers(SESSION& player, std::array< std::array<LOCAL_
 		}
 		else maps[x][y + 1].InsertPlayers(player);
 		player.myLocalSectionIndex = std::make_pair(x, y + 1);
-	}	
+	}
 }
 
 void LOCAL_SESSION::DeletePlayers(SESSION& player)
 {
-	playersLock.lock();
+	std::lock_guard<std::mutex> pl{ playersLock };
 	if (players.count(player._id))
 		players.erase(player._id);
-	playersLock.unlock();
 }
 
 const std::unordered_set<int>& LOCAL_SESSION::GetPlayer()
