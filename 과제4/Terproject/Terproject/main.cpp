@@ -52,6 +52,9 @@ void MoveRandNPC(int npcId);
 bool Agro_NPC(int npcId, int cId);
 bool AbleAttack_NPC(int npcId, int cId);
 
+std::unordered_set<int> GetPlayerSet(int x, int y);
+
+
 //Timer
 void TimerWorkerThread();
 
@@ -794,9 +797,7 @@ void AttackNpc(int cId, int npcId)
 void UpdateNearList(SESSION& updateSession, int c_id)
 {
 	if (isPc(c_id)) {
-		gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second].playersLock.lock();
-		std::unordered_set<int> findMyLocal = gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second].players;
-		gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second].playersLock.unlock();
+		std::unordered_set<int> findMyLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first, clients[c_id].myLocalSectionIndex.second);
 		for (auto& id : findMyLocal) { // current my local
 			if (clients[id]._state != ST_INGAME) continue;
 			if (clients[id]._id == c_id) continue;
@@ -815,9 +816,23 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 			if (clients[c_id].y % 20 < 7) {// 위로 붙은 부분
 				if (clients[c_id].myLocalSectionIndex.second > 0 && clients[c_id].myLocalSectionIndex.first > 0) {
 					{
-						gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second - 1].playersLock.lock();
-						std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second - 1].players;
-						gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second - 1].playersLock.unlock();
+						std::unordered_set<int> findMyLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first - 1, clients[c_id].myLocalSectionIndex.second - 1);
+						for (auto& id : findMyLocal) {
+							if (clients[id]._state != ST_INGAME) continue;
+							if (clients[id]._id == c_id) continue;
+							if (!isPc(id)) {
+								if (!clients[id].myLua->GetArrive())
+									continue;
+							}
+							if (can_see(c_id, id)) {
+								updateSession._vl.lock();
+								updateSession._view_list.insert(id);
+								updateSession._vl.unlock();
+							}
+						}
+					}
+					{
+						std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first - 1, clients[c_id].myLocalSectionIndex.second);
 						for (auto& id : findNearLocal) {
 							if (clients[id]._state != ST_INGAME) continue;
 							if (clients[id]._id == c_id) continue;
@@ -833,27 +848,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 						}
 					}
 					{
-						gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second].playersLock.lock();
-						std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second].players;
-						gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second].playersLock.unlock();
-						for (auto& id : findNearLocal) {
-							if (clients[id]._state != ST_INGAME) continue;
-							if (clients[id]._id == c_id) continue;
-							if (!isPc(id)) {
-								if (!clients[id].myLua->GetArrive())
-									continue;
-							}
-							if (can_see(c_id, id)) {
-								updateSession._vl.lock();
-								updateSession._view_list.insert(id);
-								updateSession._vl.unlock();
-							}
-						}
-					}
-					{
-						gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].playersLock.lock();
-						std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].players;
-						gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].playersLock.unlock();
+						std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first, clients[c_id].myLocalSectionIndex.second - 1);
 						for (auto& id : findNearLocal) {
 							if (clients[id]._state != ST_INGAME) continue;
 							if (clients[id]._id == c_id) continue;
@@ -871,9 +866,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 				}
 				else if (clients[c_id].myLocalSectionIndex.first > 0) {
 					{
-						gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second].playersLock.lock();
-						std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second].players;
-						gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second].playersLock.unlock();
+						std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first - 1, clients[c_id].myLocalSectionIndex.second);
 						for (auto& id : findNearLocal) {
 							if (clients[id]._state != ST_INGAME) continue;
 							if (clients[id]._id == c_id) continue;
@@ -890,9 +883,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 					}
 				}
 				else if (clients[c_id].myLocalSectionIndex.second > 0) {
-					gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].playersLock.lock();
-					std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].players;
-					gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].playersLock.unlock();
+					std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first, clients[c_id].myLocalSectionIndex.second - 1);
 					for (auto& id : findNearLocal) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
@@ -911,9 +902,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 			else if (clients[c_id].y % 20 > 13) { // 아래로 붙은 부분
 				if (clients[c_id].myLocalSectionIndex.second < 19 && clients[c_id].myLocalSectionIndex.first > 0) {
 					{
-						gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second + 1].playersLock.lock();
-						std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second + 1].players;
-						gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second + 1].playersLock.unlock();
+						std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first - 1, clients[c_id].myLocalSectionIndex.second + 1);
 						for (auto& id : findNearLocal) {
 							if (clients[id]._state != ST_INGAME) continue;
 							if (clients[id]._id == c_id) continue;
@@ -929,9 +918,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 						}
 					}
 					{
-						gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].playersLock.lock();
-						std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].players;
-						gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].playersLock.unlock();
+						std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first, clients[c_id].myLocalSectionIndex.second + 1);
 						for (auto& id : findNearLocal) {
 							if (clients[id]._state != ST_INGAME) continue;
 							if (clients[id]._id == c_id) continue;
@@ -947,9 +934,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 						}
 					}
 					{
-						gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second].playersLock.lock();
-						std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first -1][clients[c_id].myLocalSectionIndex.second].players;
-						gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second].playersLock.unlock();
+						std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first - 1, clients[c_id].myLocalSectionIndex.second);
 						for (auto& id : findNearLocal) {
 							if (clients[id]._state != ST_INGAME) continue;
 							if (clients[id]._id == c_id) continue;
@@ -966,10 +951,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 					}
 				}
 				else if (clients[c_id].myLocalSectionIndex.second < 19) {
-					gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].playersLock.lock();
-					std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].players;
-					gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].playersLock.unlock();
-
+					std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first, clients[c_id].myLocalSectionIndex.second + 1);
 					for (auto& id : findNearLocal) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
@@ -985,9 +967,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 					}
 				}
 				else if (clients[c_id].myLocalSectionIndex.first > 0) {
-					gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second].playersLock.lock();
-					std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second].players;
-					gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second].playersLock.unlock();
+					std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first - 1, clients[c_id].myLocalSectionIndex.second);
 					for (auto& id : findNearLocal) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
@@ -1004,10 +984,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 				}
 			}
 			if (clients[c_id].myLocalSectionIndex.first > 0) {
-				gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second].playersLock.lock();
-				std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second].players;
-				gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second].playersLock.unlock();
-
+				std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first - 1, clients[c_id].myLocalSectionIndex.second);
 				for (auto& id : findNearLocal) {
 					if (clients[id]._state != ST_INGAME) continue;
 					if (clients[id]._id == c_id) continue;
@@ -1027,9 +1004,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 			if (clients[c_id].y % 20 < 7) {
 				if (clients[c_id].myLocalSectionIndex.second > 0 && clients[c_id].myLocalSectionIndex.first < 19) {
 					{
-						gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second - 1].playersLock.lock();
-						std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second - 1].players;
-						gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second - 1].playersLock.unlock();
+						std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first + 1, clients[c_id].myLocalSectionIndex.second - 1);
 						for (auto& id : findNearLocal) {
 							if (clients[id]._state != ST_INGAME) continue;
 							if (clients[id]._id == c_id) continue;
@@ -1045,9 +1020,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 						}
 					}
 					{
-						gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].playersLock.lock();
-						std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].players;
-						gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].playersLock.unlock();
+						std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first, clients[c_id].myLocalSectionIndex.second - 1);
 						for (auto& id : findNearLocal) {
 							if (clients[id]._state != ST_INGAME) continue;
 							if (clients[id]._id == c_id) continue;
@@ -1063,9 +1036,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 						}
 					}
 					{
-						gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].playersLock.lock();
-						std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].players;
-						gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].playersLock.unlock();
+						std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first + 1, clients[c_id].myLocalSectionIndex.second);
 						for (auto& id : findNearLocal) {
 							if (clients[id]._state != ST_INGAME) continue;
 							if (clients[id]._id == c_id) continue;
@@ -1083,9 +1054,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 					}
 				}
 				else if (clients[c_id].myLocalSectionIndex.second > 0) {
-					gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].playersLock.lock();
-					std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].players;
-					gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].playersLock.unlock();
+					std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first, clients[c_id].myLocalSectionIndex.second - 1);
 					for (auto& id : findNearLocal) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
@@ -1101,9 +1070,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 					}
 				}
 				else if (clients[c_id].myLocalSectionIndex.first < 19) {
-					gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].playersLock.lock();
-					std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].players;
-					gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].playersLock.unlock();
+					std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first + 1, clients[c_id].myLocalSectionIndex.second);
 					for (auto& id : findNearLocal) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
@@ -1122,9 +1089,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 			else if (clients[c_id].y % 20 > 13) {
 				if (clients[c_id].myLocalSectionIndex.second < 19 && clients[c_id].myLocalSectionIndex.first < 19) {
 					{
-						gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second + 1].playersLock.lock();
-						std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second + 1].players;
-						gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second + 1].playersLock.unlock();
+						std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first + 1, clients[c_id].myLocalSectionIndex.second + 1);
 						for (auto& id : findNearLocal) {
 							if (clients[id]._state != ST_INGAME) continue;
 							if (clients[id]._id == c_id) continue;
@@ -1140,9 +1105,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 						}
 					}
 					{
-						gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].playersLock.lock();
-						std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].players;
-						gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].playersLock.unlock();
+						std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first + 1, clients[c_id].myLocalSectionIndex.second + 1);
 						for (auto& id : findNearLocal) {
 							if (clients[id]._state != ST_INGAME) continue;
 							if (clients[id]._id == c_id) continue;
@@ -1158,9 +1121,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 						}
 					}
 					{
-						gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].playersLock.lock();
-						std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].players;
-						gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].playersLock.unlock();
+						std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first + 1, clients[c_id].myLocalSectionIndex.second);
 						for (auto& id : findNearLocal) {
 							if (clients[id]._state != ST_INGAME) continue;
 							if (clients[id]._id == c_id) continue;
@@ -1177,9 +1138,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 					}
 				}
 				else if (clients[c_id].myLocalSectionIndex.second < 19) {
-					gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].playersLock.lock();
-					std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].players;
-					gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].playersLock.unlock();
+					std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first, clients[c_id].myLocalSectionIndex.second + 1);
 					for (auto& id : findNearLocal) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
@@ -1195,9 +1154,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 					}
 				}
 				else if (clients[c_id].myLocalSectionIndex.first < 19) {
-					gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].playersLock.lock();
-					std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].players;
-					gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].playersLock.unlock();
+					std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first + 1, clients[c_id].myLocalSectionIndex.second);
 					for (auto& id : findNearLocal) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
@@ -1214,9 +1171,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 				}
 			}
 			if (clients[c_id].myLocalSectionIndex.first < 19) {
-				gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].playersLock.lock();
-				std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].players;
-				gameMap[clients[c_id].myLocalSectionIndex.first + 1][clients[c_id].myLocalSectionIndex.second].playersLock.unlock();
+				std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first + 1, clients[c_id].myLocalSectionIndex.second);
 				for (auto& id : findNearLocal) {
 					if (clients[id]._state != ST_INGAME) continue;
 					if (clients[id]._id == c_id) continue;
@@ -1235,9 +1190,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 		else { // x는 내부에 잘 있고 y만 체크
 			if (clients[c_id].y % 20 < 7) {
 				if (clients[c_id].myLocalSectionIndex.second > 0) {
-					gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].playersLock.lock();
-					std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].players;
-					gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second - 1].playersLock.unlock();
+					std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first, clients[c_id].myLocalSectionIndex.second - 1);
 					for (auto& id : findNearLocal) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
@@ -1255,9 +1208,7 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 			}
 			else if (clients[c_id].y % 20 > 13) {
 				if (clients[c_id].myLocalSectionIndex.second < 19) {
-					gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].playersLock.lock();
-					std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].players;
-					gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second + 1].playersLock.unlock();
+					std::unordered_set<int> findNearLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first, clients[c_id].myLocalSectionIndex.second + 1);
 					for (auto& id : findNearLocal) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id) continue;
@@ -1276,7 +1227,10 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 		}
 		return;
 	}
+	return;
 	//npc view list -> players
+	//std::unordered_set<int> findMyLocal = GetPlayerSet(clients[c_id].myLocalSectionIndex.first, clients[c_id].myLocalSectionIndex.second + 1);
+
 	gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second].playersLock.lock();
 	std::unordered_set<int> findMyLocal = gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second].players;
 	gameMap[clients[c_id].myLocalSectionIndex.first][clients[c_id].myLocalSectionIndex.second].playersLock.unlock();
@@ -1298,9 +1252,15 @@ void UpdateNearList(SESSION& updateSession, int c_id)
 		if (clients[c_id].y % 20 < 7) {// 위로 붙은 부분
 			if (clients[c_id].myLocalSectionIndex.second > 0 && clients[c_id].myLocalSectionIndex.first > 0) {
 				{
-					gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second - 1].playersLock.lock();
+					int temp = clients[c_id].myLocalSectionIndex.first - 1;
+					int temp2 = clients[c_id].myLocalSectionIndex.second - 1;
+					/*gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second - 1].playersLock.lock();
 					std::unordered_set<int> findNearLocal = gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second - 1].players;
-					gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second - 1].playersLock.unlock();
+					gameMap[clients[c_id].myLocalSectionIndex.first - 1][clients[c_id].myLocalSectionIndex.second - 1].playersLock.unlock();*/
+					gameMap[temp][temp2].playersLock.lock();
+					std::unordered_set<int> findNearLocal = gameMap[temp][temp2].players;
+					gameMap[temp][temp2].playersLock.unlock();
+
 					for (auto& id : findNearLocal) {
 						if (clients[id]._state != ST_INGAME) continue;
 						if (clients[id]._id == c_id || !isPc(clients[id]._id)) continue;
@@ -1904,6 +1864,15 @@ bool AbleAttack_NPC(int npcId, int cId)
 	if (abs(clients[npcId].x - clients[cId].x) > 3) return false;
 	if (abs(clients[npcId].y - clients[cId].y) > 3) return false;
 	return true;
+}
+
+std::unordered_set<int> GetPlayerSet(int x, int y)
+{
+	std::unordered_set<int> findMyLocal;
+	gameMap[x][y].playersLock.lock();
+	findMyLocal = gameMap[x][y].players;
+	gameMap[x][y].playersLock.unlock();
+	return findMyLocal;
 }
 
 void TimerWorkerThread()
