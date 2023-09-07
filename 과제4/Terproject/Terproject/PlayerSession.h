@@ -37,7 +37,7 @@ public:
 	}
 };
 
-class SESSION {
+class PlayerSession {
 	EXP_OVER _recv_over;
 public:
 	mutex _s_lock;
@@ -62,16 +62,16 @@ public:
 private:
 	bool ableAttack = true;
 public:
-	SESSION();
+	PlayerSession();
 
-	~SESSION();
+	~PlayerSession();
 
 	void do_recv();
 
 	void do_send(void* packet);
 	void send_login_info_packet();
-	void send_move_packet(int c_id, std::array<SESSION, MAX_USER + MAX_NPC>& clients);
-	void send_add_player_packet(int c_id, std::array<SESSION, MAX_USER + MAX_NPC>& clients);
+	void send_move_packet(int c_id, std::array<PlayerSession, MAX_USER + MAX_NPC>& clients);
+	void send_add_player_packet(int c_id, std::array<PlayerSession, MAX_USER + MAX_NPC>& clients);
 	void send_remove_player_packet(int c_id);
 	
 	void SetAbleAttack(bool b)
@@ -81,5 +81,5 @@ public:
 	bool GetAbleAttack() { return ableAttack; }
 };
 
-extern array<SESSION, MAX_USER + MAX_NPC> clients;
+extern array<PlayerSession, MAX_USER + MAX_NPC> g_clients;
 extern array<int, 11> levelExp;

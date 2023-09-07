@@ -134,7 +134,7 @@
     <ClCompile Include="LOCAL_SESSION.cpp" />
     <ClCompile Include="LUA_OBJECT.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="SESSION.cpp" />
+    <ClCompile Include="PlayerSession.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DB_OBJ.h" />
@@ -142,7 +142,7 @@
     <ClInclude Include="LOCAL_SESSION.h" />
     <ClInclude Include="LUA_OBJECT.h" />
     <ClInclude Include="protocol_2022.h" />
-    <ClInclude Include="SESSION.h" />
+    <ClInclude Include="PlayerSession.h" />
     <ClInclude Include="TIMER_EVENT.h" />
   </ItemGroup>
   <ItemGroup>

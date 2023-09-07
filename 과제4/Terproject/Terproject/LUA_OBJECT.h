@@ -51,6 +51,9 @@ public:
 	bool InActiveNPC();
 	bool ActiveChase();
 	bool InActiveChase();
+	bool IsActiveNPC() {
+		return isActive;
+	}
 	bool DieNpc()
 	{
 		bool old_state = true;

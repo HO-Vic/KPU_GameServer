@@ -2,7 +2,7 @@
 #include<unordered_set>
 #include<mutex>
 #include <array>
-class SESSION;
+class PlayerSession;
 class Game_OBJECT;
 class LOCAL_SESSION
 {
@@ -21,9 +21,9 @@ public:
 	~LOCAL_SESSION();
 
 public:
-	void InsertPlayers(SESSION& player);
-	void UpdatePlayers(SESSION& player, std::array< std::array<LOCAL_SESSION, 100>, 100>& maps);
-	void DeletePlayers(SESSION& player);
+	void InsertPlayers(PlayerSession& player);
+	void UpdatePlayers(PlayerSession& player, std::array< std::array<LOCAL_SESSION, 100>, 100>& maps);
+	void DeletePlayers(PlayerSession& player);
 	const std::unordered_set<int>& GetPlayer();
 	bool CollisionObject(int x, int y);
 public:

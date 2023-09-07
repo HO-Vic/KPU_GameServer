@@ -18,7 +18,7 @@
     <ClCompile Include="main.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="SESSION.cpp">
+    <ClCompile Include="PlayerSession.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="DB_OBJ.cpp">
@@ -38,7 +38,7 @@
     <ClInclude Include="protocol_2022.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="SESSION.h">
+    <ClInclude Include="PlayerSession.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="DB_OBJ.h">

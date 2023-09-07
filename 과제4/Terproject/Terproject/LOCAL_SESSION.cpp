@@ -1,7 +1,7 @@
 #include <array>
 #include "LOCAL_SESSION.h"
 #include "Game_OBJECT.h"
-#include "SESSION.h"
+#include "PlayerSession.h"
 LOCAL_SESSION::LOCAL_SESSION()
 {	
 	obstacleCount = 31;	
@@ -65,14 +65,14 @@ LOCAL_SESSION::~LOCAL_SESSION()
 	
 }
 
-void LOCAL_SESSION::InsertPlayers(SESSION& player)
+void LOCAL_SESSION::InsertPlayers(PlayerSession& player)
 {
 	playersLock.lock();
 	players.emplace(player._id);
 	playersLock.unlock();
 }
 
-void LOCAL_SESSION::UpdatePlayers(SESSION& player, std::array< std::array<LOCAL_SESSION, 100>, 100>& maps)
+void LOCAL_SESSION::UpdatePlayers(PlayerSession& player, std::array< std::array<LOCAL_SESSION, 100>, 100>& maps)
 {
 	if (20 * x > player.x || 20 * x + 19 < player.x) {
 		playersLock.lock();
@@ -102,7 +102,7 @@ void LOCAL_SESSION::UpdatePlayers(SESSION& player, std::array< std::array<LOCAL_
 	}	
 }
 
-void LOCAL_SESSION::DeletePlayers(SESSION& player)
+void LOCAL_SESSION::DeletePlayers(PlayerSession& player)
 {
 	playersLock.lock();
 	if (players.count(player._id))

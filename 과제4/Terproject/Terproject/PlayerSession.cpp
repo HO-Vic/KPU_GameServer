@@ -1,10 +1,10 @@
 #include <chrono>
-#include "SESSION.h"
+#include "PlayerSession.h"
 #include "LUA_OBJECT.h"
 
 using namespace chrono;
 
-SESSION::SESSION()
+PlayerSession::PlayerSession()
 {
 	_id = -1;
 	_socket = 0;
@@ -14,9 +14,9 @@ SESSION::SESSION()
 	_prev_remain = 0;
 }
 
-SESSION::~SESSION() {}
+PlayerSession::~PlayerSession() {}
 
-void SESSION::do_recv()
+void PlayerSession::do_recv()
 {
 	DWORD recv_flag = 0;
 	memset(&_recv_over._over, 0, sizeof(_recv_over._over));
@@ -25,12 +25,12 @@ void SESSION::do_recv()
 	WSARecv(_socket, &_recv_over._wsabuf, 1, 0, &recv_flag, &_recv_over._over, 0);
 }
 
-void SESSION::do_send(void* packet)
+void PlayerSession::do_send(void* packet)
 {
 	EXP_OVER* sdata = new EXP_OVER{ reinterpret_cast<char*>(packet) };
 	WSASend(_socket, &sdata->_wsabuf, 1, 0, 0, &sdata->_over, 0);
 }
-void SESSION::send_login_info_packet()
+void PlayerSession::send_login_info_packet()
 {
 	SC_LOGIN_INFO_PACKET p;
 	p.id = _id;
@@ -46,7 +46,7 @@ void SESSION::send_login_info_packet()
 	do_send(&p);
 }
 
-void SESSION::send_remove_player_packet(int c_id)
+void PlayerSession::send_remove_player_packet(int c_id)
 {
 	_vl.lock();
 	if (_view_list.count(c_id))
@@ -63,7 +63,7 @@ void SESSION::send_remove_player_packet(int c_id)
 	do_send(&p);
 }
 
-void SESSION::send_move_packet(int c_id, std::array<SESSION, MAX_USER + MAX_NPC>& clients)
+void PlayerSession::send_move_packet(int c_id, std::array<PlayerSession, MAX_USER + MAX_NPC>& clients)
 {
 	SC_MOVE_OBJECT_PACKET p;
 	p.id = c_id;
@@ -75,7 +75,7 @@ void SESSION::send_move_packet(int c_id, std::array<SESSION, MAX_USER + MAX_NPC>
 	do_send(&p);
 }
 
-void SESSION::send_add_player_packet(int c_id, std::array<SESSION, MAX_USER + MAX_NPC>& clients)
+void PlayerSession::send_add_player_packet(int c_id, std::array<PlayerSession, MAX_USER + MAX_NPC>& clients)
 {
 	SC_ADD_OBJECT_PACKET add_packet;
 	add_packet.id = c_id;

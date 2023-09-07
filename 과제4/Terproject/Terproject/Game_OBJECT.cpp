@@ -1,5 +1,5 @@
 #include "Game_OBJECT.h"
-#include "SESSION.h"
+#include "PlayerSession.h"
 
 
 void Game_OBJECT::Interaction(SESSION& client) // is interaction OBJ

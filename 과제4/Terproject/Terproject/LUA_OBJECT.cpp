@@ -1,5 +1,5 @@
 #include "LUA_OBJECT.h"
-#include "SESSION.h"
+#include "PlayerSession.h"
 #include <math.h>
 #include <random>
 #include <vector>
@@ -266,7 +266,7 @@ int API_get_x(lua_State* L)
 {
 	int user_id = (int)lua_tointeger(L, -1);
 	lua_pop(L, 2);
-	int x = clients[user_id].x;
+	int x = g_clients[user_id].x;
 	lua_pushnumber(L, x);
 	return 1;
 }
@@ -275,7 +275,7 @@ int API_get_y(lua_State* L)
 {
 	int user_id = (int)lua_tointeger(L, -1);
 	lua_pop(L, 2);
-	int y = clients[user_id].y;
+	int y = g_clients[user_id].y;
 	lua_pushnumber(L, y);
 	return 1;
 }
@@ -299,8 +299,8 @@ int API_CommonNpcSetPosition(lua_State* L)
 {
 	int user_id = (int)lua_tointeger(L, -1);
 	lua_pop(L, 2);
-	clients[user_id].x = npcRandPosUid(npcPosDre);
-	clients[user_id].y = npcRandPosUid(npcPosDre);
+	g_clients[user_id].x = npcRandPosUid(npcPosDre);
+	g_clients[user_id].y = npcRandPosUid(npcPosDre);
 	return 0;
 }
 
@@ -308,7 +308,7 @@ int API_bossNpcSetPosition(lua_State* L)
 {
 	int user_id = (int)lua_tointeger(L, -1);
 	lua_pop(L, 2);
-	clients[user_id].x = bossRandPosUid(npcPosDre);
-	clients[user_id].y = bossRandPosUid(npcPosDre);
+	g_clients[user_id].x = bossRandPosUid(npcPosDre);
+	g_clients[user_id].y = bossRandPosUid(npcPosDre);
 	return 0;
 }
