@@ -62,8 +62,19 @@ LUA_OBJECT::LUA_OBJECT(int id, const char* luaName)
 	lua_pushnumber(myLuaState, id);
 	lua_pcall(myLuaState, 1, 0, 0);
 	lua_pop(myLuaState, 1);// eliminate set_uid from stack after call
-	
+
 	lua_settop(myLuaState, 0);
+}
+
+bool LUA_OBJECT::IsReFindRoad()
+{
+	if (std::chrono::system_clock::now() - m_lastFindRoad > 6s + 500ms)return true;
+	return false;
+}
+
+void LUA_OBJECT::UpdateLastFindRoadTime()
+{
+	m_lastFindRoad = std::chrono::system_clock::now();
 }
 
 bool LUA_OBJECT::ActiveNPC()

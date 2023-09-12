@@ -37,6 +37,7 @@ private:
 	int chaseId = -1;
 	std::list<AStarNode> npcNavigateList;
 	std::mutex GetNodeLock;
+	std::chrono::system_clock::time_point m_lastFindRoad = std::chrono::system_clock::now();
 public:
 	std::atomic_bool isChase = false;
 	NPC_TYPE type = AGRO;
@@ -46,7 +47,8 @@ public:
 	LUA_OBJECT(int id, const char* luaName);
 
 	~LUA_OBJECT() {}
-
+	void UpdateLastFindRoadTime();
+	bool IsReFindRoad();
 	bool ActiveNPC();
 	bool InActiveNPC();
 	bool ActiveChase();

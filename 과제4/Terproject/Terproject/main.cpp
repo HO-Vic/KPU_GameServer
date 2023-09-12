@@ -635,6 +635,7 @@ void worker_thread()
 				else {
 					//길찾기 실행
 					//AStarLoad(clients[key].x, clients[key].y, clients[chaseId].x, clients[chaseId].y);
+					bool isReFind = clients[key].myLua->IsReFindRoad();
 					pair<int, int> res = clients[key].myLua->GetNextNode();
 					//clients[key].x = res.first;
 					//clients[key].y = res.second;
@@ -673,7 +674,7 @@ void worker_thread()
 					//TIMER_EVENT ev{ key, chrono::system_clock::now() + 1s, EV_CHASE_MOVE, 0 };
 					//eventTimerQueue.push(ev);
 					//결과 값(길 list)이 비었다면
-					if (res.first < 0 || res.second < 0) {
+					if (res.first < 0 || res.second < 0 || isReFind) {
 						//새로 길 찾기 실행
 						if (!Agro_NPC(key, chaseId)) {
 							clients[key].myLua->InActiveChase();
@@ -721,6 +722,7 @@ void worker_thread()
 							TIMER_EVENT ev{ key, chrono::system_clock::now() + 1s, EV_CHASE_MOVE, 0 };
 							eventTimerQueue.push(ev);
 						}
+						clients[key].myLua->UpdateLastFindRoadTime();
 					}
 					else {
 						//길이 존재 한다면 고고
