@@ -4,6 +4,7 @@
 #include <random>
 #include <vector>
 #include<iostream>
+#include <fstream>
 using namespace std;
 //lua func
 int API_get_x(lua_State* L);
@@ -23,6 +24,8 @@ extern pair<int, int> AStartObstacle[31];
 bool CollideObstacle(int inX, int inY);
 float LocalDistance(int destinyX, int destinyY, int startX, int startY);
 
+extern std::mutex fileMutex;
+extern ofstream outFIle;
 
 LUA_OBJECT::LUA_OBJECT(int id, NPC_TYPE t)
 {
@@ -47,6 +50,7 @@ LUA_OBJECT::LUA_OBJECT(int id, NPC_TYPE t)
 	lua_pcall(myLuaState, 1, 0, 0);
 	lua_pop(myLuaState, 1);
 	lua_settop(myLuaState, 0);
+	m_lastMoveTime = std::chrono::system_clock::now();
 }
 
 LUA_OBJECT::LUA_OBJECT(int id, const char* luaName)
@@ -72,30 +76,54 @@ LUA_OBJECT::LUA_OBJECT(int id, const char* luaName)
 	lua_pcall(myLuaState, 1, 0, 0);
 	lua_pop(myLuaState, 1);
 	lua_settop(myLuaState, 0);
+	m_lastMoveTime = std::chrono::system_clock::now();
+}
+
+bool LUA_OBJECT::AbleMove()
+{	
+	if (std::chrono::system_clock::now() - m_lastMoveTime > 990ms) return true;	
+	return false;
+}
+
+void LUA_OBJECT::UpdateLastMoveTime()
+{
+	m_lastMoveTime = std::chrono::system_clock::now();
 }
 
 bool LUA_OBJECT::ActiveNPC()
 {
 	bool old_state = false;
-	if (atomic_compare_exchange_strong(&isActive, &old_state, true))
+	if (isActive.compare_exchange_strong(old_state, true)) {
+		//fileMutex.lock();
+		//outFIle << "Success WakeUp NPC this_thread ID: " << this_thread::get_id() << ", ActiveNPC: " << isActive << endl;
+		//fileMutex.unlock();
 		return true;
-	//cout << "activeNPC: " << isActive << endl;
+	}
+	fileMutex.lock();
+	outFIle << "Failed WakeUp NPC this_thread ID: " << this_thread::get_id() << ", ActiveNPC: " << isActive << endl;
+	fileMutex.unlock();
 	return false;
 }
 
 bool LUA_OBJECT::InActiveNPC()
 {
 	bool old_state = true;
-	if (atomic_compare_exchange_strong(&isActive, &old_state, false))
+	if (atomic_compare_exchange_strong(&isActive, &old_state, false)) {
+		//fileMutex.lock();
+		//outFIle << "Success InActive NPC this_thread ID: " << this_thread::get_id() << ", ActiveNPC: " << isActive << endl;
+		//fileMutex.unlock();
 		return true;
-	//cout << "InactiveNPC: " << isActive << endl;
+	}
+	fileMutex.lock();
+	outFIle << "Failed InActive NPC this_thread ID: " << this_thread::get_id() << ", ActiveNPC: " << isActive << endl;
+	fileMutex.unlock();
 	return false;
 }
 
 bool LUA_OBJECT::ActiveChase()
 {
 	bool old_state = false;
-	if (atomic_compare_exchange_strong(&isActive, &old_state, true))
+	if (atomic_compare_exchange_strong(&isChase, &old_state, true))
 		return true;
 	//cout << "chase NPC: " << isActive << endl;	
 	return false;
@@ -105,7 +133,7 @@ bool LUA_OBJECT::InActiveChase()
 {
 	chaseId = -1;
 	bool old_state = true;
-	if (atomic_compare_exchange_strong(&isActive, &old_state, false))
+	if (atomic_compare_exchange_strong(&isChase, &old_state, false))
 		return true;
 	//cout << "InActive chase NPC: " << isActive << endl;
 	return false;

@@ -31,12 +31,13 @@ struct AStarNode {
 class LUA_OBJECT
 {
 private:
-	std::atomic_bool isActive = false;
+	std::atomic_bool isActive = false;	
 	std::atomic_bool isArrive = true;
 	lua_State* myLuaState = nullptr;
 	int chaseId = -1;
 	std::list<AStarNode> npcNavigateList;
 	std::mutex GetNodeLock;
+	std::chrono::system_clock::time_point m_lastMoveTime;
 public:
 	std::atomic_bool isChase = false;
 	NPC_TYPE type = AGRO;
@@ -46,7 +47,8 @@ public:
 	LUA_OBJECT(int id, const char* luaName);
 
 	~LUA_OBJECT() {}
-
+	bool AbleMove();
+	void UpdateLastMoveTime();
 	bool ActiveNPC();
 	bool InActiveNPC();
 	bool ActiveChase();

@@ -51,7 +51,67 @@ void UpdateNearList(PlayerSession& updateSession, int c_id);
 
 //NPC func
 void InitializeNPC();
-void WakeUpNPC(int npcId, int waker);
+void WakeUpNPC(int npcId, int waker)//DB
+{
+	if (g_clients[npcId].myLua->IsActiveNPC())
+		return;
+	if (g_clients[npcId].myLua->ActiveNPC() && g_clients[npcId].myLua->GetArrive()) {
+		auto currentT = chrono::system_clock::now();
+		TIMER_EVENT ev{ npcId, currentT + 1s, EV_RANDOM_MOVE, 0 };
+		eventTimerQueue.push(ev);
+		fileMutex.lock();
+		outFIle << "TIME: " << chrono::system_clock::to_time_t(currentT) << "this Thread ID: " << this_thread::get_id() << " wakeUp npc: " << npcId << "wakeUp Player: " << waker << endl;
+		fileMutex.unlock();
+	}
+}
+void WakeUpNPC_MOVE(int npcId, int waker)
+{
+	if (g_clients[npcId].myLua->IsActiveNPC())
+		return;
+	bool a = g_clients[npcId].myLua->ActiveNPC();
+	bool b = g_clients[npcId].myLua->GetArrive();
+	if (a && b) {
+		auto currentT = chrono::system_clock::now();
+		TIMER_EVENT ev{ npcId, currentT + 1s, EV_RANDOM_MOVE, 0 };
+		eventTimerQueue.push(ev);
+		fileMutex.lock();
+		boolalpha(cout);
+		outFIle << "WakeUpNPC_MOVE, TIME: " << chrono::system_clock::to_time_t(currentT) <<
+			", ActiveNpc: " << a << ", Arrive: " << b <<
+			", this Thread ID: " << this_thread::get_id() << ", wakeUp npc: " << npcId << ", wakeUp Player: " << waker << endl;
+		fileMutex.unlock();
+	}
+	else {
+		fileMutex.lock();
+		outFIle << "Failed WakeUpNPC ID: " << npcId << endl;
+		fileMutex.unlock();
+	}
+}
+void WakeUpNPC_LOGIN(int npcId, int waker)
+{
+	if (g_clients[npcId].myLua->IsActiveNPC())
+		return;
+	if (g_clients[npcId].myLua->ActiveNPC() && g_clients[npcId].myLua->GetArrive()) {
+		auto currentT = chrono::system_clock::now();
+		TIMER_EVENT ev{ npcId, currentT + 1s, EV_RANDOM_MOVE, 0 };
+		eventTimerQueue.push(ev);
+		fileMutex.lock();
+		outFIle << "WakeUpNPC_LOGIN, TIME: " << chrono::system_clock::to_time_t(currentT) << ", this Thread ID: " << this_thread::get_id() << ", wakeUp npc: " << npcId << ", wakeUp Player: " << waker << endl;
+		fileMutex.unlock();
+	}
+}
+void WakeUpNPC_NPC_CHASE(int npcId, int waker)
+{
+	if (g_clients[npcId].myLua->ActiveNPC() && g_clients[npcId].myLua->GetArrive()) {
+		auto currentT = chrono::system_clock::now();
+		TIMER_EVENT ev{ npcId, currentT + 1s, EV_RANDOM_MOVE, 0 };
+		eventTimerQueue.push(ev);
+		fileMutex.lock();
+		outFIle << "WakeUpNPC_NPC_CHASE, TIME: " << chrono::system_clock::to_time_t(currentT) << ", this Thread ID: " << this_thread::get_id() << ", wakeUp npc: " << npcId << ", wakeUp Player: " << waker << endl;
+		fileMutex.unlock();
+	}
+}
+
 void MoveRandNPC(int npcId);
 bool Agro_NPC(int npcId, int cId);
 bool AbleAttack_NPC(int npcId, int cId);
@@ -215,7 +275,7 @@ void process_packet(int c_id, char* packet)
 
 			for (auto& pl : g_clients[c_id]._view_list) {
 				if (isPc(pl)) g_clients[pl].send_add_player_packet(c_id, g_clients);
-				else WakeUpNPC(pl, c_id);
+				else WakeUpNPC_LOGIN(pl, c_id);
 				g_clients[c_id].send_add_player_packet(g_clients[pl]._id, g_clients);
 			}
 		}
@@ -263,24 +323,39 @@ void process_packet(int c_id, char* packet)
 		UpdateNearList(g_clients[c_id], c_id);
 
 		g_clients[c_id].send_move_packet(c_id, g_clients);
-		for (auto& pl : g_clients[c_id]._view_list) {
+		std::unordered_set<int> currentViewList;
+		g_clients[c_id]._vl.lock();
+		currentViewList = g_clients[c_id]._view_list;
+		g_clients[c_id]._vl.unlock();
+		for (auto& pl : currentViewList) {
 			auto& cpl = g_clients[pl];
+			std::unordered_set<int> otherViewList;
 			cpl._vl.lock();
-			if (cpl._view_list.count(c_id) > 0) { // 상대 클라에 내가 존재 한다면
-				cpl._vl.unlock();
+			otherViewList = cpl._view_list;
+			cpl._vl.unlock();
+			if (otherViewList.count(c_id) > 0) { // 상대 클라에 내가 존재 한다면				
 				if (isPc(pl))
 					cpl.send_move_packet(c_id, g_clients);
-				else WakeUpNPC(pl, c_id);
+				else {
+					WakeUpNPC_MOVE(pl, c_id);
+					/*	fileMutex.lock();
+						boolalpha(cout);
+						outFIle << "ProccessPacket():: CS_MOVE_DUMMY -  " << c_id << endl;
+						fileMutex.unlock();*/
+				}
 			}
 			else {// 없다면
-				cpl._vl.unlock();
 				if (isPc(pl))
 					cpl.send_add_player_packet(c_id, g_clients);
 				else {
 					g_clients[pl]._vl.lock();
 					g_clients[pl]._view_list.insert(c_id);
 					g_clients[pl]._vl.unlock();
-					WakeUpNPC(pl, c_id);
+					WakeUpNPC_MOVE(pl, c_id);
+					/*fileMutex.lock();
+					boolalpha(cout);
+					outFIle << "ProccessPacket():: CS_MOVE_DUMMY -  " << c_id << endl;
+					fileMutex.unlock();*/
 				}
 			}
 			if (old_vlist.count(pl) == 0) {// 이전 리스트에 상대 클라가 없다면
@@ -290,7 +365,7 @@ void process_packet(int c_id, char* packet)
 					clients[pl]._vl.lock();
 					clients[pl]._view_list.insert(c_id);
 					clients[pl]._vl.unlock();
-					WakeUpNPC(pl, c_id);
+					WakeUpNPC_MOVE(pl, c_id);
 				}*/
 				g_clients[c_id].send_add_player_packet(pl, g_clients);
 			}
@@ -372,7 +447,8 @@ void worker_thread()
 		}
 
 		switch (ex_over->_comp_type) {
-		case OP_ACCEPT: {
+		case OP_ACCEPT:
+		{
 			int client_id = get_new_client_id();
 			if (client_id != -1) {
 				{
@@ -396,9 +472,10 @@ void worker_thread()
 			ZeroMemory(&acceptOver._over, sizeof(acceptOver._over));
 			int addr_size = sizeof(SOCKADDR_IN);
 			AcceptEx(listenSocket, clientSocket, acceptOver._send_buf, 0, addr_size + 16, addr_size + 16, 0, &acceptOver._over);
-			break;
 		}
-		case OP_RECV: {
+		break;
+		case OP_RECV:
+		{
 			int remain_data = num_bytes + g_clients[key]._prev_remain;
 			char* p = ex_over->_send_buf;
 			while (remain_data > 0) {
@@ -415,8 +492,8 @@ void worker_thread()
 				std::memcpy(ex_over->_send_buf, p, remain_data);
 			}
 			g_clients[key].do_recv();
-			break;
 		}
+		break;
 		case OP_SEND:
 			delete ex_over;
 			break;
@@ -487,17 +564,26 @@ void worker_thread()
 					//cout << "AGRO NPC: " << key << endl;
 				}
 				else if (true == keep_alive) {
-					MoveRandNPC(static_cast<int>(key));
-					{
-						TIMER_EVENT ev{ key, chrono::system_clock::now() + 1s, EV_RANDOM_MOVE, 0 };
-						eventTimerQueue.push(ev);
+					if (g_clients[key].myLua->AbleMove()) {
+						MoveRandNPC(static_cast<int>(key));
+						{
+							g_clients[key].myLua->UpdateLastMoveTime();
+							TIMER_EVENT ev{ key, chrono::system_clock::now() + 1s, EV_RANDOM_MOVE, 0 };
+							eventTimerQueue.push(ev);
+						}
 					}
 				}
 				else {
 					if (g_clients[key].myLua != nullptr) {
+						auto currentT = chrono::system_clock::now();
 						g_clients[key].myLua->InActiveNPC();
 						if (g_clients[key].myLua->InActiveChase())
 							g_clients[key].myLua->SetChaseId(-1);
+						boolalpha(cout);
+						fileMutex.lock();
+						outFIle << "Inactive, TIME: " << chrono::system_clock::to_time_t(currentT) <<
+							", this Thread ID: " << this_thread::get_id() << ", wakeUp npc: " << key << endl;
+						fileMutex.unlock();
 					}
 				}
 			}
@@ -557,7 +643,7 @@ void worker_thread()
 										g_clients[pl]._vl.lock();
 										g_clients[pl]._view_list.insert(chaseId);
 										g_clients[pl]._vl.unlock();
-										WakeUpNPC(pl, chaseId);
+										WakeUpNPC_NPC_CHASE(pl, chaseId);
 									}
 								}
 
@@ -1819,18 +1905,16 @@ void InitializeNPC()
 	cout << "NPC initialize end.\n";
 }
 
-void WakeUpNPC(int npcId, int waker)
-{
-	if (!g_clients[npcId].myLua->IsActiveNPC()) {
-		if (g_clients[npcId].myLua->ActiveNPC() && g_clients[npcId].myLua->GetArrive()) {
-			fileMutex.lock();			
-			outFIle << "TIME: " << chrono::system_clock::to_time_t(chrono::system_clock::now()) << "this Thread ID: " << this_thread::get_id() << " wakeUp npc: " << npcId << "wakeUp Player: " << waker << endl;
-			fileMutex.unlock();
-			TIMER_EVENT ev{ npcId, chrono::system_clock::now() + 1s, EV_RANDOM_MOVE, 0 };
-			eventTimerQueue.push(ev);
-		}
-	}
-}
+//void WakeUpNPC(int npcId, int waker)
+//{
+//	if (g_clients[npcId].myLua->ActiveNPC() && g_clients[npcId].myLua->GetArrive()) {
+//		fileMutex.lock();			
+//		outFIle << "TIME: " << chrono::system_clock::to_time_t(chrono::system_clock::now()) << "this Thread ID: " << this_thread::get_id() << " wakeUp npc: " << npcId << "wakeUp Player: " << waker << endl;
+//		fileMutex.unlock();
+//		TIMER_EVENT ev{ npcId, chrono::system_clock::now() + 1s, EV_RANDOM_MOVE, 0 };
+//		eventTimerQueue.push(ev);
+//	}
+//}
 
 void MoveRandNPC(int npcId)
 {
@@ -1849,6 +1933,7 @@ void MoveRandNPC(int npcId)
 			}
 		}
 	}*/
+
 	if (g_clients[npcId].myLua->InActiveChase())
 		g_clients[npcId].myLua->SetChaseId(-1);
 
