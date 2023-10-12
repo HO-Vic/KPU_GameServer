@@ -208,9 +208,8 @@ void ProcessPacket(char* ptr)
 		g_myid = packet->id;
 		myPlayer.m_x = packet->x;
 		myPlayer.m_y = packet->y;
-		string str{ packet->name };
+		myPlayer.name = packet->name;
 
-		strncpy(myPlayer.name, packet->name, strlen(packet->name));
 		myPlayer.SetNameText(myPlayer.name);
 		myPlayer.SetPlayerStat(packet->hp, packet->max_hp, packet->exp, packet->level);
 		hpBar.SetScale((float)(WINDOW_WIDTH - 500) * ((float)packet->hp / (float)packet->max_hp), 1);
@@ -267,10 +266,22 @@ void ProcessPacket(char* ptr)
 		}
 		//else if (id < MAX_USER) {
 		else {
-			players[id] = PLAYER{ *textureCharacter[IDLE_LEFT], 0, 0, 50, 50 };
+			if (my_packet->hp == 0) {
+				players[my_packet->id].m_showing = false;
+			}
+			if (id < MAX_USER)
+				players[id] = PLAYER{ *textureCharacter[IDLE_LEFT], 0, 0, 50, 50 };
+			else if (id < MAX_USER + 3)
+				players[id] = PLAYER{ *textureBoss, 0, 0, 50, 50 };
+			else if (id < (MAX_USER + MAX_NPC) / 2)
+				players[id] = PLAYER{ *textureDog, 0, 0, 50, 50 };
+			else
+				players[id] = PLAYER{ *textureGhost, 0, 0, 50, 50 };
+
+
 			cout << "add player" << endl;
 			players[id].move(my_packet->x, my_packet->y);
-			strncpy(players[id].name, my_packet->name, strlen(my_packet->name));
+			players[id].name = my_packet->name;
 			players[id].SetNameText(players[id].name);
 			players[id].hp = my_packet->hp;
 			players[id].maxHp = my_packet->max_hp;
@@ -349,9 +360,12 @@ void ProcessPacket(char* ptr)
 			EXPBar.SetScale((float)(WINDOW_WIDTH - 500) * ((float)packet->exp / (float)packet->max_exp), 1);
 			EXPText.setString("EXP");
 		}
-		else {			
+		else {
 			cout << "NPC Stat: " << packet->hp << " " << packet->max_hp << endl;
-			players[packet->id].SetPlayerStat(packet->hp, packet->max_hp, packet->exp, packet->level);			
+			players[packet->id].SetPlayerStat(packet->hp, packet->max_hp, packet->exp, packet->level);
+			if (packet->hp == 0) {
+				players[packet->id].m_showing = false;
+			}
 		}
 	}
 	break;
@@ -630,10 +644,10 @@ int main()
 					CS_LOGIN_PACKET p;
 					p.size = sizeof(p);
 					p.type = CS_LOGIN;
-					memset(p.name, 0, NAME_SIZE);
+					memset(p.loginId, 0, NAME_SIZE);
 					string str;
 					str.assign(loginId.begin(), loginId.end());
-					memcpy(p.name, str.c_str(), str.size());
+					memcpy(p.loginId, str.c_str(), str.size());
 					send_packet(&p);
 				}
 			}

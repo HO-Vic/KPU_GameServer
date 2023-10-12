@@ -24,7 +24,9 @@ public:
 	int level = 0;
 	int id = -1;
 
-	char name[NAME_SIZE] = { 0 };
+	wstring name;
+
+	//wchar_t name[NAME_SIZE] = { 0 };
 
 	bool ableSkill = true;
 
@@ -32,7 +34,9 @@ public:
 	void move(int x, int y);
 	void draw();
 	void SetNameText(char* name);
+	void SetNameText(wstring& name);
 	void set_chat(const char str[]);
+	void set_chat(const wchar_t str[]);
 	void StartEffect(chrono::system_clock::time_point t);
 	chrono::system_clock::time_point GetSkillEffectTime();
 	void HidSkill() { showSkill = false; }

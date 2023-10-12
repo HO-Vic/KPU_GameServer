@@ -1,68 +1,148 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="소스 파일">
+    <Filter Include="DB">
+      <UniqueIdentifier>{df95caa5-cf6a-47b7-8684-ba0dd41bf9fc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="main">
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
-    <Filter Include="헤더 파일">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    <Filter Include="GameObject">
+      <UniqueIdentifier>{5dd5c2a9-4282-4900-a879-d172ddd1b0c9}</UniqueIdentifier>
     </Filter>
-    <Filter Include="리소스 파일">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    <Filter Include="GameObject\PlayerObject">
+      <UniqueIdentifier>{9bf2a22a-9e85-4b16-ac45-d4e37db73482}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GameObject\NPC_Object">
+      <UniqueIdentifier>{c60f54b6-11a0-489a-a2f0-25602833591c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MapSession">
+      <UniqueIdentifier>{d7bb1f4e-4405-4ff2-8011-d68c84d66a51}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="PCH">
+      <UniqueIdentifier>{6a6a3c97-ed61-41be-ad81-5b4d071b6603}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Timer">
+      <UniqueIdentifier>{0df9eb53-5b46-46b0-a70c-f63cdefad291}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ExpOver">
+      <UniqueIdentifier>{7d818dfa-b45f-462d-b448-ccef16fee097}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Packet">
+      <UniqueIdentifier>{019de8c3-3ded-403e-bbc7-8e3fa33e1115}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Logic">
+      <UniqueIdentifier>{93e7f659-15f7-4752-863f-69a7b45a2c23}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="IOCP">
+      <UniqueIdentifier>{045c6f5d-d8c0-44b3-a21e-93a81f3bb597}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Logic\Astar">
+      <UniqueIdentifier>{c229dc5a-581c-497e-af9c-a5ecbe0df43e}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="DB\DB_OBJ.cpp">
+      <Filter>DB</Filter>
+    </ClCompile>
+    <ClCompile Include="GameObject\GameObject.cpp">
+      <Filter>GameObject</Filter>
+    </ClCompile>
+    <ClCompile Include="GameObject\PlayerObject\PlayerObject.cpp">
+      <Filter>GameObject\PlayerObject</Filter>
+    </ClCompile>
+    <ClCompile Include="GameObject\NPC_Object\NPC_Func.cpp">
+      <Filter>GameObject\NPC_Object</Filter>
+    </ClCompile>
+    <ClCompile Include="MapSession\MapSession.cpp">
+      <Filter>MapSession</Filter>
+    </ClCompile>
+    <ClCompile Include="PCH\stdafx.cpp">
+      <Filter>PCH</Filter>
+    </ClCompile>
+    <ClCompile Include="Timer\TimerEvent.cpp">
+      <Filter>Timer</Filter>
+    </ClCompile>
     <ClCompile Include="main.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>main</Filter>
     </ClCompile>
-    <ClCompile Include="SESSION.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="ExpOver\ExpOver.cpp">
+      <Filter>ExpOver</Filter>
     </ClCompile>
-    <ClCompile Include="DB_OBJ.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="GameObject\NPC_Object\NPC_Object.cpp">
+      <Filter>GameObject\NPC_Object</Filter>
     </ClCompile>
-    <ClCompile Include="LOCAL_SESSION.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="Packet\PacketManager.cpp">
+      <Filter>Packet</Filter>
     </ClCompile>
-    <ClCompile Include="Game_OBJECT.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="Logic\Logic.cpp">
+      <Filter>Logic</Filter>
     </ClCompile>
-    <ClCompile Include="LUA_OBJECT.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="IocpNetwork\IocpNetwork.cpp">
+      <Filter>IOCP</Filter>
+    </ClCompile>
+    <ClCompile Include="Logic\Astar\AstarNode.cpp">
+      <Filter>Logic\Astar</Filter>
+    </ClCompile>
+    <ClCompile Include="Timer\Timer.cpp">
+      <Filter>Timer</Filter>
+    </ClCompile>
+    <ClCompile Include="DB\DB_Event.cpp">
+      <Filter>DB</Filter>
+    </ClCompile>
+    <ClCompile Include="Timer\TIMER_EVENT.cpp">
+      <Filter>Timer</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="protocol_2022.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="DB\DB_OBJ.h">
+      <Filter>DB</Filter>
     </ClInclude>
-    <ClInclude Include="SESSION.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="GameObject\GameObject.h">
+      <Filter>GameObject</Filter>
     </ClInclude>
-    <ClInclude Include="DB_OBJ.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="GameObject\PlayerObject\PlayerObject.h">
+      <Filter>GameObject\PlayerObject</Filter>
     </ClInclude>
-    <ClInclude Include="LOCAL_SESSION.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="GameObject\NPC_Object\NPC_Func.h">
+      <Filter>GameObject\NPC_Object</Filter>
     </ClInclude>
-    <ClInclude Include="Game_OBJECT.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="MapSession\MapSession.h">
+      <Filter>MapSession</Filter>
     </ClInclude>
-    <ClInclude Include="LUA_OBJECT.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="PCH\stdafx.h">
+      <Filter>PCH</Filter>
     </ClInclude>
-    <ClInclude Include="TIMER_EVENT.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Timer\TIMER_EVENT.h">
+      <Filter>Timer</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="lua_script\boss.lua">
-      <Filter>리소스 파일</Filter>
-    </None>
-    <None Include="lua_script\monster.lua">
-      <Filter>리소스 파일</Filter>
-    </None>
+    <ClInclude Include="ExpOver\ExpOver.h">
+      <Filter>ExpOver</Filter>
+    </ClInclude>
+    <ClInclude Include="GameObject\NPC_Object\NPC_Object.h">
+      <Filter>GameObject\NPC_Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Packet\PacketManager.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
+    <ClInclude Include="Logic\Logic.h">
+      <Filter>Logic</Filter>
+    </ClInclude>
+    <ClInclude Include="IocpNetwork\IocpNetwork.h">
+      <Filter>IOCP</Filter>
+    </ClInclude>
+    <ClInclude Include="Logic\Astar\AstarNode.h">
+      <Filter>Logic\Astar</Filter>
+    </ClInclude>
+    <ClInclude Include="DB\DB_Event.h">
+      <Filter>DB</Filter>
+    </ClInclude>
+    <ClInclude Include="Timer\Timer.h">
+      <Filter>Timer</Filter>
+    </ClInclude>
+    <ClInclude Include="Packet\protocol_2022.h">
+      <Filter>Packet</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

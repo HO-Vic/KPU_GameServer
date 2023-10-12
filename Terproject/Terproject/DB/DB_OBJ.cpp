@@ -1,7 +1,17 @@
+#include "stdafx.h"
 #include <windows.h>
-#include <iostream>
 #include "DB_OBJ.h"
-#include "protocol_2022.h"
+#include "DB_Event.h"
+#include "../GameObject/GameObject.h"
+#include "../GameObject/PlayerObject/PlayerObject.h"
+#include "../GameObject/NPC_Object/NPC_Object.h"
+#include "../IocpNetwork/IocpNetwork.h"
+#include "../ExpOver/ExpOver.h"
+//#include "../Packet/protocol_2022.h"
+
+
+extern IocpNetwork g_iocpNetwork;
+extern array<GameObject*, MAX_USER + MAX_NPC> g_clients;
 
 int print_error(SQLHENV    henv,
 	SQLHDBC    hdbc,
@@ -19,13 +29,43 @@ int print_error(SQLHENV    henv,
 		cout << "\n **** ERROR *****\n";
 		cout << "         SQLSTATE: " << sqlstate << endl;
 		cout << "Native Error Code: " << sqlcode << endl;
-		cout << "%s" << buffer << endl;
+		printf("%s\n", buffer);
 	};
 	return (0);
 
 }
 
-DB_OBJ::DB_OBJ()
+void DB_OBJ::DB_ThreadFunc()
+{
+	while (m_isRunning) {
+		if (m_eventQueue.empty()) {
+			this_thread::yield();
+			continue;
+		}
+		DB_Event dbEvent;
+		if (m_eventQueue.try_pop(dbEvent)) {
+			switch (dbEvent.GetEvent())
+			{
+			case EV_GET_PLAYER_INFO:
+			{
+				DB::DB_PlayerId* dbData = reinterpret_cast<DB::DB_PlayerId*>(dbEvent.GetBuffer());
+				GetPlayerInfo(dbData->m_ownerId, dbData->m_playerId);
+			}
+			break;
+			case EV_ADD_NEW_USER:
+			{
+				DB::DB_PlayerId* dbData = reinterpret_cast<DB::DB_PlayerId*>(dbEvent.GetBuffer());
+				dbData->m_playerId;
+			}
+			break;
+			default:
+				break;
+			}
+		}
+	}
+}
+
+DB_OBJ::DB_OBJ() : m_isRunning(true)
 {
 	SQLRETURN retcode;
 	// Allocate environment handle  
@@ -44,24 +84,36 @@ DB_OBJ::DB_OBJ()
 				// Connect to data source  
 				retcode = SQLConnect(hdbc, (SQLWCHAR*)L"TermProject2018184010", SQL_NTS, (SQLWCHAR*)NULL, 0, NULL, 0);
 				if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
-					//cout << "DB Success" << endl;
+					cout << "DB Init Success" << endl;
+					m_dbThread = std::thread([&]() {DB_ThreadFunc(); });
 				}
 			}
 		}
-	}	
+	}
 }
 
-bool DB_OBJ::GetPlayerInfo(wstring PlayerLoginId, wstring& outputPlayerName, short& pos_X, short& pos_Y, short& level, short& Exp, short& hp, short& maxHp, short& attackDamage)
+DB_OBJ::~DB_OBJ()
+{
+	m_isRunning = false;
+	m_dbThread.join();
+
+	SQLCancel(hstmt);///종료
+	SQLFreeHandle(SQL_HANDLE_STMT, hstmt);//리소스 해제
+
+	//disconnet
+	SQLDisconnect(hdbc);
+}
+
+bool DB_OBJ::GetPlayerInfo(int playerId, wchar_t* PlayerLoginId)
 {
 	SQLRETURN retcode;
-
 	// Allocate statement handle  
 	retcode = SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);
 	if (retcode == SQL_ERROR) {
 		print_error(henv, hdbc, hstmt);
 	}
 
-	SQLWCHAR szName[NAME_SIZE] = { 0 };
+	SQLWCHAR szName[NAME_SIZE + 1] = { 0 };
 	SQLLEN cbName = 0;
 
 	SQLINTEGER szPos_X = 0;
@@ -85,10 +137,10 @@ bool DB_OBJ::GetPlayerInfo(wstring PlayerLoginId, wstring& outputPlayerName, sho
 	SQLINTEGER szAttackDamage = 0;
 	SQLLEN cbAttackDamage = 0;
 
-	wstring oper = L"EXEC select_user_Info ";
-	oper.append(PlayerLoginId);
-	oper.append(L"\0");
-	retcode = SQLExecDirect(hstmt, (SQLWCHAR*)oper.c_str(), SQL_NTS);
+	wstring storeProcedureString = L"EXEC select_user_Info ";
+	storeProcedureString.append(PlayerLoginId);
+	storeProcedureString.append(L"\0");
+	retcode = SQLExecDirect(hstmt, (SQLWCHAR*)storeProcedureString.c_str(), SQL_NTS);
 	if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
 		retcode = SQLBindCol(hstmt, 1, SQL_C_WCHAR, szName, NAME_SIZE, &cbName);
 		retcode = SQLBindCol(hstmt, 2, SQL_C_SHORT, &szPos_X, SQL_INTEGER, &cbPos_X);
@@ -108,24 +160,14 @@ bool DB_OBJ::GetPlayerInfo(wstring PlayerLoginId, wstring& outputPlayerName, sho
 		////show_error();
 		else if (retcode == SQL_SUCCESS)
 		{
-			outputPlayerName.append(szName);
-			pos_X = szPos_X;
-			pos_Y = szPos_Y;
-			level = szLevel;
-			Exp = szExp;
-			hp = szHp;
-			maxHp = szMaxHp;
-			attackDamage = szAttackDamage;
+			DB::DB_PlayerInfo dbData{playerId, PlayerLoginId, szName, (short)szPos_X, (short)szPos_Y, (short)szLevel, (short)szExp, (short)szHp, (short)szMaxHp, (short)szAttackDamage};
+			ExpOverBuffer* expOver = new ExpOverBuffer(OP_DB_GET_PLAYER_INFO, reinterpret_cast<char*>(&dbData), sizeof(DB::DB_PlayerInfo));
+			PostQueuedCompletionStatus(g_iocpNetwork.GetIocpHandle(), 1, playerId, reinterpret_cast<WSAOVERLAPPED*>(expOver));
 		}
 		if (retcode == SQL_SUCCESS_WITH_INFO) {
-			outputPlayerName.append(szName);
-			pos_X = szPos_X;
-			pos_Y = szPos_Y;
-			level = szLevel;
-			Exp = szExp;
-			hp = szHp;
-			maxHp = szMaxHp;
-			attackDamage = szAttackDamage;
+			DB::DB_PlayerInfo dbData{playerId, PlayerLoginId, szName, (short)szPos_X, (short)szPos_Y, (short)szLevel, (short)szExp, (short)szHp, (short)szMaxHp, (short)szAttackDamage};
+			ExpOverBuffer* expOver = new ExpOverBuffer(OP_DB_GET_PLAYER_INFO, reinterpret_cast<char*>(&dbData), sizeof(DB::DB_PlayerInfo));
+			PostQueuedCompletionStatus(g_iocpNetwork.GetIocpHandle(), 1, playerId, reinterpret_cast<WSAOVERLAPPED*>(expOver));
 			HandleDiagnosticRecord(hstmt, SQL_HANDLE_STMT, retcode);
 		}
 	}
@@ -204,7 +246,7 @@ void DB_OBJ::AddUser(wstring PlayerLoginId)
 
 
 	wstring oper = L"EXEC add_user ";
-	oper.append(PlayerLoginId);	
+	oper.append(PlayerLoginId);
 	oper.append(L"\0");
 	retcode = SQLExecDirect(hstmt, (SQLWCHAR*)oper.c_str(), SQL_NTS);
 	if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
@@ -249,8 +291,13 @@ void DB_OBJ::HandleDiagnosticRecord(SQLHANDLE hHandle, SQLSMALLINT hType, RETCOD
 		// Hide data truncated.. 		
 		if (wcsncmp(wszState, L"01004", 5))
 		{
-			fwprintf(stdout, L"[%5.5s] %s (%d)\n", wszState, wszMessage, iError);
+			wcout << "State: " << wszState << ", Message: " << wszMessage << ", errorCode: " << iError << endl;
 		}
-		cout << wszState << " " << (WCHAR*)wszMessage << " " << iError << endl;
+		wcout << "State: " << wszState << ", Message: " << wszMessage << ", errorCode: " << iError << endl;
 	}
+}
+
+void DB_OBJ::Insert_DBEvent(DB_Event& event)
+{
+	m_eventQueue.push(event);
 }

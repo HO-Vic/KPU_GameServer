@@ -22,6 +22,17 @@ void PLAYER::draw() {
 
 void PLAYER::SetNameText(char* name)
 {
+	nameText.setString(name);	
+	nameText.setFont(font);
+	nameText.setCharacterSize(20);
+	nameText.setPosition(0, 0);
+	nameText.setFillColor(sf::Color::Magenta);
+	nameText.setOutlineColor(sf::Color::Magenta);
+	nameText.setOutlineThickness(1.f);
+}
+
+void PLAYER::SetNameText(wstring& name)
+{
 	nameText.setString(name);
 	nameText.setFont(font);
 	nameText.setCharacterSize(20);
@@ -32,6 +43,15 @@ void PLAYER::SetNameText(char* name)
 }
 
 void PLAYER::set_chat(const char str[])
+{
+	m_chat.setFont(font);
+	m_chat.setString(str);
+	m_chat.setFillColor(sf::Color(255, 255, 255));
+	m_chat.setStyle(sf::Text::Bold);
+	m_mess_end_time = chrono::system_clock::now() + chrono::seconds(3);
+}
+
+void PLAYER::set_chat(const wchar_t str[])
 {
 	m_chat.setFont(font);
 	m_chat.setString(str);

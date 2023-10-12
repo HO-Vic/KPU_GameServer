@@ -18,6 +18,48 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="DB\DB_Event.cpp" />
+    <ClCompile Include="DB\DB_OBJ.cpp" />
+    <ClCompile Include="ExpOver\ExpOver.cpp" />
+    <ClCompile Include="GameObject\GameObject.cpp" />
+    <ClCompile Include="GameObject\NPC_Object\NPC_Func.cpp" />
+    <ClCompile Include="GameObject\NPC_Object\NPC_Object.cpp" />
+    <ClCompile Include="GameObject\PlayerObject\PlayerObject.cpp" />
+    <ClCompile Include="IocpNetwork\IocpNetwork.cpp" />
+    <ClCompile Include="Logic\Astar\AstarNode.cpp" />
+    <ClCompile Include="Logic\Logic.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="MapSession\MapSession.cpp" />
+    <ClCompile Include="Packet\PacketManager.cpp" />
+    <ClCompile Include="PCH\stdafx.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="Timer\Timer.cpp" />
+    <ClCompile Include="Timer\TimerEvent.cpp" />
+    <ClCompile Include="Timer\TIMER_EVENT.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="DB\DB_Event.h" />
+    <ClInclude Include="DB\DB_OBJ.h" />
+    <ClInclude Include="ExpOver\ExpOver.h" />
+    <ClInclude Include="GameObject\GameObject.h" />
+    <ClInclude Include="GameObject\NPC_Object\NPC_Func.h" />
+    <ClInclude Include="GameObject\NPC_Object\NPC_Object.h" />
+    <ClInclude Include="GameObject\PlayerObject\PlayerObject.h" />
+    <ClInclude Include="IocpNetwork\IocpNetwork.h" />
+    <ClInclude Include="Logic\Astar\AstarNode.h" />
+    <ClInclude Include="Logic\Logic.h" />
+    <ClInclude Include="MapSession\MapSession.h" />
+    <ClInclude Include="Packet\PacketManager.h" />
+    <ClInclude Include="Packet\protocol_2022.h" />
+    <ClInclude Include="PCH\stdafx.h" />
+    <ClInclude Include="Timer\Timer.h" />
+    <ClInclude Include="Timer\TIMER_EVENT.h" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
@@ -76,6 +118,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>Use</PrecompiledHeader>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -90,6 +133,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>Use</PrecompiledHeader>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -104,7 +148,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeader>Use</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -120,6 +164,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>Use</PrecompiledHeader>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -128,27 +173,6 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="DB_OBJ.cpp" />
-    <ClCompile Include="Game_OBJECT.cpp" />
-    <ClCompile Include="LOCAL_SESSION.cpp" />
-    <ClCompile Include="LUA_OBJECT.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="SESSION.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="DB_OBJ.h" />
-    <ClInclude Include="Game_OBJECT.h" />
-    <ClInclude Include="LOCAL_SESSION.h" />
-    <ClInclude Include="LUA_OBJECT.h" />
-    <ClInclude Include="protocol_2022.h" />
-    <ClInclude Include="SESSION.h" />
-    <ClInclude Include="TIMER_EVENT.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="lua_script\boss.lua" />
-    <None Include="lua_script\monster.lua" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

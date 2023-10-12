@@ -34,7 +34,7 @@ constexpr char SC_ATTACK_COOL = 11;
 struct CS_LOGIN_PACKET {
 	unsigned char size;
 	char	type;
-	char	name[NAME_SIZE];
+	char	loginId[NAME_SIZE];
 };
 
 struct CS_MOVE_PACKET {
@@ -47,7 +47,7 @@ struct CS_MOVE_PACKET {
 struct CS_CHAT_PACKET {
 	unsigned char size;
 	char	type;
-	char	mess[CHAT_SIZE];
+	wchar_t	mess[CHAT_SIZE];
 };
 
 struct CS_TELEPORT_PACKET {
@@ -70,7 +70,8 @@ struct SC_LOGIN_INFO_PACKET {
 	int		level;
 	short	x, y;
 	int		max_exp;
-	char	name[NAME_SIZE];
+	char	loginId[NAME_SIZE];
+	wchar_t	name[NAME_SIZE];
 };
 
 struct SC_ADD_OBJECT_PACKET {
@@ -80,7 +81,7 @@ struct SC_ADD_OBJECT_PACKET {
 	short	x, y;
 	int		hp;
 	int		max_hp;
-	char	name[NAME_SIZE];
+	wchar_t	name[NAME_SIZE];
 };
 
 struct SC_REMOVE_OBJECT_PACKET {
@@ -101,7 +102,7 @@ struct SC_CHAT_PACKET {
 	unsigned char size;
 	char	type;
 	int		id;
-	char	mess[CHAT_SIZE];
+	wchar_t	mess[CHAT_SIZE];
 };
 
 struct SC_LOGIN_OK_PACKET {
