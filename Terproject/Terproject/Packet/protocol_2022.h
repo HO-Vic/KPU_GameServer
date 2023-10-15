@@ -12,7 +12,7 @@ constexpr char SC_REMOVE_OBJECT = 4;
 constexpr char SC_MOVE_OBJECT = 5;
 constexpr char SC_CHAT = 6;
 constexpr char SC_LOGIN_OK = 7;
-constexpr char SC_LOGIN_FAIL = 8;    
+constexpr char SC_LOGIN_FAIL = 8;
 constexpr char SC_STAT_CHANGE = 9;
 constexpr char SC_ATTACK = 10;
 constexpr char SC_ATTACK_COOL = 11;
@@ -29,7 +29,7 @@ struct CS_MOVE_PACKET {
 	unsigned char size;
 	char	type;
 	char	direction;  // 0 : UP, 1 : DOWN, 2 : LEFT, 3 : RIGHT
-	unsigned	move_time;
+	unsigned int move_time;
 };
 
 struct CS_CHAT_PACKET {
@@ -123,12 +123,9 @@ struct CS_ATTACK_PACKET {
 
 struct SC_ATTACK_PACKET {
 	unsigned char size;
-	char	type;	
-};
-
-struct SC_ATTACK_COOL_PACKET {
-	unsigned char size;
 	char	type;
+	int		id;
+	system_clock::time_point skillExecuteTime;
 };
 
 #pragma pack (pop)

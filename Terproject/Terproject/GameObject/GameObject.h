@@ -23,7 +23,7 @@ protected://Ingame Data
 	unordered_set <int>	m_viewList;
 	mutex				m_viewListLock;
 protected:
-	S_STATE				m_state;
+	atomic< S_STATE>	m_state;
 protected:
 	system_clock::time_point m_lastAttackTime = chrono::system_clock::now();
 public:
@@ -74,4 +74,8 @@ public:
 	virtual short AttackedDamage(short damage);
 	void ResetLastAttack();
 	virtual bool IsAbleAttack() = 0;
+
+public:
+	char prevPacketData[512];
+	char prevPacketSize = 0;
 };

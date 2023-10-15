@@ -24,7 +24,7 @@ public:
 	virtual void AddViewListPlayer(int addPlayerId) override;
 public:
 	virtual S_STATE GetPlayerState() override;
-
+	void RespawnData();
 	bool ActiveNPC();
 	bool InActiveNPC();
 

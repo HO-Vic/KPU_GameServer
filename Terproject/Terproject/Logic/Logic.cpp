@@ -6,6 +6,7 @@
 #include "../MapSession/MapSession.h"
 #include "../Timer/Timer.h"
 #include "../Packet/PacketManager.h"
+#include "../DB/DB_Event.h"
 
 using namespace std;
 
@@ -21,6 +22,8 @@ extern random_device g_rd;
 extern default_random_engine g_dre;
 extern uniform_int_distribution<int> g_npcRandDir; // inclusive
 extern uniform_int_distribution<int> g_npcRandPostion; // inclusive
+
+concurrency::concurrent_queue<int> m_restIdQueue;
 
 void Logic::InitGameMap()
 {
@@ -38,12 +41,14 @@ void Logic::InitGameObjects()
 {
 	for (int i = 0; i < MAX_USER; ++i)
 		g_clients[i] = new PlayerObject(i);
+
 	for (int i = MAX_USER; i < MAX_USER + 3; ++i)
 		g_clients[i] = new NPC_Object(i);
-	for (int i = MAX_USER + 3; i < MAX_USER + MAX_NPC / 2; ++i)
+	for (int i = MAX_USER + 3; i < MAX_USER + 3 + (MAX_NPC / 2); ++i)
 		g_clients[i] = new NPC_Object(i);
-	for (int i = MAX_USER + MAX_NPC / 2; i < MAX_USER + MAX_NPC; ++i)
+	for (int i = MAX_USER + 3 + (MAX_NPC / 2); i < MAX_USER + MAX_NPC; ++i)
 		g_clients[i] = new NPC_Object(i);
+	//g_clients[MAX_USER] = new NPC_Object(MAX_USER);
 }
 
 void Logic::InitNPC()
@@ -53,6 +58,7 @@ void Logic::InitNPC()
 	//g_gameMap[clients[i].myLocalSectionIndex.first][clients[i].myLocalSectionIndex.second].InsertPlayers(clients[i]);
 
 	//random pos같게 해야됨
+	//g_clients[MAX_USER]->InitSetting(MAX_USER, 5000, 5000, 1000, 250);
 
 	for (int i = MAX_USER; i < MAX_USER + 3; ++i) {
 
@@ -61,7 +67,7 @@ void Logic::InitNPC()
 		//g_clients[i]._state = ST_INGAME;
 		g_clients[i]->SetName(L"boss");
 	}
-	for (int i = MAX_USER + 3; i < (MAX_USER + MAX_NPC) / 2; ++i) {
+	for (int i = MAX_USER + 3; i < MAX_USER + 3 + (MAX_NPC / 2); ++i) {
 		g_clients[i]->InitSetting(i, 250, 250, 70, 70);
 		//g_clients[i].myLua = new LUA_OBJECT(clients[i]._id, "lua_script/boss.lua");
 		//g_clients[i]._state = ST_INGAME;
@@ -69,7 +75,7 @@ void Logic::InitNPC()
 		name.append(std::to_wstring(i));
 		g_clients[i]->SetName(name);
 	}
-	for (int i = (MAX_USER + MAX_NPC) / 2; i < MAX_USER + MAX_NPC; ++i) {
+	for (int i = MAX_USER + 3 + (MAX_NPC / 2); i < MAX_USER + MAX_NPC; ++i) {
 		g_clients[i]->InitSetting(i, 600, 600, 120, 120);
 		//g_clients[i].myLua = new LUA_OBJECT(clients[i]._id, "lua_script/boss.lua");
 		//g_clients[i]._state = ST_INGAME;
@@ -117,13 +123,200 @@ void Logic::InitAstarLoad()
 	g_mapObstacle[30] = (make_pair(16, 17));
 }
 
+bool Logic::IsPlayer(int id)
+{
+	return id < MAX_USER;
+}
+
+int Logic::GetNewClientId()
+{
+	/*for (int i = 0; i < MAX_USER; i++) {
+		if (g_clients[i]->GetPlayerState() == ST_PLAYER_FREE)
+			return i;
+	}*/
+	static int i = 0;
+	if (i < MAX_USER) return i++;
+	int id;
+	if (m_restIdQueue.try_pop(id)) {
+		return id;
+	}
+	return -1;
+}
+
+void Logic::PlayerIngameState(char* dbPlayerData)
+{
+	DB::DB_PlayerInfo* playerData = reinterpret_cast<DB::DB_PlayerInfo*> (dbPlayerData);
+
+	PlayerObject* playerObject = reinterpret_cast<PlayerObject*>(g_clients[playerData->m_id]);
+	playerObject->InitSetting(playerData->m_id, playerData->m_hp, playerData->m_maxHp, playerData->m_attackDamage, playerData->m_exp, playerData->m_posX, playerData->m_posY);
+	playerObject->SetName(playerData->m_playerName);
+	playerObject->SetLoginId(playerData->m_playerId);
+	playerObject->SetMaxExp(g_levelExp[playerData->m_level - 1]);
+	playerObject->SetLevel(playerData->m_level);
+	auto pos = playerObject->GetPosition();
+	playerObject->SendLoginInfoPacket();
+	unordered_set<int> nullSet;
+	unordered_set<int> newViewList = Logic::UpdateNearList(playerData->m_id);
+	auto mapIdx = Logic::PlayerPositionToMapSession(pos);
+	Logic::InsertObjectIdMapSession(playerData->m_id, mapIdx);
+	ProccessViewList(playerData->m_id, nullSet, newViewList);
+}
+
+void Logic::DisconnectClient(int disconnectId)
+{
+	if (!IsPlayer(disconnectId))return;
+	//view List 정리 해주고, => remove Player
+	auto playerPosition = g_clients[disconnectId]->GetPosition();
+	RemovePlayerOnMap(disconnectId, playerPosition);
+	dynamic_cast<PlayerObject*>(g_clients[disconnectId])->Disconnect();
+	m_restIdQueue.push(disconnectId);
+
+}
+
+bool Logic::MoveDirection(char direction, std::pair<short, short>& position)
+{
+	switch (direction) {
+	case 1: if (position.second > 0) position.second--; break;
+	case 2: if (position.second < W_HEIGHT - 1) position.second++; break;
+	case 3: if (position.first > 0) position.first--; break;
+	case 4: if (position.first < W_WIDTH - 1) position.first++; break;
+	}
+	auto mapIdx = Logic::PlayerPositionToMapSession(make_pair(position.first, position.second));
+	return !g_gameMap[mapIdx.first][mapIdx.second].CollisionObject(position);
+	//map Object Collision
+}
+
+void Logic::NPCMove(int npcId)
+{
+	NPC_Object* npc = dynamic_cast<NPC_Object*>(g_clients[npcId]);
+	if (!npc->GetIsArrive())return;
+
+	auto viewList = npc->GetViewList();
+	if (viewList.empty()) {//inactive npc
+		npc->InActiveNPC();
+		return;
+	}
+	for (auto& id : viewList) {//npc chase player
+		bool isAgroRange = NPC_AgroInRange(npcId, id);
+		if (isAgroRange) {
+			//Astar Calculate
+			auto tagetPosition = g_clients[id]->GetPosition();
+			npc->FindRoad(id, tagetPosition);
+			//Timer Event Chase
+			g_Timer.InsertTimerQueue(EV_CHASE_MOVE, npcId, id, 1000ms);
+			return;
+		}
+	}
+	//npc rand Move
+	auto position = npc->GetPosition();
+	auto prevPosition = position;
+	bool moveRes = Logic::MoveDirection(g_npcRandDir(g_dre), position);
+	if (moveRes)
+		Logic::MoveGameObject(npcId, prevPosition, position);
+	g_Timer.InsertTimerQueue(EV_RANDOM_MOVE, npcId, -1, 1000ms);
+}
+
+void Logic::NPCMove(int npcId, int targetId)
+{
+	NPC_Object* npc = dynamic_cast<NPC_Object*>(g_clients[npcId]);
+	if (!npc->GetIsArrive())return;
+	bool isAgroRange = NPC_AgroInRange(npcId, targetId);
+	if (!isAgroRange) {//어그로 대상이 없다면
+		auto viewList = npc->GetViewList();
+		if (viewList.empty()) {//inactive npc
+			npc->InActiveNPC();
+			return;
+		}
+		g_Timer.InsertTimerQueue(EV_RANDOM_MOVE, npcId, -1, 5ms);//일반 랜덤 무브로 변경
+		return;
+	}
+	//Astar Road Move
+	NPC_Attack(npcId, targetId);//내부에서 공격할 수 있는지 판단
+
+	bool chaseRes = npc->MoveChaseRoad();
+	if (!chaseRes) {
+		auto tagetPosition = g_clients[targetId]->GetPosition();
+		bool findRoadRes = npc->FindRoad(targetId, tagetPosition);
+		if (!findRoadRes)
+			g_Timer.InsertTimerQueue(EV_RANDOM_MOVE, npcId, -1, 5ms);
+		else
+			g_Timer.InsertTimerQueue(EV_CHASE_MOVE, npcId, targetId, 5ms);
+		return;
+	}
+	if (npc->IsAbleFindRoadTime()) {
+		auto tagetPosition = g_clients[targetId]->GetPosition();
+		bool findRoadRes = npc->FindRoad(targetId, tagetPosition);
+		if (!findRoadRes)
+			g_Timer.InsertTimerQueue(EV_RANDOM_MOVE, npcId, -1, 5ms);
+		else
+			g_Timer.InsertTimerQueue(EV_CHASE_MOVE, npcId, targetId, 1000ms);
+		return;
+	}
+	g_Timer.InsertTimerQueue(EV_CHASE_MOVE, npcId, targetId, 1000ms);
+}
+
+void Logic::MoveGameObject(int playerId, std::pair<short, short>& prevPosition, std::pair<short, short>& position)
+{
+	g_clients[playerId]->SetPosition(position);
+
+	//player On Map Index UpdatePlayers
+	auto mapPosition = Logic::PlayerPositionToMapSession(position);
+	auto prevMapPosition = Logic::PlayerPositionToMapSession(prevPosition);
+	if (mapPosition != prevMapPosition) {
+		g_gameMap[mapPosition.first][mapPosition.second].InsertPlayer(playerId);
+		g_gameMap[prevMapPosition.first][prevMapPosition.second].DeletePlayer(playerId);
+	}
+	unordered_set<int> prevViewList = g_clients[playerId]->GetViewList();
+	//뷰 리스트 업데이트를 위한 new near List 생성
+	unordered_set<int> newViewList;
+	if (IsPlayer(playerId))
+		newViewList = Logic::UpdateNearList(playerId);
+	else newViewList = Logic::NPC_UpdateNearList(playerId);
+	//send self MovePacket
+	g_clients[playerId]->MovePlayer(playerId);
+	ProccessViewList(playerId, prevViewList, newViewList);
+}
+
+bool Logic::CheckInMap(std::pair<short, short>& position)
+{
+	if (position.first < 0)
+		return false;
+	if (position.first > 1999)
+		return false;
+	if (position.second < 0)
+		return false;
+	if (position.second > 1999)
+		return false;
+	return true;
+}
+
+bool Logic::CheckInMap(short x, short y)
+{
+	if (x < 0)
+		return false;
+	if (x > 1999)
+		return false;
+	if (y < 0)
+		return false;
+	if (y < 1999)
+		return false;
+	return true;
+}
+
+void Logic::RemovePlayerOnMap(int objectId, std::pair<short, short> position)
+{
+	auto mapIdx = PlayerPositionToMapSession(position);
+	g_gameMap[mapIdx.first][mapIdx.second].DeletePlayer(objectId);
+}
+
+
 std::unordered_set<int> Logic::UpdateNearList(int playerId)
 {
-	std::unordered_set<int> newUpdateViewList;// = g_clients[playerId]->GetViewList();
+	pair<short, short> playerPosition = g_clients[playerId]->GetPosition();
+	pair<short, short> playerMapSessionIdx = PlayerPositionToMapSession(playerPosition);
 
-	auto playerPosition = g_clients[playerId]->GetPosition();
-	auto playerMapSessionIdx = PlayerPositionToMapSession(playerPosition);
-	GetNearList(playerId, newUpdateViewList, playerMapSessionIdx);
+	std::unordered_set<int> newUpdateViewList;// = g_clients[playerId]->GetViewList();
+	Logic::GetNearList(playerId, newUpdateViewList, playerMapSessionIdx);
 
 	if (playerPosition.first % 20 < 7) {
 		//left Session
@@ -170,11 +363,11 @@ std::unordered_set<int> Logic::UpdateNearList(int playerId)
 
 std::unordered_set<int> Logic::NPC_UpdateNearList(int playerId)
 {
-	std::unordered_set<int> newUpdateViewList;// = g_clients[playerId]->GetViewList();
-
 	auto playerPosition = g_clients[playerId]->GetPosition();
 	auto playerMapSessionIdx = PlayerPositionToMapSession(playerPosition);
-	NPC_GetNearList(playerId, newUpdateViewList, playerMapSessionIdx);
+
+	std::unordered_set<int> newUpdateViewList;// = g_clients[playerId]->GetViewList();
+	Logic::NPC_GetNearList(playerId, newUpdateViewList, playerMapSessionIdx);
 
 	if (playerPosition.first % 20 < 7) {
 		//left Session
@@ -217,80 +410,6 @@ std::unordered_set<int> Logic::NPC_UpdateNearList(int playerId)
 		NPC_GetNearList(playerId, newUpdateViewList, playerMapSessionIdx.first, playerMapSessionIdx.second + 1);
 	}
 	return newUpdateViewList;
-}
-
-void Logic::MoveGameObject(int playerId, std::pair<short, short>& position)
-{
-	g_clients[playerId]->SetPosition(position);
-
-	//player On Map Index UpdatePlayers
-	auto mapPosition = Logic::PlayerPositionToMapSession(position);
-	g_gameMap[mapPosition.first][mapPosition.second].InsertPlayer(playerId);
-
-	unordered_set<int> prevViewList = g_clients[playerId]->GetViewList();
-	//뷰 리스트 업데이트를 위한 new near List 생성
-	unordered_set<int> newViewList;
-	if (IsPlayer(playerId))
-		newViewList = Logic::UpdateNearList(playerId);
-	else newViewList = Logic::NPC_UpdateNearList(playerId);
-	//send self MovePacket
-	g_clients[playerId]->MovePlayer(playerId);
-
-	//send other Player MovePacket, and apply current move Client view List
-	for (auto& viewListPlayer : newViewList) {
-		if (playerId == viewListPlayer)continue;
-		if (!IsPlayer(viewListPlayer)) {
-			if (!dynamic_cast<NPC_Object*>(g_clients[viewListPlayer])->GetIsArrive()) continue;
-		}
-		bool isExist = g_clients[viewListPlayer]->IsExistViewList(playerId);//뷰리스트에 추가된 플레이어 대해서 현재 내가 존재 하는지
-		if (isExist) {
-			g_clients[viewListPlayer]->MovePlayer(playerId);//존재 한다면 내가 움직인걸 알리고
-		}
-		else {
-			g_clients[viewListPlayer]->AddViewListPlayer(playerId);//없다면 해당 플레이어에게 나를 추가 함
-			if (!IsPlayer(viewListPlayer) && IsPlayer(playerId))
-				if (dynamic_cast<NPC_Object*>(g_clients[viewListPlayer])->ActiveNPC())
-					g_Timer.InsertTimerQueue(EV_RANDOM_MOVE, viewListPlayer, -1, 5ms);
-		}
-		if (prevViewList.count(viewListPlayer) == 0) {// 이전 리스트에 상대 클라가 없다면
-			g_clients[playerId]->AddViewListPlayer(viewListPlayer);//실제 내 클라이언트에 새로 추가된 클라이언트 정보를 보내주자
-		}
-	}
-	for (auto& prevPlayerId : prevViewList) // 이전 리스트 중에
-	{
-		if (!g_clients[playerId]->IsExistViewList(prevPlayerId)) {//=>현재는 존재하지 않음
-			g_clients[playerId]->RemoveViewListPlayer(prevPlayerId);//remove하라고 명령
-		}
-		if (!g_clients[prevPlayerId]->IsExistViewList(playerId)) {//=>현재는 존재하지 않음
-			g_clients[prevPlayerId]->RemoveViewListPlayer(playerId);//remove하라고 명령
-		}
-	}
-}
-
-bool Logic::CheckInMap(std::pair<short, short>& position)
-{
-	if (position.first < 0)
-		return false;
-	if (position.first > 1999)
-		return false;
-	if (position.second < 0)
-		return false;
-	if (position.second > 1999)
-		return false;
-	return true;
-}
-
-bool Logic::CheckInMap(short x, short y)
-{
-	if (x < 0)
-		return false;
-	if (x > 1999)
-		return false;
-	if (y < 0)
-		return false;
-	if (y < 1999)
-		return false;
-	return true;
 }
 
 void Logic::GetNearList(int playerId, std::unordered_set<int>& newViewList, std::pair<short, short> mapSessionId)
@@ -345,6 +464,41 @@ void Logic::NPC_GetNearList(int playerId, std::unordered_set<int>& newViewList, 
 		if (g_clients[localPlayerId]->GetPlayerState() != ST_INGAME) continue;
 		if (ViewInRange(currentPlayerPos, localPlayerId)) {
 			newViewList.insert(localPlayerId);
+		}
+	}
+}
+
+void Logic::ProccessViewList(int objectId, const std::unordered_set<int>& prevViewList, const std::unordered_set<int>& newViewList)
+{
+	//send other Player MovePacket, and apply current move Client view List
+	for (auto& viewListPlayer : newViewList) {
+		if (objectId == viewListPlayer)continue;
+		if (!IsPlayer(viewListPlayer)) {
+			if (!dynamic_cast<NPC_Object*>(g_clients[viewListPlayer])->GetIsArrive()) continue;
+		}
+		bool isExist = g_clients[viewListPlayer]->IsExistViewList(objectId);//뷰리스트에 추가된 플레이어 대해서 현재 내가 존재 하는지
+		if (isExist) {
+			g_clients[viewListPlayer]->MovePlayer(objectId);//존재 한다면 내가 움직인걸 알리고
+		}
+		else {
+			g_clients[viewListPlayer]->AddViewListPlayer(objectId);//없다면 해당 플레이어에게 나를 추가 함
+			if (!IsPlayer(viewListPlayer) && IsPlayer(objectId))
+				if (dynamic_cast<NPC_Object*>(g_clients[viewListPlayer])->ActiveNPC())
+					g_Timer.InsertTimerQueue(EV_RANDOM_MOVE, viewListPlayer, -1, 5ms);
+		}
+		if (prevViewList.count(viewListPlayer) == 0) {// 이전 리스트에 상대 클라가 없다면
+			g_clients[objectId]->AddViewListPlayer(viewListPlayer);//실제 내 클라이언트에 새로 추가된 클라이언트 정보를 보내주자
+		}
+	}
+	for (auto& prevPlayerId : prevViewList) // 이전 리스트 중에
+	{
+		if (!newViewList.count(prevPlayerId)) {
+			if (g_clients[objectId]->IsExistViewList(prevPlayerId)) {//=>현재는 존재하지 않음
+				g_clients[objectId]->RemoveViewListPlayer(prevPlayerId);//remove하라고 명령
+			}
+			if (g_clients[prevPlayerId]->IsExistViewList(objectId)) {//=>현재는 존재하지 않음
+				g_clients[prevPlayerId]->RemoveViewListPlayer(objectId);//remove하라고 명령
+			}
 		}
 	}
 }
@@ -443,26 +597,18 @@ void Logic::InsertObjectIdMapSession(int objId, pair<short, short> mapIdx)
 	g_gameMap[mapIdx.first][mapIdx.second].InsertPlayer(objId);
 }
 
-int Logic::GetNewClientId()
-{
-	for (int i = 0; i < MAX_USER; ++i) {
-		S_STATE playerState = g_clients[i]->GetPlayerState();
-		if (playerState == S_STATE::ST_PLAYER_FREE)
-			return i;
-	}
-	return -1;
-}
-
 void Logic::PlayerAttackExecute(int playerId)
 {
 	if (!g_clients[playerId]->IsAbleAttack()) return;
+	PlayerObject* playerObject = dynamic_cast<PlayerObject*>(g_clients[playerId]);
 	auto viewList = g_clients[playerId]->GetViewList();
+	playerObject->ResetLastAttack();
+	playerObject->SendSkillExecutePacket(viewList);
 	for (auto& id : viewList) {
 		if (!IsPlayer(id)) {
 			Attack(playerId, id);
 		}
 	}
-	g_clients[playerId]->ResetLastAttack();
 	if (g_clients[playerId]->IsAbleLevelUp()) {
 		short level = g_clients[playerId]->GetLevel();
 		if (level == g_levelExp.size()) return;
@@ -473,104 +619,30 @@ void Logic::PlayerAttackExecute(int playerId)
 		g_clients[playerId]->SetHp(g_levelMaxHp[level]);
 		g_clients[playerId]->SetMaxHp(g_levelMaxHp[level]);
 		g_clients[playerId]->SetAttackDamage(g_levelAttackDamage[level]);
-		dynamic_cast<PlayerObject*>(g_clients[playerId])->SaveData();
+		playerObject->SaveData();
 	}
 	PacketManager::SendStatPacketSelf(playerId);
 }
 
-bool Logic::MoveDirection(char direction, std::pair<short, short>& position)
-{
-	switch (direction) {
-	case 1: if (position.second > 0) position.second--; break;
-	case 2: if (position.second < W_HEIGHT - 1) position.second++; break;
-	case 3: if (position.first > 0) position.first--; break;
-	case 4: if (position.first < W_WIDTH - 1) position.first++; break;
-	}
-	auto mapIdx = Logic::PlayerPositionToMapSession(make_pair(position.first, position.second));
-	return !g_gameMap[mapIdx.first][mapIdx.second].CollisionObject(position);
-	//map Object Collision
-}
-
-void Logic::NPCMove(int npcId)
-{
-	NPC_Object* npc = dynamic_cast<NPC_Object*>(g_clients[npcId]);
-	if (!npc->GetIsArrive())return;
-
-	auto viewList = npc->GetViewList();
-	if (viewList.empty()) {//inactive npc
-		npc->InActiveNPC();
-		return;
-	}
-	for (auto& id : viewList) {//npc chase player
-		bool isAgroRange = NPC_AgroInRange(npcId, id);
-		if (isAgroRange) {
-			//Astar Calculate
-			auto tagetPosition = g_clients[npcId]->GetPosition();
-			npc->FindRoad(id, tagetPosition);
-			//Timer Event Chase
-			g_Timer.InsertTimerQueue(EV_CHASE_MOVE, npcId, id, 1000ms);
-			return;
-		}
-	}
-	//npc rand Move
-	auto position = npc->GetPosition();
-	bool moveRes = Logic::MoveDirection(g_npcRandDir(g_dre), position);
-	if (moveRes)
-		Logic::MoveGameObject(npcId, position);
-	g_Timer.InsertTimerQueue(EV_RANDOM_MOVE, npcId, -1, 1000ms);
-}
-
-void Logic::NPCMove(int npcId, int targetId)
-{
-	NPC_Object* npc = dynamic_cast<NPC_Object*>(g_clients[npcId]);
-	if (!npc->GetIsArrive())return;
-	bool isAgroRange = NPC_AgroInRange(npcId, targetId);
-	if (!isAgroRange) {//어그로 대상이 없다면
-		auto viewList = npc->GetViewList();
-		if (viewList.empty()) {//inactive npc
-			npc->InActiveNPC();
-			return;
-		}
-		g_Timer.InsertTimerQueue(EV_RANDOM_MOVE, npcId, -1, 5ms);//일반 랜덤 무브로 변경
-		return;
-	}
-	//Astar Road Move
-	NPC_Attack(npcId, targetId);//내부에서 공격할 수 있는지 판단
-
-	bool chaseRes = npc->MoveChaseRoad();
-	if (!chaseRes) {
-		auto tagetPosition = g_clients[targetId]->GetPosition();
-		bool findRoadRes = npc->FindRoad(targetId, tagetPosition);
-		if (!findRoadRes)
-			g_Timer.InsertTimerQueue(EV_RANDOM_MOVE, npcId, -1, 5ms);
-		else
-			g_Timer.InsertTimerQueue(EV_CHASE_MOVE, npcId, targetId, 5ms);
-		return;
-	}
-	if (npc->IsAbleFindRoadTime()) {
-		auto tagetPosition = g_clients[targetId]->GetPosition();
-		bool findRoadRes = npc->FindRoad(targetId, tagetPosition);
-		if (!findRoadRes)
-			g_Timer.InsertTimerQueue(EV_RANDOM_MOVE, npcId, -1, 5ms);
-		else
-			g_Timer.InsertTimerQueue(EV_CHASE_MOVE, npcId, targetId, 1000ms);
-		return;
-	}
-	g_Timer.InsertTimerQueue(EV_CHASE_MOVE, npcId, targetId, 1000ms);
-}
-
 void Logic::Attack(int attackObjId, int attackedObjId)
 {
-	if (!g_clients[attackObjId]->IsAbleAttack())return;
+	if (IsPlayer(attackedObjId))return;
 	if (!AttackInRange(attackObjId, attackedObjId))return;
 	short getExp = g_clients[attackedObjId]->AttackedDamage(g_clients[attackObjId]->GetAttackDamage());
-	dynamic_cast<PlayerObject*>(g_clients[attackObjId])->ConsumeExp(getExp);
-	auto viewList = g_clients[attackedObjId]->GetViewList();
-	PacketManager::SendStatPacketInViewList(viewList, attackedObjId);
+	if (getExp != 0) {
+		dynamic_cast<PlayerObject*>(g_clients[attackObjId])->ConsumeExp(getExp);
+		//die npc info send
+		auto viewList = g_clients[attackedObjId]->GetViewList();
+		PacketManager::SendStatPacketInViewList(viewList, attackedObjId);
+		g_clients[attackedObjId]->ClearViewList();
+		InsertRespawnNPC(attackedObjId);
+	}
 }
 
 void Logic::NPC_Attack(int attackObjId, int attackedObjId)
 {
+	if (!IsPlayer(attackedObjId))return;
+	if (g_clients[attackObjId]->GetPlayerState() != ST_INGAME)return;
 	if (!g_clients[attackObjId]->IsAbleAttack())return;
 	if (!NPC_AttackInRange(attackObjId, attackedObjId))return;
 	g_clients[attackedObjId]->AttackedDamage(g_clients[attackObjId]->GetAttackDamage());
@@ -582,6 +654,17 @@ void Logic::NPC_Attack(int attackObjId, int attackedObjId)
 void Logic::InsertRespawnNPC(int npcId)
 {
 	g_Timer.InsertTimerQueue(EV_RESPAWN_NPC, npcId, -1, 1min);
+}
+
+void Logic::RespawnNPC(int npcId)
+{
+	NPC_Object* npc = dynamic_cast<NPC_Object*>(g_clients[npcId]);
+	if (npc->RespawnNpc()) {
+		npc->RespawnData();
+		unordered_set<int> nullSet;
+		unordered_set<int> newViewList = Logic::UpdateNearList(npcId);
+		ProccessViewList(npcId, nullSet, newViewList);
+	}
 }
 
 float Logic::GetDistance(pair<short, short>& p1, pair<short, short>& p2)
@@ -615,6 +698,20 @@ void Logic::InsertOpenList(const std::map<int, AstarNode>& closeList, std::map<i
 		openList[nextNodeY * 20 + nextNodeX].ModifyDistance(distance, parentNode);
 	}
 	else openList.try_emplace(nextNodeY * 20 + nextNodeX, nextNode, parentNode, distance);
+}
+
+void Logic::SendMess(int from, int to, wchar_t* mess)
+{
+	if (IsPlayer(to))
+		dynamic_cast<PlayerObject*>(g_clients[to])->SendMess(from, mess);
+}
+
+void Logic::BroadCastMessInViewList(int playerId, wchar_t* mess)
+{
+	auto viewList = g_clients[playerId]->GetViewList();
+	for (const auto& id : viewList) {
+		SendMess(playerId, id, mess);
+	}
 }
 
 std::list<pair<short, short>> Logic::GetAstarList(int npcId, int targetId)
@@ -674,7 +771,8 @@ std::list<pair<short, short>> Logic::GetAstarList(int npcId, pair<short, short>&
 	auto npcPosition = g_clients[npcId]->GetPosition();
 	auto targetPosition = targetPos;
 	if (!Logic::NPC_AgroInRange(npcPosition, targetPosition))return std::list<pair<short, short>>{};
-	if (targetPosition == npcPosition)return std::list<pair<short, short>>{targetPosition};
+	if (targetPosition == npcPosition)
+		return std::list<pair<short, short>>{targetPosition};
 	std::map<int, AstarNode> openListMap;
 	std::map<int, AstarNode> closeListMap;
 
@@ -710,13 +808,26 @@ std::list<pair<short, short>> Logic::GetAstarList(int npcId, pair<short, short>&
 			std::list<pair<short, short>> resList;
 			int resIdx = minIdx;
 			while (true) {
-				AstarNode& currentNode = closeListMap[resIdx];
-				resList.emplace_front(currentNode.GetNodePos());
-				if (currentNode.GetNodePos() == npcPosition) {
+				AstarNode& resCurrentNode = closeListMap[resIdx];
+				if (resCurrentNode.GetNodePos() == npcPosition) {
 					return resList;
 				}
-				resIdx = currentNode.GetParentNodePos().first + currentNode.GetParentNodePos().second * 20;
+				resList.emplace_front(resCurrentNode.GetNodePos());
+				resIdx = resCurrentNode.GetParentNodePos().first + resCurrentNode.GetParentNodePos().second * 20;
 			}
 		}
 	}
 }
+
+void Logic::AutoSaveAllPlayers()
+{
+	for (int i = 0; i < MAX_USER; i++) {
+		if (g_clients[i]->GetName().find(L"Test") != wstring::npos)continue;
+		if (ST_INGAME != g_clients[i]->GetPlayerState())continue;
+		PlayerObject* pObject = dynamic_cast<PlayerObject*>(g_clients[i]);
+		pObject->SaveData();
+	}
+	TIMER_EVENT ev{ EV_AUTO_SAVE, -1, -1, system_clock::now() + 5min };
+	g_Timer.InsertTimerQueue(ev);
+}
+

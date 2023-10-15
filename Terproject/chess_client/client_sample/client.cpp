@@ -13,6 +13,9 @@ constexpr auto SCREEN_HEIGHT = 20;
 constexpr auto WINDOW_WIDTH = SCREEN_WIDTH * TILE_WIDTH;   // size of window
 constexpr auto WINDOW_HEIGHT = SCREEN_WIDTH * TILE_WIDTH;
 
+//constexpr auto WINDOW_WIDTH = 800;   // size of window
+//constexpr auto WINDOW_HEIGHT = 600;
+
 int g_left_x;
 int g_top_y;
 int g_myid;
@@ -63,6 +66,10 @@ constexpr int RUN_LEFT_F = 2;
 constexpr int RUN_LEFT_L = 9;
 constexpr int RUN_RIGHT_F = 10;
 constexpr int RUN_RIGHT_L = 17;
+
+bool g_isEnterPressed = false;
+wstring g_chatBuffer;
+wstring g_chatCompleteBuffer;
 
 
 void client_initialize()
@@ -173,13 +180,13 @@ void client_initialize()
 
 	for (int i = MAX_USER; i < MAX_NPC + MAX_USER; i++) {
 		if (i < MAX_USER + 3)
-			players[i] = PLAYER{ *textureBoss, 0, 0, 50, 50 };
+			players[i] = PLAYER{ *textureBoss, 0, 0, TILE_WIDTH, TILE_WIDTH,*textureBG_EXPBar };
 		else if (i < MAX_USER + MAX_NPC / 2)
-			players[i] = PLAYER{ *textureDog, 0, 0, 50, 50 };
+			players[i] = PLAYER{ *textureDog, 0, 0, TILE_WIDTH, TILE_WIDTH ,*textureBG_EXPBar };
 		else
-			players[i] = PLAYER{ *textureGhost, 0, 0, 50, 50 };
+			players[i] = PLAYER{ *textureGhost, 0, 0, TILE_WIDTH, TILE_WIDTH ,*textureBG_EXPBar };
 	}
-	playerAttackEffect = OBJECT{ *texturePlayerAttck, 0, 0, 150, 150 };
+	playerAttackEffect = OBJECT{ *texturePlayerAttck, 0, 0, TILE_WIDTH * 3, TILE_WIDTH * 3 };
 	playerAttackEffect.show();
 
 }
@@ -204,7 +211,7 @@ void ProcessPacket(char* ptr)
 	case SC_LOGIN_INFO:
 	{
 		SC_LOGIN_INFO_PACKET* packet = reinterpret_cast<SC_LOGIN_INFO_PACKET*>(ptr);
-		myPlayer = PLAYER{ *textureCharacter[IDLE_LEFT], 0, 0, 50, 50 };
+		myPlayer = PLAYER{ *textureCharacter[IDLE_LEFT], 0, 0, 50, 50,*textureBG_EXPBar };
 		g_myid = packet->id;
 		myPlayer.m_x = packet->x;
 		myPlayer.m_y = packet->y;
@@ -270,13 +277,13 @@ void ProcessPacket(char* ptr)
 				players[my_packet->id].m_showing = false;
 			}
 			if (id < MAX_USER)
-				players[id] = PLAYER{ *textureCharacter[IDLE_LEFT], 0, 0, 50, 50 };
+				players[id] = PLAYER{ *textureCharacter[IDLE_LEFT], 0, 0, 50, 50 ,*textureBG_EXPBar };
 			else if (id < MAX_USER + 3)
-				players[id] = PLAYER{ *textureBoss, 0, 0, 50, 50 };
-			else if (id < (MAX_USER + MAX_NPC) / 2)
-				players[id] = PLAYER{ *textureDog, 0, 0, 50, 50 };
+				players[id] = PLAYER{ *textureBoss, 0, 0, 50, 50,*textureBG_EXPBar };
+			else if (id < MAX_USER + 3 + (MAX_NPC / 2))
+				players[id] = PLAYER{ *textureDog, 0, 0, 50, 50 ,*textureBG_EXPBar };
 			else
-				players[id] = PLAYER{ *textureGhost, 0, 0, 50, 50 };
+				players[id] = PLAYER{ *textureGhost, 0, 0, 50, 50 ,*textureBG_EXPBar };
 
 
 			cout << "add player" << endl;
@@ -372,13 +379,9 @@ void ProcessPacket(char* ptr)
 	case SC_ATTACK:
 	{
 		SC_ATTACK_PACKET* packet = reinterpret_cast<SC_ATTACK_PACKET*>(ptr);
-		myPlayer.ableSkill = false;
-	}
-	break;
-	case SC_ATTACK_COOL:
-	{
-		SC_ATTACK_COOL_PACKET* packet = reinterpret_cast<SC_ATTACK_COOL_PACKET*>(ptr);
-		myPlayer.ableSkill = true;
+		if (packet->id == g_myid)
+			myPlayer.StartEffect(packet->skillExecuteTime);
+		else players[packet->id].StartEffect(packet->skillExecuteTime);
 	}
 	break;
 	break;
@@ -395,7 +398,7 @@ void process_data(char* net_buf, size_t io_byte)
 	static char packet_buffer[BUF_SIZE];
 
 	while (0 != io_byte) {
-		if (0 == in_packet_size) in_packet_size = ptr[0];
+		if (0 == in_packet_size) in_packet_size = (unsigned char)ptr[0];
 		if (io_byte + saved_packet_size >= in_packet_size) {
 			memcpy(packet_buffer + saved_packet_size, ptr, in_packet_size - saved_packet_size);
 			ProcessPacket(packet_buffer);
@@ -531,22 +534,18 @@ void client_main()
 	}
 
 	myPlayer.draw();
+	myPlayer.CheckHideSkillEffect();
 	if (myPlayer.GetshowSkill()) {
 		playerAttackEffect.a_move(myPlayer.m_x * TILE_WIDTH - g_left_x - 50, myPlayer.m_y * TILE_WIDTH - g_top_y - 50 - 5);
 		playerAttackEffect.a_draw();
-		if (myPlayer.GetSkillEffectTime() < chrono::system_clock::now()) {
-			myPlayer.HidSkill();
-		}
 	}
 	for (auto& pl : players) {
 		if (pl.id != g_myid) {
 			pl.draw();
+			pl.CheckHideSkillEffect();
 			if (pl.GetshowSkill()) {
 				playerAttackEffect.a_move(pl.m_x * TILE_WIDTH - g_left_x - 50, pl.m_y * TILE_WIDTH - g_top_y - 50 - 5);
 				playerAttackEffect.a_draw();
-				if (pl.GetSkillEffectTime() < chrono::system_clock::now()) {
-					pl.HidSkill();
-				}
 			}
 			if (pl.m_showing) {
 				BG_monsterHpBar.a_move(pl.m_x * TILE_WIDTH - g_left_x, pl.m_y * TILE_WIDTH - g_top_y - 17);
@@ -566,6 +565,7 @@ void client_main()
 	EXPBar.a_draw();
 	g_window->draw(HPText);
 	g_window->draw(EXPText);
+	
 }
 
 void send_packet(void* packet)
@@ -681,51 +681,97 @@ int main()
 		{
 			if (event.type == sf::Event::Closed)
 				window.close();
-			if (event.type == sf::Event::KeyPressed) {
-				int direction = -1;
-				switch (event.key.code) {
-				case sf::Keyboard::Left:
-
-					direction = 3;
-					break;
-				case sf::Keyboard::Right:
-					direction = 4;
-					break;
-				case sf::Keyboard::Up:
-					direction = 1;
-					break;
-				case sf::Keyboard::Down:
-					direction = 2;
-					break;
-				case sf::Keyboard::Escape:
-				{
-					CS_LOGOUT_PACKET logoutPakcet;
-					logoutPakcet.size = sizeof(CS_LOGOUT_PACKET);
-					logoutPakcet.type = CS_LOGOUT;
-					send_packet(&logoutPakcet);
-					window.close();
-				}
-				break;
-				case sf::Keyboard::A:
-				{
-					if (myPlayer.ableSkill) {
-						CS_ATTACK_PACKET attackPacket;
-						attackPacket.size = sizeof(CS_ATTACK_PACKET);
-						attackPacket.type = CS_ATTACK;
-						send_packet(&attackPacket);
-						myPlayer.StartEffect(chrono::system_clock::now() + 600ms);
+			else if (event.type == sf::Event::TextEntered) {
+				if (g_isEnterPressed) {
+					if (std::isprint(event.text.unicode)) {
+						g_chatCompleteBuffer += event.text.unicode;
+						g_chatBuffer = g_chatCompleteBuffer;
+						myPlayer.set_chat(g_chatBuffer.c_str());
 					}
 				}
-				break;
+			}
+			if (event.type == sf::Event::KeyPressed) {
+				if (g_isEnterPressed) {
+					if (event.key.code == sf::Keyboard::BackSpace) {
+						if (!g_chatBuffer.empty()) {
+							if (g_chatBuffer.back() == g_chatCompleteBuffer.back()) {
+								g_chatBuffer.pop_back();
+								g_chatCompleteBuffer.pop_back();
+							}
+							else g_chatBuffer.pop_back();
+						}
+						myPlayer.set_chat(g_chatBuffer.c_str());
+					}
+					if (event.key.code == sf::Keyboard::Return) {
+						CS_CHAT_PACKET p;
+						p.type = CS_CHAT;
+						int sendSize = min(99, (int)g_chatCompleteBuffer.size());
+						wcsncpy_s(p.mess, g_chatCompleteBuffer.c_str(), sendSize);
+						p.mess[sendSize] = L'\0';
+						p.size = sizeof(CS_CHAT_PACKET);
+						send_packet(&p);
+						myPlayer.set_chat(g_chatCompleteBuffer.c_str());
+						g_chatCompleteBuffer.clear();
+						g_chatBuffer.clear();
+						g_isEnterPressed = false;
+					}
+					else {
+						g_chatBuffer += event.text.unicode;
+						myPlayer.set_chat(g_chatBuffer.c_str());
+					}
 				}
-				if (-1 != direction) {
-					CS_MOVE_PACKET p;
-					p.size = sizeof(p);
-					p.type = CS_MOVE;
-					p.direction = direction;
-					send_packet(&p);
-				}
+				else {
+					int direction = -1;
+					switch (event.key.code) {
+					case sf::Keyboard::Enter:
+					{
+						g_isEnterPressed = true;
+						myPlayer.ClearChatBuffer();
+					}
+					break;
+					case sf::Keyboard::Left:
 
+						direction = 3;
+						break;
+					case sf::Keyboard::Right:
+						direction = 4;
+						break;
+					case sf::Keyboard::Up:
+						direction = 1;
+						break;
+					case sf::Keyboard::Down:
+						direction = 2;
+						break;
+					case sf::Keyboard::Escape:
+					{
+						CS_LOGOUT_PACKET logoutPakcet;
+						logoutPakcet.size = sizeof(CS_LOGOUT_PACKET);
+						logoutPakcet.type = CS_LOGOUT;
+						send_packet(&logoutPakcet);
+						window.close();
+					}
+					break;
+					case sf::Keyboard::A:
+					{
+						if (myPlayer.IsAbleSkill()) {
+							CS_ATTACK_PACKET attackPacket;
+							attackPacket.size = sizeof(CS_ATTACK_PACKET);
+							attackPacket.type = CS_ATTACK;
+							send_packet(&attackPacket);
+						}
+					}
+					break;
+
+					}
+					if (-1 != direction) {
+						CS_MOVE_PACKET p;
+						p.size = sizeof(p);
+						p.type = CS_MOVE;
+						p.direction = direction;
+						p.move_time = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();
+						send_packet(&p);
+					}
+				}
 			}
 		}
 

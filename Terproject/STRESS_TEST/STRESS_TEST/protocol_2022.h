@@ -41,7 +41,7 @@ struct CS_MOVE_PACKET {
 	unsigned char size;
 	char	type;
 	char	direction;  // 0 : UP, 1 : DOWN, 2 : LEFT, 3 : RIGHT
-	unsigned	move_time;
+	unsigned int move_time;
 };
 
 struct CS_CHAT_PACKET {
@@ -136,6 +136,7 @@ struct CS_ATTACK_PACKET {
 struct SC_ATTACK_PACKET {
 	unsigned char size;
 	char	type;
+	system_clock::time_point skillExecuteTime;
 };
 
 struct SC_ATTACK_COOL_PACKET {

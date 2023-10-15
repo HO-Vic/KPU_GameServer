@@ -23,7 +23,8 @@ std::array<std::pair<short, short>, 31> g_mapObstacle;
 random_device g_rd;
 default_random_engine g_dre(g_rd());
 uniform_int_distribution<int> g_npcRandDir(0, 3); // inclusive
-uniform_int_distribution<int> g_npcRandPostion(0, 1999); // inclusive
+uniform_int_distribution<int> g_npcRandPostion(25, 1999); // inclusive
+//uniform_int_distribution<int> g_npcRandPostion(2, 3); // inclusive
 
 IocpNetwork g_iocpNetwork;
 Timer g_Timer;
@@ -31,7 +32,7 @@ DB_OBJ g_DB;
 
 int main()
 {
-	locale("Korean");
+	std::wcout.imbue(std::locale("KOREAN"));
 	Logic::InitAstarLoad();
 	Logic::InitGameMap();
 	Logic::InitGameObjects();
@@ -39,7 +40,6 @@ int main()
 	g_iocpNetwork.Start();
 }
 
-//1. PlayerData저장 - DB Save Player Info
+
 //2. Client쪽 Skill CoolTime 조정
-//3. Timer - 5min Save All Palyer Info
 //4. Chat 추가

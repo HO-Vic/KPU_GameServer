@@ -10,6 +10,7 @@ GameObject::GameObject()
 	m_position = make_pair(0, 0);
 	m_lastAttackTime = chrono::system_clock::now();
 	m_state = ST_PLAYER_FREE;
+	ZeroMemory(prevPacketData, 512);
 }
 
 GameObject::GameObject(int id) : m_id(id)
@@ -20,6 +21,7 @@ GameObject::GameObject(int id) : m_id(id)
 	m_position = make_pair(0, 0);
 	m_lastAttackTime = chrono::system_clock::now();
 	m_state = ST_PLAYER_FREE;
+	ZeroMemory(prevPacketData, 512);
 }
 
 GameObject::~GameObject() {}
@@ -195,7 +197,7 @@ unordered_set<int> GameObject::GetViewList()
 bool GameObject::IsExistViewList(int playerId)
 {
 	lock_guard<mutex> lg(m_viewListLock);
-	return m_viewList.count(playerId);
+	return m_viewList.count(playerId) != 0;
 }
 
 void GameObject::ClearViewList()

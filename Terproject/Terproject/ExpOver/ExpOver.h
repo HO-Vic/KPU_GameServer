@@ -9,16 +9,16 @@ public:
 	ExpOver(OP_CODE opCode)
 	{
 		m_opCode = opCode;
-		ZeroMemory(&m_overlapped, sizeof(m_overlapped));
+		ZeroMemory(&m_overlapped, sizeof(WSAOVERLAPPED));
 	}
 	void ResetOverlapped()
 	{
-		ZeroMemory(&m_overlapped, sizeof(m_overlapped));
+		ZeroMemory(&m_overlapped, sizeof(WSAOVERLAPPED));
 	}
 	void ResetOverlapped(OP_CODE opCode)
 	{
 		m_opCode = opCode;
-		ZeroMemory(&m_overlapped, sizeof(m_overlapped));
+		ZeroMemory(&m_overlapped, sizeof(WSAOVERLAPPED));
 	}
 	OP_CODE GetOpCode()
 	{
@@ -67,7 +67,7 @@ public:
 	ExpOverWsaBuffer(OP_CODE opCode, char* data) : ExpOverBuffer(opCode)
 	{
 		ZeroMemory(m_buffer, BUF_SIZE);
-		m_wsaBuf.len = data[0];
+		m_wsaBuf.len = (unsigned char)data[0];
 		m_wsaBuf.buf = m_buffer;
 		memcpy(m_buffer, data, m_wsaBuf.len);
 	}
@@ -85,5 +85,16 @@ public:
 public:
 	void DoRecv(SOCKET& socket);
 	void RecvPacket(int id, int ioByte);
+	void Clear();
 };
 
+class ExpOverMgr
+{
+public:
+	static ExpOver* CreateExpOver(const OP_CODE&& opCode);
+	static ExpOver* CreateExpOverBuffer(const OP_CODE&& opCode, char* data);
+	static ExpOver* CreateExpOverBuffer(const OP_CODE&& opCode, char* data, int dataSize);
+	static ExpOverWsaBuffer* CreateExpOverWsaBuffer(const OP_CODE&& opCode, char* data);
+
+	static void DeleteExpOver(ExpOver* delExpOver);
+};

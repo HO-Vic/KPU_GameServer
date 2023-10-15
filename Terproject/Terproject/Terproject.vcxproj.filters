@@ -61,9 +61,6 @@
     <ClCompile Include="PCH\stdafx.cpp">
       <Filter>PCH</Filter>
     </ClCompile>
-    <ClCompile Include="Timer\TimerEvent.cpp">
-      <Filter>Timer</Filter>
-    </ClCompile>
     <ClCompile Include="main.cpp">
       <Filter>main</Filter>
     </ClCompile>

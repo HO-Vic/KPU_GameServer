@@ -23,7 +23,12 @@
     <ClCompile Include="DB\DB_OBJ.cpp" />
     <ClCompile Include="ExpOver\ExpOver.cpp" />
     <ClCompile Include="GameObject\GameObject.cpp" />
-    <ClCompile Include="GameObject\NPC_Object\NPC_Func.cpp" />
+    <ClCompile Include="GameObject\NPC_Object\NPC_Func.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="GameObject\NPC_Object\NPC_Object.cpp" />
     <ClCompile Include="GameObject\PlayerObject\PlayerObject.cpp" />
     <ClCompile Include="IocpNetwork\IocpNetwork.cpp" />
@@ -39,7 +44,6 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Timer\Timer.cpp" />
-    <ClCompile Include="Timer\TimerEvent.cpp" />
     <ClCompile Include="Timer\TIMER_EVENT.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -47,7 +51,12 @@
     <ClInclude Include="DB\DB_OBJ.h" />
     <ClInclude Include="ExpOver\ExpOver.h" />
     <ClInclude Include="GameObject\GameObject.h" />
-    <ClInclude Include="GameObject\NPC_Object\NPC_Func.h" />
+    <ClInclude Include="GameObject\NPC_Object\NPC_Func.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="GameObject\NPC_Object\NPC_Object.h" />
     <ClInclude Include="GameObject\PlayerObject\PlayerObject.h" />
     <ClInclude Include="IocpNetwork\IocpNetwork.h" />

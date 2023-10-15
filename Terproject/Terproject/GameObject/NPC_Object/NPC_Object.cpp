@@ -64,6 +64,13 @@ S_STATE NPC_Object::GetPlayerState()
 	return m_state;
 }
 
+void NPC_Object::RespawnData()
+{
+	m_hp = m_maxHp;
+	auto mapIdx = Logic::PlayerPositionToMapSession(m_position);
+	Logic::InsertObjectIdMapSession(m_id, mapIdx);
+}
+
 bool NPC_Object::ActiveNPC()
 {
 	bool old_state = false;
@@ -131,7 +138,7 @@ bool NPC_Object::MoveChaseRoad()
 		nextMoveNode = m_chaseRoad.front();
 		m_chaseRoad.pop_front();
 		m_chaseRoadLock.unlock();
-		Logic::MoveGameObject(m_id, nextMoveNode);
+		Logic::MoveGameObject(m_id, m_position, nextMoveNode);
 		return true;
 
 	}
@@ -141,7 +148,7 @@ bool NPC_Object::MoveChaseRoad()
 
 bool NPC_Object::IsAbleFindRoadTime()
 {
-	return m_lastFindRoadTime + 7s < system_clock::now();
+	return m_lastFindRoadTime + 5s < system_clock::now();
 }
 
 void NPC_Object::Attacked(int attackPlayerId)
@@ -155,6 +162,8 @@ short NPC_Object::AttackedDamage(short damage)
 	m_hp -= damage;
 	if (m_hp <= 0) {
 		DieNpc();
+		pair<short, short> mapIdx = Logic::PlayerPositionToMapSession(m_position);
+		Logic::RemovePlayerOnMap(m_id, mapIdx);
 		m_hp = 0;
 		return m_exp;
 	}
@@ -164,5 +173,5 @@ short NPC_Object::AttackedDamage(short damage)
 bool NPC_Object::IsAbleAttack()
 {
 
-	return m_lastAttackTime + 1s < std::chrono::system_clock::now();	
+	return m_lastAttackTime + 1s < std::chrono::system_clock::now();
 }

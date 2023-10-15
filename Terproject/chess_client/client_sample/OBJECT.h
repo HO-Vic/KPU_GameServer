@@ -39,7 +39,7 @@ public:
 	void show();
 	void hide();
 	void a_move(int x, int y);
-	void a_draw();	
+	virtual void a_draw();
 
 	void SetScale(float x, float y) //체력 바 퍼센트
 	{

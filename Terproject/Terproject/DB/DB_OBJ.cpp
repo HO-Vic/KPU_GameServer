@@ -49,13 +49,34 @@ void DB_OBJ::DB_ThreadFunc()
 			case EV_GET_PLAYER_INFO:
 			{
 				DB::DB_PlayerId* dbData = reinterpret_cast<DB::DB_PlayerId*>(dbEvent.GetBuffer());
-				GetPlayerInfo(dbData->m_ownerId, dbData->m_playerId);
+				bool getPlayerRes = GetPlayerInfo(dbData->m_ownerId, dbData->m_playerId);
+				if (!getPlayerRes) {
+					//Non Palyer Data					
+					ExpOver* exOver = ExpOverMgr::CreateExpOver(OP_PLAYER_LOGIN_FAIL);
+					PostQueuedCompletionStatus(g_iocpNetwork.GetIocpHandle(), 1, dbData->m_ownerId, reinterpret_cast<WSAOVERLAPPED*>(exOver));
+					AddUser(dbData->m_playerId);
+				}
 			}
 			break;
-			case EV_ADD_NEW_USER:
+			/*case EV_ADD_NEW_USER:
 			{
 				DB::DB_PlayerId* dbData = reinterpret_cast<DB::DB_PlayerId*>(dbEvent.GetBuffer());
-				dbData->m_playerId;
+				AddUser(dbData->m_playerId);
+			}
+			break;*/
+			case EV_SAVE_PLAYER_INFO:
+			{
+				DB::DB_PlayerInfo* dbData = reinterpret_cast<DB::DB_PlayerInfo*>(dbEvent.GetBuffer());
+				dbData->m_id;
+				SavePlayerInfo(dbData->m_playerId,
+					dbData->m_posX,
+					dbData->m_posY,
+					dbData->m_level,
+					dbData->m_exp,
+					dbData->m_hp,
+					dbData->m_maxHp,
+					dbData->m_attackDamage
+				);
 			}
 			break;
 			default:
@@ -155,18 +176,20 @@ bool DB_OBJ::GetPlayerInfo(int playerId, wchar_t* PlayerLoginId)
 		retcode = SQLFetch(hstmt); // 다음 행일 가져와라 명령어
 		if (retcode == SQL_ERROR/* || retcode == SQL_SUCCESS_WITH_INFO*/) {
 			HandleDiagnosticRecord(hstmt, SQL_HANDLE_STMT, retcode);
+			SQLCancel(hstmt);///종료
+			SQLFreeHandle(SQL_HANDLE_STMT, hstmt);//리소스 해제
 			return false;
 		}
 		////show_error();
 		else if (retcode == SQL_SUCCESS)
 		{
-			DB::DB_PlayerInfo dbData{playerId, PlayerLoginId, szName, (short)szPos_X, (short)szPos_Y, (short)szLevel, (short)szExp, (short)szHp, (short)szMaxHp, (short)szAttackDamage};
-			ExpOverBuffer* expOver = new ExpOverBuffer(OP_DB_GET_PLAYER_INFO, reinterpret_cast<char*>(&dbData), sizeof(DB::DB_PlayerInfo));
+			DB::DB_PlayerInfo dbData{playerId, PlayerLoginId, szName, (short)szPos_X, (short)szPos_Y, (short)szLevel, (short)szExp, (short)szHp, (short)szMaxHp, (short)szAttackDamage};			
+			ExpOver* expOver = ExpOverMgr::CreateExpOverBuffer(OP_DB_GET_PLAYER_INFO, reinterpret_cast<char*>(&dbData), sizeof(DB::DB_PlayerInfo));
 			PostQueuedCompletionStatus(g_iocpNetwork.GetIocpHandle(), 1, playerId, reinterpret_cast<WSAOVERLAPPED*>(expOver));
 		}
 		if (retcode == SQL_SUCCESS_WITH_INFO) {
 			DB::DB_PlayerInfo dbData{playerId, PlayerLoginId, szName, (short)szPos_X, (short)szPos_Y, (short)szLevel, (short)szExp, (short)szHp, (short)szMaxHp, (short)szAttackDamage};
-			ExpOverBuffer* expOver = new ExpOverBuffer(OP_DB_GET_PLAYER_INFO, reinterpret_cast<char*>(&dbData), sizeof(DB::DB_PlayerInfo));
+			ExpOver* expOver = ExpOverMgr::CreateExpOverBuffer(OP_DB_GET_PLAYER_INFO, reinterpret_cast<char*>(&dbData), sizeof(DB::DB_PlayerInfo));
 			PostQueuedCompletionStatus(g_iocpNetwork.GetIocpHandle(), 1, playerId, reinterpret_cast<WSAOVERLAPPED*>(expOver));
 			HandleDiagnosticRecord(hstmt, SQL_HANDLE_STMT, retcode);
 		}

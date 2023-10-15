@@ -13,6 +13,7 @@
 #include <atomic>
 
 #include <utility>
+#include <algorithm>
 
 #include <vector>
 #include <array>
@@ -44,13 +45,13 @@ extern "C"
 using namespace std;
 
 constexpr int PORT_NUM = 4000;
-constexpr int BUF_SIZE = 200;
+constexpr int BUF_SIZE = 255;
 constexpr int NAME_SIZE = 20;
 constexpr int CHAT_SIZE = 100;
 
 constexpr int MAX_USER = 11000;
 constexpr int MAX_NPC = 200000;
-//constexpr int MAX_NPC = 200;
+//constexpr int MAX_NPC = 1;
 
 constexpr int W_WIDTH = 2000;
 constexpr int W_HEIGHT = 2000;
@@ -68,8 +69,8 @@ enum OP_CODE {
 	OP_NPC_MOVE,
 	OP_NPC_CHASE_MOVE,
 	OP_NPC_RESPAWN,
-	OP_DB_SAVE_PLAYER,
-	OP_DB_AUTO_SAVE_PLAYER
+	OP_DB_AUTO_SAVE_PLAYER,
+	OP_PLAYER_LOGIN_FAIL
 };
 
 enum EVENT_TYPE {
@@ -93,5 +94,5 @@ enum NPC_TYPE {
 };
 constexpr int VIEW_RANGE = 8;
 constexpr int AGRO_RANGE = 6;
-constexpr int Attack_RANGE = 3;
-constexpr int NPC_Attack_RANGE = 1;
+constexpr int Attack_RANGE = 1;
+constexpr int NPC_Attack_RANGE = 0;

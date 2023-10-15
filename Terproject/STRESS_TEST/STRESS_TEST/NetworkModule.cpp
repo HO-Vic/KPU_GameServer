@@ -19,7 +19,7 @@ using namespace chrono;
 
 extern HWND		hWnd;
 
-const static int MAX_TEST = 15000;
+const static int MAX_TEST = 5500;
 const static int MAX_CLIENTS = MAX_TEST * 2;
 const static int INVALID_ID = -1;
 const static int MAX_PACKET_SIZE = 255;
@@ -58,12 +58,12 @@ struct CLIENT {
 };
 
 array<int, MAX_CLIENTS> client_map;
-array<CLIENT, MAX_CLIENTS> g_clients;
+array<CLIENT, MAX_CLIENTS + MAX_NPC> g_clients;
 atomic_int num_connections;
 atomic_int client_to_close;
 atomic_int active_clients;
 
-int			global_delay;				// ms단위, 1000이 넘으면 클라이언트 증가 종료
+atomic_int			global_delay;				// ms단위, 1000이 넘으면 클라이언트 증가 종료
 
 vector <thread*> worker_threads;
 thread test_thread;
@@ -303,38 +303,39 @@ void Adjust_Number_Of_Client()
 	if (0 != Result) {
 		error_display("WSAConnect : ", GetLastError());
 	}
+	else {
+		g_clients[num_connections].curr_packet_size = 0;
+		g_clients[num_connections].prev_packet_data = 0;
+		ZeroMemory(&g_clients[num_connections].recv_over, sizeof(g_clients[num_connections].recv_over));
+		g_clients[num_connections].recv_over.event_type = OP_RECV;
+		g_clients[num_connections].recv_over.wsabuf.buf =
+			reinterpret_cast<CHAR*>(g_clients[num_connections].recv_over.IOCP_buf);
+		g_clients[num_connections].recv_over.wsabuf.len = sizeof(g_clients[num_connections].recv_over.IOCP_buf);
 
-	g_clients[num_connections].curr_packet_size = 0;
-	g_clients[num_connections].prev_packet_data = 0;
-	ZeroMemory(&g_clients[num_connections].recv_over, sizeof(g_clients[num_connections].recv_over));
-	g_clients[num_connections].recv_over.event_type = OP_RECV;
-	g_clients[num_connections].recv_over.wsabuf.buf =
-		reinterpret_cast<CHAR*>(g_clients[num_connections].recv_over.IOCP_buf);
-	g_clients[num_connections].recv_over.wsabuf.len = sizeof(g_clients[num_connections].recv_over.IOCP_buf);
+		DWORD recv_flag = 0;
+		CreateIoCompletionPort(reinterpret_cast<HANDLE>(g_clients[num_connections].client_socket), g_hiocp, num_connections, 0);
 
-	DWORD recv_flag = 0;
-	CreateIoCompletionPort(reinterpret_cast<HANDLE>(g_clients[num_connections].client_socket), g_hiocp, num_connections, 0);
+		CS_LOGIN_PACKET l_packet;
 
-	CS_LOGIN_PACKET l_packet;
-
-	int temp = num_connections;
-	sprintf_s(l_packet.loginId, "Test%d", temp);
-	l_packet.size = sizeof(l_packet);
-	l_packet.type = CS_LOGIN;
-	SendPacket(num_connections, &l_packet);
-
-
-	int ret = WSARecv(g_clients[num_connections].client_socket, &g_clients[num_connections].recv_over.wsabuf, 1,
-		NULL, &recv_flag, &g_clients[num_connections].recv_over.over, NULL);
-	if (SOCKET_ERROR == ret) {
-		int err_no = WSAGetLastError();
-		if (err_no != WSA_IO_PENDING)
-		{
-			error_display("RECV ERROR", err_no);
-			goto fail_to_connect;
+		int temp = num_connections;
+		sprintf_s(l_packet.loginId, "Test%d", temp);
+		l_packet.size = sizeof(l_packet);
+		l_packet.type = CS_LOGIN;
+		SendPacket(num_connections, &l_packet);
+		int ret = WSARecv(g_clients[num_connections].client_socket, &g_clients[num_connections].recv_over.wsabuf, 1,
+			NULL, &recv_flag, &g_clients[num_connections].recv_over.over, NULL);
+		if (SOCKET_ERROR == ret) {
+			int err_no = WSAGetLastError();
+			if (err_no != WSA_IO_PENDING)
+			{
+				error_display("RECV ERROR", err_no);
+				goto fail_to_connect;
+			}
 		}
+		num_connections++;
 	}
-	num_connections++;
+
+
 fail_to_connect:
 	return;
 }

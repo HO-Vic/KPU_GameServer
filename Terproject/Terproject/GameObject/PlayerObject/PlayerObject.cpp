@@ -21,6 +21,21 @@ PlayerObject::~PlayerObject()
 	delete m_recvOver;
 }
 
+void PlayerObject::ClearPlayerObject()
+{
+	m_hp = 0;
+	m_maxHp = 0;
+	m_attackDamage = 0;
+	m_exp = 0;
+	m_inGameName.clear();
+	m_loginID.clear();
+	m_level = 1;
+	m_position = make_pair(0, 0);
+	closesocket(m_socket);
+	m_recvOver->Clear();
+	m_state = ST_PLAYER_FREE;
+}
+
 void PlayerObject::RegistSocket(SOCKET& sock)
 {
 	m_socket = sock;
@@ -56,8 +71,36 @@ void PlayerObject::RecvPacket(int ioByte)
 void PlayerObject::SendLoginInfoPacket()
 {
 	PacketManager::SendLoginPacket(m_socket, m_inGameName, m_id, m_position, m_hp, m_maxHp, m_level, m_exp);//name ºüÁü.
-	lock_guard<mutex> stateLock{ m_stateLock};
 	m_state = ST_INGAME;
+}
+
+void PlayerObject::SendLoginFailPacket()
+{
+	PacketManager::SendLoginFailPacket(m_socket);
+}
+
+void PlayerObject::Disconnect()
+{
+	m_state = ST_PLAYER_ALLOC;
+	SaveData();
+	auto viewList = GetViewList();
+	ClearViewList();
+	PacketManager::RemoveDisconnectClient(m_id, viewList);
+	ClearPlayerObject();
+	//m_hp = 0;
+	//m_maxHp = 0;
+	//m_attackDamage = 0;
+	//m_exp = 0;
+	//m_inGameName.clear();
+	//m_loginID.clear();
+	//m_level = 1;
+	//m_position = make_pair(0, 0);
+	//closesocket(m_socket);
+	//m_recvOver->Clear();
+	//m_state = ST_PLAYER_FREE;
+
+	//lock_guard<mutex> stateLock{ m_stateLock };
+	//m_state = ST_PLAYER_FREE;
 }
 
 void PlayerObject::RemoveViewListPlayer(int removePlayerId)
@@ -82,6 +125,11 @@ void PlayerObject::AddViewListPlayer(int addPlayerId)
 	PacketManager::SendAddObjectPacket(m_socket, addPlayerId);
 }
 
+void PlayerObject::SendMess(int sendId, wchar_t* mess)
+{
+	PacketManager::SendMessPacket(m_socket, sendId, mess);
+}
+
 short PlayerObject::AttackedDamage(short damage)
 {
 	m_hp -= damage;
@@ -89,21 +137,24 @@ short PlayerObject::AttackedDamage(short damage)
 		//10, 10À¸·Î ±ÍÈ¯ ½ÃÄÑ¾ßµÊ.
 
 		m_exp = 0;
-		return m_exp;
+		return 0;
 	}
 	return 0;
 }
 
 bool PlayerObject::IsAbleAttack()
 {
-	auto t = duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - m_lastAttackTime);
-	if (t.count() > 1000)return true;
-	return false;
+	return m_lastAttackTime + 1s < std::chrono::system_clock::now();
 }
 
-void PlayerObject::SendStatPacket(char* data)
+void PlayerObject::SendPacket(char* data)
 {
 	PacketManager::SendPacket(m_socket, data);
+}
+
+void PlayerObject::SendSkillExecutePacket(unordered_set<int>& viewList)
+{
+	PacketManager::SendSkillExecuteTImePacket(m_socket, m_id, viewList, m_lastAttackTime);
 }
 
 void PlayerObject::SaveData()
@@ -118,7 +169,6 @@ void PlayerObject::SaveData()
 
 S_STATE PlayerObject::GetPlayerState()
 {
-	lock_guard<mutex> stateLock{m_stateLock};
 	return m_state;
 }
 
@@ -129,10 +179,7 @@ void PlayerObject::ConsumeExp(short cExp)
 
 void PlayerObject::RegistGameObject(int id, SOCKET& sock)
 {
-	{
-		lock_guard<mutex> stateLock{m_stateLock};
-		m_state = ST_PLAYER_ALLOC;
-	}
+	m_state = ST_PLAYER_ALLOC;
 	SetId(id);
 	RegistSocket(sock);
 	DoRecv();

@@ -58,6 +58,14 @@ void PacketManager::SendLoginPacket(SOCKET& socket, wstring& ingameName, int id,
 	SendPacket(socket, reinterpret_cast<char*>(&p));
 }
 
+void PacketManager::SendLoginFailPacket(SOCKET& socket)
+{
+	SC_LOGIN_FAIL_PACKET p;
+	p.size = sizeof(SC_LOGIN_FAIL_PACKET);
+	p.type = SC_LOGIN_FAIL;
+	SendPacket(socket, reinterpret_cast<char*>(&p));
+}
+
 void PacketManager::SendRemoveObjectPacket(SOCKET& socket, int removePlayerId)
 {
 	SC_REMOVE_OBJECT_PACKET p;
@@ -105,10 +113,34 @@ void PacketManager::SendStatPacketInViewList(std::unordered_set<int>& viewList, 
 	p.exp = g_clients[objId]->GetExp();
 	p.level = g_clients[objId]->GetLevel();
 	if (Logic::IsPlayer(objId))
-		dynamic_cast<PlayerObject*>(g_clients[objId])->SendStatPacket(reinterpret_cast<char*>(&p));
+		dynamic_cast<PlayerObject*>(g_clients[objId])->SendPacket(reinterpret_cast<char*>(&p));
 	for (auto& id : viewList)
 		if (Logic::IsPlayer(id))
-			dynamic_cast<PlayerObject*>(g_clients[id])->SendStatPacket(reinterpret_cast<char*>(&p));
+			dynamic_cast<PlayerObject*>(g_clients[id])->SendPacket(reinterpret_cast<char*>(&p));
+}
+
+void PacketManager::SendSkillExecuteTImePacket(SOCKET& socket, int playerId, unordered_set<int>& viewList, system_clock::time_point& t)
+{
+	SC_ATTACK_PACKET p;
+	p.size = sizeof(SC_ATTACK_PACKET);
+	p.type = SC_ATTACK;
+	p.skillExecuteTime = t;
+	p.id = playerId;
+	if (Logic::IsPlayer(playerId))
+		SendPacket(socket, reinterpret_cast<char*>(&p));
+	for (const auto& otherId : viewList)
+		if (Logic::IsPlayer(otherId))
+			dynamic_cast<PlayerObject*>(g_clients[otherId])->SendPacket(reinterpret_cast<char*>(&p));
+}
+
+void PacketManager::SendMessPacket(SOCKET& socket, int sendId, wchar_t* mess)
+{
+	SC_CHAT_PACKET p;
+	p.type = SC_CHAT;
+	p.size = sizeof(SC_CHAT_PACKET);
+	p.id = sendId;
+	wcscpy_s(p.mess, mess);
+	SendPacket(socket, reinterpret_cast<char*>(&p));
 }
 
 void PacketManager::SendStatPacketSelf(int playerId)
@@ -123,13 +155,13 @@ void PacketManager::SendStatPacketSelf(int playerId)
 	p.max_exp = g_clients[playerId]->GetMaxExp();
 	p.exp = g_clients[playerId]->GetExp();
 	p.level = g_clients[playerId]->GetLevel();
-	dynamic_cast<PlayerObject*>(g_clients[playerId])->SendStatPacket(reinterpret_cast<char*>(&p));
+	dynamic_cast<PlayerObject*>(g_clients[playerId])->SendPacket(reinterpret_cast<char*>(&p));
 
 }
 
 void PacketManager::SendPacket(SOCKET& socket, char* data)
 {
-	ExpOverWsaBuffer* sendOver = new ExpOverWsaBuffer(OP_CODE::OP_SEND, data);
+	ExpOverWsaBuffer* sendOver = ExpOverMgr::CreateExpOverWsaBuffer(OP_CODE::OP_SEND, data);
 	sendOver->DoSend(socket);
 }
 
@@ -137,17 +169,25 @@ int PacketManager::ProccessPacket(int playerId, int ioByte, int currentRemainDat
 {
 	int remainSize = ioByte + currentRemainData;
 	char* currentPacketPosition = buf;
+
+
 	while (true) {
-		int packetSize = currentPacketPosition[0];
+		unsigned char packetSize = currentPacketPosition[0];
 		if (packetSize == 0)break;
 		if (packetSize <= remainSize) {
 			ExecutePacket(playerId, currentPacketPosition);
+
+			memcpy(g_clients[playerId]->prevPacketData, currentPacketPosition, packetSize);
+			g_clients[playerId]->prevPacketSize = packetSize;
+
 			currentPacketPosition = currentPacketPosition + packetSize;
 			remainSize = remainSize - packetSize;
 		}
 		else break;
 	}
-	if (remainSize > 0) std::memcpy(buf, currentPacketPosition, remainSize);
+	if (remainSize > 0)
+		std::memcpy(buf, currentPacketPosition, remainSize);
+	ZeroMemory(buf + remainSize, BUF_SIZE - remainSize);
 	return remainSize;
 }
 
@@ -184,7 +224,7 @@ void PacketManager::ExecutePacket(int playerId, char* packet)
 
 		Logic::MoveDirection(p->direction, position);
 		if (position == prevPosition) return;
-		Logic::MoveGameObject(playerId, position);
+		Logic::MoveGameObject(playerId, prevPosition, position);
 	}
 	break;
 	case CS_ATTACK:
@@ -198,10 +238,21 @@ void PacketManager::ExecutePacket(int playerId, char* packet)
 		g_DB.Insert_DBEvent(dbData);
 		//disconnect
 	}
+	case CS_CHAT:
+	{
+		CS_CHAT_PACKET* p = reinterpret_cast<CS_CHAT_PACKET*>(packet);
+		Logic::BroadCastMessInViewList(playerId, p->mess);
+	}
 	break;
 
 	default:
 		std::cerr << "recv unknown Packet" << std::endl;
 		break;
 	}
+}
+
+void PacketManager::RemoveDisconnectClient(int disconnectedId, unordered_set<int>& disconnectPlayerViewList)
+{
+	for (const auto& pId : disconnectPlayerViewList)
+		g_clients[pId]->RemoveViewListPlayer(disconnectedId);
 }

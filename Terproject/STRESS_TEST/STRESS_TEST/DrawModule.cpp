@@ -139,7 +139,8 @@ int DrawGLScene(GLvoid)									// Here's Where We Do All The Drawing
 	glRasterPos2f(0.0f, 0.00f);
 	glPrint("STRESS TEST [%d]", (int)active_clients);	// Print GL Text To The Screen
 	glRasterPos2f(0.0f, 0.05f);
-	glPrint("Delay : %dms", global_delay);
+	int delay = global_delay;
+	glPrint("Delay : %dms", delay);
 
 	glColor3f(1, 1, 1);
 

@@ -1,10 +1,16 @@
 #include "PLAYER.h"
+#include <iostream>
+using namespace std;
+using namespace chrono;
 
-
+extern bool g_isEnterPressed;
+extern int g_myid;
 void PLAYER::move(int x, int y)
 {
 	m_x = x;
 	m_y = y;
+	float rx = m_x * TILE_WIDTH - g_left_x;
+	float ry = m_y * TILE_WIDTH - g_top_y;
 }
 
 void PLAYER::draw() {
@@ -16,13 +22,23 @@ void PLAYER::draw() {
 	float ry = m_y * TILE_WIDTH - g_top_y;
 	nameText.setPosition(rx, ry - 20);
 	m_sprite.setPosition(rx, ry - 5);
+	m_chat.setPosition(rx, ry - 40);
+	m_messTextSprite.setPosition(rx, ry - 40);
+
+	bool owner = g_myid == id;
+	owner = owner && g_isEnterPressed;
+
+	if (owner || m_mess_end_time + 2s > chrono::system_clock::now()) {
+		g_window->draw(m_messTextSprite);
+		g_window->draw(m_chat);
+	}
 	g_window->draw(nameText);
 	g_window->draw(m_sprite);
 }
 
 void PLAYER::SetNameText(char* name)
 {
-	nameText.setString(name);	
+	nameText.setString(name);
 	nameText.setFont(font);
 	nameText.setCharacterSize(20);
 	nameText.setPosition(0, 0);
@@ -48,33 +64,56 @@ void PLAYER::set_chat(const char str[])
 	m_chat.setString(str);
 	m_chat.setFillColor(sf::Color(255, 255, 255));
 	m_chat.setStyle(sf::Text::Bold);
-	m_mess_end_time = chrono::system_clock::now() + chrono::seconds(3);
+	m_mess_end_time = chrono::system_clock::now();
 }
 
 void PLAYER::set_chat(const wchar_t str[])
 {
+	m_chatBuffer = str;
+	m_messTextSprite.setTextureRect(sf::IntRect(0, 20, 10 + m_chatBuffer.size() * 10, 20));
 	m_chat.setFont(font);
-	m_chat.setString(str);
+	m_chat.setString(m_chatBuffer);
 	m_chat.setFillColor(sf::Color(255, 255, 255));
 	m_chat.setStyle(sf::Text::Bold);
-	m_mess_end_time = chrono::system_clock::now() + chrono::seconds(3);
+	m_chat.setColor(sf::Color::Black);
+	m_chat.setCharacterSize(15);
+
+	m_mess_end_time = chrono::system_clock::now();
 }
 
-void PLAYER::StartEffect(chrono::system_clock::time_point t)
+bool PLAYER::IsAbleSkill()
 {
-	skillEffectTime = t;
+	return skillExecuteTime + 1s < chrono::system_clock::now();
+}
+
+void PLAYER::StartEffect()
+{
+	skillEffectTime = skillExecuteTime = chrono::system_clock::now();
 	showSkill = true;
 }
 
-chrono::system_clock::time_point PLAYER::GetSkillEffectTime()
+void PLAYER::StartEffect(chrono::system_clock::time_point& t)
 {
-	return skillEffectTime;
+	skillEffectTime = skillExecuteTime = t;
+	showSkill = true;
+}
+
+void PLAYER::CheckHideSkillEffect()
+{
+	if (skillEffectTime + 600ms < chrono::system_clock::now()) {
+		showSkill = false;
+	}
 }
 
 void PLAYER::SetPlayerStat(int hp, int maxHp, int exp, int level)
 {
-	this -> hp = hp;
-	this -> maxHp = maxHp;
-	this -> exp = exp;
-	this -> level = level;
+	this->hp = hp;
+	this->maxHp = maxHp;
+	this->exp = exp;
+	this->level = level;
+}
+
+void PLAYER::ClearChatBuffer()
+{
+	m_chat.setString("");
 }
