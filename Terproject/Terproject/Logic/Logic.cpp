@@ -629,11 +629,11 @@ void Logic::Attack(int attackObjId, int attackedObjId)
 	if (IsPlayer(attackedObjId))return;
 	if (!AttackInRange(attackObjId, attackedObjId))return;
 	short getExp = g_clients[attackedObjId]->AttackedDamage(g_clients[attackObjId]->GetAttackDamage());
+	auto viewList = g_clients[attackedObjId]->GetViewList();
+	PacketManager::SendStatPacketInViewList(viewList, attackedObjId);
 	if (getExp != 0) {
 		dynamic_cast<PlayerObject*>(g_clients[attackObjId])->ConsumeExp(getExp);
 		//die npc info send
-		auto viewList = g_clients[attackedObjId]->GetViewList();
-		PacketManager::SendStatPacketInViewList(viewList, attackedObjId);
 		g_clients[attackedObjId]->ClearViewList();
 		InsertRespawnNPC(attackedObjId);
 	}
