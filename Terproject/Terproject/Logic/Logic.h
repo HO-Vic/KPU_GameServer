@@ -71,25 +71,3 @@ public:
 public:
 	static void AutoSaveAllPlayers();
 };
-
-
-
-//void disconnect(int c_id)
-//{
-//	clients[c_id]._vl.lock();
-//	unordered_set <int> vl = clients[c_id]._view_list;
-//	clients[c_id]._vl.unlock();
-//	for (auto& p_id : vl) {
-//		auto& pl = clients[p_id];
-//		{
-//			lock_guard<mutex> ll(pl._s_lock);
-//			if (ST_INGAME != pl._state) continue;
-//		}
-//		if (pl._id == c_id) continue;
-//		pl.send_remove_player_packet(c_id);
-//	}
-//	closesocket(clients[c_id]._socket);
-//
-//	lock_guard<mutex> ll(clients[c_id]._s_lock);
-//	clients[c_id]._state = ST_FREE;
-//}

@@ -24,7 +24,7 @@ void Timer::TimerThreadFunc()
 		TIMER_EVENT ev;
 
 		m_timerQueueLock.lock();
-		if (!m_priorityTimerQueue.empty()) { //복사한 객체로부터 try_pop()
+		if (!m_priorityTimerQueue.empty()) {
 			ev = m_priorityTimerQueue.top();
 		}
 		else {
@@ -72,21 +72,7 @@ void Timer::TimerThreadFunc()
 			ExpOver* ov = ExpOverMgr::CreateExpOver(OP_DB_AUTO_SAVE_PLAYER);
 			PostQueuedCompletionStatus(g_iocpNetwork.GetIocpHandle(), -1, -1, reinterpret_cast<WSAOVERLAPPED*>(ov));
 		}
-		break;
-		/*
-		case EV_PLAYER_ATTACK_COOL:
-		{
-			SC_ATTACK_COOL_PACKET packet;
-			packet.size = sizeof(SC_ATTACK_COOL_PACKET);
-			packet.type = SC_ATTACK_COOL;
-			clients[ev.objId].do_send(&packet);
-			clients[ev.objId].SetAbleAttack(true);
-		}
-		break;
-
-		break;
-		*/
-
+		break;	
 		default:
 			break;
 		}

@@ -138,6 +138,11 @@ void GameObject::SetLevel(short level)
 	m_level = level;
 }
 
+int GameObject::GetId()
+{
+	return m_id;
+}
+
 pair<short, short> GameObject::GetPosition()
 {
 	return m_position;

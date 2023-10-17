@@ -51,6 +51,7 @@ public:
 
 	void SetLevel(short level);
 public:
+	int GetId();
 	pair<short, short> GetPosition();
 	wstring GetName();
 	short GetHp();

@@ -44,34 +44,3 @@ public:
 	virtual bool IsAbleAttack() override;
 
 };
-
-/*bool DieNpc()
-{
-	bool old_state = true;
-	if (atomic_compare_exchange_strong(&isArrive, &old_state, false))
-		return true;
-	return false;
-}
-bool RespawnNpc()
-{
-	bool old_state = false;
-	if (atomic_compare_exchange_strong(&isArrive, &old_state, true))
-		return true;
-	return false;
-}
-bool GetArrive() { return isArrive; }*/
-
-/*void AStarLoad(int StartX, int startY, int destinyX, int destinyY);
-std::pair<int, int> GetNextNode()
-{
-	GetNodeLock.lock();
-	if (!npcNavigateList.empty()) {
-		std::pair<int, int> retVal = npcNavigateList.begin()->myNode;
-		if (!npcNavigateList.empty())
-			npcNavigateList.pop_front();
-		GetNodeLock.unlock();
-		return retVal;
-	}
-	GetNodeLock.unlock();
-	return std::make_pair(-100, -100);
-}*/

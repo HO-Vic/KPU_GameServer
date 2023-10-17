@@ -87,20 +87,6 @@ void PlayerObject::Disconnect()
 	ClearViewList();
 	PacketManager::RemoveDisconnectClient(m_id, viewList);
 	ClearPlayerObject();
-	//m_hp = 0;
-	//m_maxHp = 0;
-	//m_attackDamage = 0;
-	//m_exp = 0;
-	//m_inGameName.clear();
-	//m_loginID.clear();
-	//m_level = 1;
-	//m_position = make_pair(0, 0);
-	//closesocket(m_socket);
-	//m_recvOver->Clear();
-	//m_state = ST_PLAYER_FREE;
-
-	//lock_guard<mutex> stateLock{ m_stateLock };
-	//m_state = ST_PLAYER_FREE;
 }
 
 void PlayerObject::RemoveViewListPlayer(int removePlayerId)

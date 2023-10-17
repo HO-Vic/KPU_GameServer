@@ -100,7 +100,7 @@ GLvoid ReSizeGLScene(GLsizei width, GLsizei height)		// Resize And Initialize Th
 	glMatrixMode(GL_PROJECTION);						// Select The Projection Matrix
 	glLoadIdentity();									// Reset The Projection Matrix
 
-														// Calculate The Aspect Ratio Of The Window
+	// Calculate The Aspect Ratio Of The Window
 	gluPerspective(45.0f, (GLfloat)width / (GLfloat)height, 0.1f, 100.0f);
 
 	glMatrixMode(GL_MODELVIEW);							// Select The Modelview Matrix
@@ -133,13 +133,14 @@ int DrawGLScene(GLvoid)									// Here's Where We Do All The Drawing
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);	// Clear Screen And Depth Buffer
 	glLoadIdentity();									// Reset The Current Modelview Matrix
 	glTranslatef(0.14f, -0.4f, -1.0f);						// Move One Unit Into The Screen
-															// Pulsing Colors Based On Text Position
+	// Pulsing Colors Based On Text Position
 	glColor3f(1, 1, 0);
 	// Position The Text On The Screen
 	glRasterPos2f(0.0f, 0.00f);
 	glPrint("STRESS TEST [%d]", (int)active_clients);	// Print GL Text To The Screen
 	glRasterPos2f(0.0f, 0.05f);
 	int delay = global_delay;
+	if (active_clients != 0) delay /= active_clients;
 	glPrint("Delay : %dms", delay);
 
 	glColor3f(1, 1, 1);
@@ -150,8 +151,8 @@ int DrawGLScene(GLvoid)									// Here's Where We Do All The Drawing
 	{
 		float x, y, z;
 
-		x = points[i * 2] / 200.0f - 1.25f;
-		y = 1.25f - points[i * 2 + 1] / 200.0f;
+		x = (points[i * 2] - 1000.0f) / 1000.0f;
+		y = (points[i * 2 + 1] - 1000.0f) / 1000.0f;
 		z = -1.0f;
 		glVertex3f(x, y, z);
 	}
@@ -283,7 +284,7 @@ BOOL CreateGLWindow(const wchar_t* title, int width, int height, BYTE bits, bool
 
 	AdjustWindowRectEx(&WindowRect, dwStyle, FALSE, dwExStyle);		// Adjust Window To True Requested Size
 
-																	// Create The Window
+	// Create The Window
 	if (!(hWnd = CreateWindowEx(dwExStyle,							// Extended Style For The Window
 		L"OpenGL",							// Class Name
 		title,								// Window Title
@@ -485,7 +486,7 @@ int WINAPI WinMain(HINSTANCE	hInstance,			// Instance
 				keys[VK_F1] = FALSE;					// If So Make Key FALSE
 				KillGLWindow();						// Kill Our Current Window
 				fullscreen = !fullscreen;				// Toggle Fullscreen / Windowed Mode
-														// Recreate Our OpenGL Window
+				// Recreate Our OpenGL Window
 				if (!CreateGLWindow(L"NeHe's Bitmap Font Tutorial", 640, 480, 16, fullscreen))
 				{
 					return 0;						// Quit If Window Was Not Created

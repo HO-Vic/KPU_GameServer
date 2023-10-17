@@ -15,8 +15,8 @@ using namespace chrono;
 
 extern random_device g_rd;
 extern default_random_engine g_dre;
-extern uniform_int_distribution<int> g_npcRandDir; // inclusive
-extern uniform_int_distribution<int> g_npcRandPostion; // inclusive
+extern uniform_int_distribution<short> g_npcRandDir; // inclusive
+extern uniform_int_distribution<short> g_npcRandPostion; // inclusive
 
 extern array<GameObject*, MAX_USER + MAX_NPC> g_clients;
 extern std::array<int, 11> g_levelExp;
@@ -237,6 +237,7 @@ void PacketManager::ExecutePacket(int playerId, char* packet)
 		DB_Event dbData{ EV_SAVE_PLAYER_INFO, playerId };
 		g_DB.Insert_DBEvent(dbData);
 		//disconnect
+		Logic::DisconnectClient(playerId);
 	}
 	case CS_CHAT:
 	{

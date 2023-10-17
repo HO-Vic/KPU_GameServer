@@ -1,12 +1,11 @@
 #include "stdafx.h"
 #include "NPC_Object.h"
-#include "NPC_Func.h"
 #include "../../Logic/Logic.h"
 
 extern random_device g_rd;
 extern default_random_engine g_dre;
 extern uniform_int_distribution<int> g_npcRandDir; // inclusive
-extern uniform_int_distribution<int> g_npcRandPostion; // inclusive
+extern uniform_int_distribution<short> g_npcRandPostion; // inclusive
 
 
 NPC_Object::NPC_Object() : GameObject()
@@ -34,7 +33,6 @@ NPC_Object::~NPC_Object()
 void NPC_Object::SetRandPosition()
 {
 	SetPosition(g_npcRandPostion(g_dre), g_npcRandPostion(g_dre));
-	//GameMap¿¡ ¾ê³× ¾È³Ö¾îÁÜ.
 }
 
 void NPC_Object::RemoveViewListPlayer(int removePlayerId)

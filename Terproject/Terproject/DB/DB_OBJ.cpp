@@ -57,13 +57,7 @@ void DB_OBJ::DB_ThreadFunc()
 					AddUser(dbData->m_playerId);
 				}
 			}
-			break;
-			/*case EV_ADD_NEW_USER:
-			{
-				DB::DB_PlayerId* dbData = reinterpret_cast<DB::DB_PlayerId*>(dbEvent.GetBuffer());
-				AddUser(dbData->m_playerId);
-			}
-			break;*/
+			break;			
 			case EV_SAVE_PLAYER_INFO:
 			{
 				DB::DB_PlayerInfo* dbData = reinterpret_cast<DB::DB_PlayerInfo*>(dbEvent.GetBuffer());

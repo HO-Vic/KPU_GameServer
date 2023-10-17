@@ -55,6 +55,7 @@ struct CLIENT {
 	int prev_packet_data;
 	int curr_packet_size;
 	high_resolution_clock::time_point last_move_time;
+	int prevLatencyTime = 0;
 };
 
 array<int, MAX_CLIENTS> client_map;
@@ -89,7 +90,7 @@ void error_display(const char* msg, int err_no)
 	std::cout << msg;
 	std::wcout << L"¿¡·¯" << lpMsgBuf << std::endl;
 
-	MessageBox(hWnd, lpMsgBuf, L"ERROR", 0);
+	//MessageBox(hWnd, lpMsgBuf, L"ERROR", 0);
 	LocalFree(lpMsgBuf);
 	// while (true);
 }
@@ -100,6 +101,7 @@ void DisconnectClient(int ci)
 	if (true == atomic_compare_exchange_strong(&g_clients[ci].connected, &status, false)) {
 		closesocket(g_clients[ci].client_socket);
 		active_clients--;
+		global_delay -= g_clients[ci].prevLatencyTime;
 	}
 	// cout << "Client [" << ci << "] Disconnected!\n";
 }
@@ -137,9 +139,23 @@ void ProcessPacket(int ci, unsigned char packet[])
 			}
 			if (ci == my_id) {
 				if (0 != move_packet->move_time) {
-					auto d_ms = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count() - move_packet->move_time;
-					if (global_delay < d_ms) global_delay++;
-					else if (global_delay > d_ms) global_delay--;
+					if (!g_clients[ci].connected)return;
+					/*duration_cast<milliseconds>(g_clients[ci].last_move_time.time_since_epoch()).count();
+
+					duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();*/
+					auto d_ms = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count() - duration_cast<milliseconds>(g_clients[ci].last_move_time.time_since_epoch()).count();
+					d_ms /= 2;
+					//if (ci == 5) {
+					//	cout << "d_ms: " << d_ms << endl;
+					//	cout << "prevLat: " << g_clients[ci].prevLatencyTime << endl;
+					//}
+					global_delay += (d_ms - g_clients[ci].prevLatencyTime);
+					if (global_delay < 0)global_delay = 0;
+					/*if (global_delay < d_ms)
+						global_delay++;
+					else if (global_delay > d_ms)
+						global_delay--;*/
+					g_clients[ci].prevLatencyTime = d_ms;
 				}
 			}
 		}
@@ -269,7 +285,7 @@ void Adjust_Number_Of_Client()
 	if (ACCEPT_DELY * delay_multiplier > duration_cast<milliseconds>(duration).count()) return;
 
 	int t_delay = global_delay;
-	if (DELAY_LIMIT2 < t_delay) {
+	if (DELAY_LIMIT2 * active_clients < t_delay) {
 		if (true == increasing) {
 			max_limit = active_clients;
 			increasing = false;
@@ -282,7 +298,7 @@ void Adjust_Number_Of_Client()
 		return;
 	}
 	else
-		if (DELAY_LIMIT < t_delay) {
+		if (DELAY_LIMIT * active_clients < t_delay) {
 			delay_multiplier = 10;
 			return;
 		}

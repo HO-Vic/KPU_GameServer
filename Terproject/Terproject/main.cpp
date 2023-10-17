@@ -23,8 +23,8 @@ std::array<std::pair<short, short>, 31> g_mapObstacle;
 random_device g_rd;
 default_random_engine g_dre(g_rd());
 uniform_int_distribution<int> g_npcRandDir(0, 3); // inclusive
-uniform_int_distribution<int> g_npcRandPostion(25, 1999); // inclusive
-//uniform_int_distribution<int> g_npcRandPostion(2, 3); // inclusive
+uniform_int_distribution<short> g_npcRandPostion(25, 1999); // inclusive
+//uniform_int_distribution<int> g_npcRandPostion(2, 3); // NPC_Test
 
 IocpNetwork g_iocpNetwork;
 Timer g_Timer;
@@ -39,7 +39,3 @@ int main()
 	Logic::InitNPC();
 	g_iocpNetwork.Start();
 }
-
-
-//2. Client쪽 Skill CoolTime 조정
-//4. Chat 추가

@@ -52,9 +52,6 @@
     <ClCompile Include="GameObject\PlayerObject\PlayerObject.cpp">
       <Filter>GameObject\PlayerObject</Filter>
     </ClCompile>
-    <ClCompile Include="GameObject\NPC_Object\NPC_Func.cpp">
-      <Filter>GameObject\NPC_Object</Filter>
-    </ClCompile>
     <ClCompile Include="MapSession\MapSession.cpp">
       <Filter>MapSession</Filter>
     </ClCompile>
@@ -101,9 +98,6 @@
     </ClInclude>
     <ClInclude Include="GameObject\PlayerObject\PlayerObject.h">
       <Filter>GameObject\PlayerObject</Filter>
-    </ClInclude>
-    <ClInclude Include="GameObject\NPC_Object\NPC_Func.h">
-      <Filter>GameObject\NPC_Object</Filter>
     </ClInclude>
     <ClInclude Include="MapSession\MapSession.h">
       <Filter>MapSession</Filter>

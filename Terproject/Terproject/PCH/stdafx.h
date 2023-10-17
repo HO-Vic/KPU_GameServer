@@ -30,15 +30,6 @@
 #include<sqlext.h>
 
 
-extern "C"
-{
-#include "../include\lua.h"
-#include "../include\lauxlib.h"
-#include "../include\lualib.h"
-}
-#pragma comment(lib, "lua54.lib")
-
-
 #pragma comment(lib, "WS2_32.lib")
 #pragma comment(lib, "MSWSock.lib")
 
@@ -95,4 +86,3 @@ enum NPC_TYPE {
 constexpr int VIEW_RANGE = 8;
 constexpr int AGRO_RANGE = 6;
 constexpr int Attack_RANGE = 1;
-constexpr int NPC_Attack_RANGE = 0;

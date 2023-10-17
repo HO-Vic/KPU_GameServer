@@ -165,6 +165,7 @@ void Logic::PlayerIngameState(char* dbPlayerData)
 void Logic::DisconnectClient(int disconnectId)
 {
 	if (!IsPlayer(disconnectId))return;
+	if (g_clients[disconnectId]->GetPlayerState() != ST_INGAME)return;
 	//view List 정리 해주고, => remove Player
 	auto playerPosition = g_clients[disconnectId]->GetPosition();
 	RemovePlayerOnMap(disconnectId, playerPosition);
@@ -203,7 +204,7 @@ void Logic::NPCMove(int npcId)
 			auto tagetPosition = g_clients[id]->GetPosition();
 			npc->FindRoad(id, tagetPosition);
 			//Timer Event Chase
-			g_Timer.InsertTimerQueue(EV_CHASE_MOVE, npcId, id, 1000ms);
+			g_Timer.InsertTimerQueue(EV_CHASE_MOVE, npcId, id, 1ms);
 			return;
 		}
 	}
@@ -246,11 +247,10 @@ void Logic::NPCMove(int npcId, int targetId)
 	if (npc->IsAbleFindRoadTime()) {
 		auto tagetPosition = g_clients[targetId]->GetPosition();
 		bool findRoadRes = npc->FindRoad(targetId, tagetPosition);
-		if (!findRoadRes)
+		if (!findRoadRes) {
 			g_Timer.InsertTimerQueue(EV_RANDOM_MOVE, npcId, -1, 5ms);
-		else
-			g_Timer.InsertTimerQueue(EV_CHASE_MOVE, npcId, targetId, 1000ms);
-		return;
+			return;
+		}
 	}
 	g_Timer.InsertTimerQueue(EV_CHASE_MOVE, npcId, targetId, 1000ms);
 }
@@ -315,7 +315,7 @@ std::unordered_set<int> Logic::UpdateNearList(int playerId)
 	pair<short, short> playerPosition = g_clients[playerId]->GetPosition();
 	pair<short, short> playerMapSessionIdx = PlayerPositionToMapSession(playerPosition);
 
-	std::unordered_set<int> newUpdateViewList;// = g_clients[playerId]->GetViewList();
+	std::unordered_set<int> newUpdateViewList;
 	Logic::GetNearList(playerId, newUpdateViewList, playerMapSessionIdx);
 
 	if (playerPosition.first % 20 < 7) {
@@ -546,11 +546,9 @@ bool Logic::AttackInRange(int from, int to)
 
 bool Logic::NPC_AttackInRange(pair<short, short>& fromPosition, pair<short, short>& toPosition)
 {
-	if ((int)abs(fromPosition.first - toPosition.first) > NPC_Attack_RANGE)
-		return false;
-	if ((int)abs(fromPosition.second - toPosition.second) > NPC_Attack_RANGE)
-		return false;
-	return true;
+	if (fromPosition.first == toPosition.first && fromPosition.second == toPosition.second)
+		return true;
+	return false;
 }
 
 bool Logic::NPC_AttackInRange(int from, int to)
@@ -662,7 +660,7 @@ void Logic::RespawnNPC(int npcId)
 	if (npc->RespawnNpc()) {
 		npc->RespawnData();
 		unordered_set<int> nullSet;
-		unordered_set<int> newViewList = Logic::UpdateNearList(npcId);
+		unordered_set<int> newViewList = Logic::NPC_UpdateNearList(npcId);
 		ProccessViewList(npcId, nullSet, newViewList);
 	}
 }
@@ -670,13 +668,15 @@ void Logic::RespawnNPC(int npcId)
 float Logic::GetDistance(pair<short, short>& p1, pair<short, short>& p2)
 {
 	//return sqrt(pow((float)(p1.first - p2.first), 2) + pow((float)(p1.second - p2.second), 2));
-	return pow((float)(p1.first - p2.first), 2) + pow((float)(p1.second - p2.second), 2);
+	return pow((p1.first - p2.first), 2) + pow((p1.second - p2.second), 2);
+	//return abs(p1.first - p2.first) + abs(p1.second - p2.second);
 }
 
 float Logic::GetDistance(pair<short, short>& p1, short x, short y)
 {
 	//return sqrt(pow((float)(p1.first - x), 2) + pow((float)(p1.second - y), 2));
-	return pow((float)(p1.first - x), 2) + pow((float)(p1.second - y), 2);
+	return pow((p1.first - x), 2) + pow((p1.second - y), 2);
+	//return abs(p1.first - x) + abs(p1.second - y);
 }
 
 void Logic::InsertOpenList(const std::map<int, AstarNode>& closeList, std::map<int, AstarNode>& openList, pair<short, short>& targetNode, pair<short, short>& parentNode, short nextNodeX, short nextNodeY)
