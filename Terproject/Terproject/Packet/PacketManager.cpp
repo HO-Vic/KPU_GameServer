@@ -222,9 +222,10 @@ void PacketManager::ExecutePacket(int playerId, char* packet)
 		auto prevPosition = g_clients[playerId]->GetPosition();
 		auto position = prevPosition;
 
-		Logic::MoveDirection(p->direction, position);
-		if (position == prevPosition) return;
-		Logic::MoveGameObject(playerId, prevPosition, position);
+		if (Logic::MoveDirection(p->direction, position)) {
+			Logic::MoveGameObject(playerId, prevPosition, position);
+		}
+		//if (position == prevPosition) return;
 	}
 	break;
 	case CS_ATTACK:

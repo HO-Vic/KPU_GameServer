@@ -64,7 +64,7 @@ public:
 	static std::list<pair<short, short>> GetAstarList(int npcId, pair<short, short>& targetPos);
 
 private:
-	static void InsertOpenList(const std::map<int, AstarNode>& closeList, std::map<int, AstarNode>& openList, pair<short, short>& targetNode, pair<short, short>& parentNode, short nextNodeX, short nextNodeY);
+	static void InsertOpenList(const std::unordered_map<int, AstarNode>& closeList, std::unordered_map<int, AstarNode>& openList, pair<short, short>& targetNode, pair<short, short>& parentNode, short nextNodeX, short nextNodeY);
 public:
 	static void SendMess(int from, int to, wchar_t* mess);
 	static void BroadCastMessInViewList(int playerId, wchar_t* mess);

@@ -22,8 +22,10 @@
 #include <queue>
 #include <concurrent_priority_queue.h>
 #include <concurrent_queue.h>
+#include <concurrent_unordered_set.h>
 #include <string>
 #include <map>
+#include <unordered_map>
 
 #include <math.h>
 

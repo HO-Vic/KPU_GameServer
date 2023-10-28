@@ -18,6 +18,7 @@ std::array<int, 11> g_levelAttackDamage = { 50, 70, 100, 120 ,150, 200, 220, 250
 array<GameObject*, MAX_USER + MAX_NPC> g_clients;
 array < array<MapSession, 100>, 100> g_gameMap;
 std::array<std::pair<short, short>, 31> g_mapObstacle;
+std::array<std::pair<short, short>, 29> g_vilageObstacle;
 
 
 random_device g_rd;

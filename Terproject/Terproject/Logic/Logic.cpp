@@ -14,6 +14,7 @@ extern array<GameObject*, MAX_USER + MAX_NPC> g_clients;
 extern array < array<MapSession, 100>, 100> g_gameMap;
 extern Timer g_Timer;
 extern std::array<std::pair<short, short>, 31> g_mapObstacle;
+extern std::array<std::pair<short, short>, 29> g_vilageObstacle;
 extern array<int, 11> g_levelExp;
 extern std::array<int, 11> g_levelMaxHp;
 extern std::array<int, 11> g_levelAttackDamage;
@@ -101,13 +102,13 @@ void Logic::InitAstarLoad()
 	g_mapObstacle[8] = (make_pair(10, 6));
 	g_mapObstacle[9] = (make_pair(6, 8));
 	g_mapObstacle[10] = (make_pair(7, 8));
-	g_mapObstacle[11] = (make_pair(8, 8));
-	g_mapObstacle[12] = (make_pair(9, 8));
+	g_mapObstacle[11] = (make_pair(8, 17));
+	g_mapObstacle[12] = (make_pair(16, 17));
 	g_mapObstacle[13] = (make_pair(10, 8));
 	g_mapObstacle[14] = (make_pair(13, 8));
 	g_mapObstacle[15] = (make_pair(6, 9));
 	g_mapObstacle[16] = (make_pair(7, 9));
-	g_mapObstacle[17] = (make_pair(8, 9));
+	g_mapObstacle[17] = (make_pair(9, 8));
 	g_mapObstacle[18] = (make_pair(9, 9));
 	g_mapObstacle[19] = (make_pair(10, 9));
 	g_mapObstacle[20] = (make_pair(17, 10));
@@ -119,8 +120,11 @@ void Logic::InitAstarLoad()
 	g_mapObstacle[26] = (make_pair(16, 15));
 	g_mapObstacle[27] = (make_pair(16, 16));
 	g_mapObstacle[28] = (make_pair(7, 17));
-	g_mapObstacle[29] = (make_pair(8, 17));
-	g_mapObstacle[30] = (make_pair(16, 17));
+	g_mapObstacle[29] = (make_pair(8, 8));
+	g_mapObstacle[30] = (make_pair(8, 9));
+
+	for (int i = 0; i < g_vilageObstacle.size(); ++i)
+		g_vilageObstacle[i] = g_mapObstacle[i];
 }
 
 bool Logic::IsPlayer(int id)
@@ -266,6 +270,7 @@ void Logic::MoveGameObject(int playerId, std::pair<short, short>& prevPosition, 
 		g_gameMap[mapPosition.first][mapPosition.second].InsertPlayer(playerId);
 		g_gameMap[prevMapPosition.first][prevMapPosition.second].DeletePlayer(playerId);
 	}
+	//Concurrency::concurrent_unordered_set<int>& prevViewList = g_clients[playerId]->GetViewList();
 	unordered_set<int> prevViewList = g_clients[playerId]->GetViewList();
 	//뷰 리스트 업데이트를 위한 new near List 생성
 	unordered_set<int> newViewList;
@@ -507,9 +512,9 @@ bool Logic::ViewInRange(int from, int to)
 {
 	auto player1 = g_clients[from]->GetPosition();
 	auto player2 = g_clients[to]->GetPosition();
-	if ((int)abs(player1.first - player2.first) > VIEW_RANGE)
+	if (abs(player1.first - player2.first) > VIEW_RANGE)
 		return false;
-	if ((int)abs(player1.second - player2.second) > VIEW_RANGE)
+	if (abs(player1.second - player2.second) > VIEW_RANGE)
 		return false;
 	return true;
 }
@@ -517,9 +522,9 @@ bool Logic::ViewInRange(int from, int to)
 bool Logic::ViewInRange(pair<short, short>& fromPosition, int to)
 {
 	auto player2 = g_clients[to]->GetPosition();
-	if ((int)abs(fromPosition.first - player2.first) > VIEW_RANGE)
+	if (abs(fromPosition.first - player2.first) > VIEW_RANGE)
 		return false;
-	if ((int)abs(fromPosition.second - player2.second) > VIEW_RANGE)
+	if (abs(fromPosition.second - player2.second) > VIEW_RANGE)
 		return false;
 	return true;
 }
@@ -679,7 +684,7 @@ float Logic::GetDistance(pair<short, short>& p1, short x, short y)
 	//return abs(p1.first - x) + abs(p1.second - y);
 }
 
-void Logic::InsertOpenList(const std::map<int, AstarNode>& closeList, std::map<int, AstarNode>& openList, pair<short, short>& targetNode, pair<short, short>& parentNode, short nextNodeX, short nextNodeY)
+void Logic::InsertOpenList(const std::unordered_map<int, AstarNode>& closeList, std::unordered_map<int, AstarNode>& openList, pair<short, short>& targetNode, pair<short, short>& parentNode, short nextNodeX, short nextNodeY)
 {
 	pair<short, short> nextNode = make_pair(nextNodeX, nextNodeY);
 	bool checkInMap = CheckInMap(nextNode);
@@ -720,8 +725,8 @@ std::list<pair<short, short>> Logic::GetAstarList(int npcId, int targetId)
 	auto targetPosition = g_clients[targetId]->GetPosition();
 	if (!Logic::NPC_AgroInRange(npcPosition, targetPosition))return std::list<pair<short, short>>{};
 
-	std::map<int, AstarNode> openListMap;
-	std::map<int, AstarNode> closeListMap;
+	std::unordered_map<int, AstarNode> openListMap;
+	std::unordered_map<int, AstarNode> closeListMap;
 
 	closeListMap.try_emplace(npcPosition.second * 20 + npcPosition.first, npcPosition, npcPosition, 0);
 	auto currentNode = npcPosition;
@@ -773,8 +778,8 @@ std::list<pair<short, short>> Logic::GetAstarList(int npcId, pair<short, short>&
 	if (!Logic::NPC_AgroInRange(npcPosition, targetPosition))return std::list<pair<short, short>>{};
 	if (targetPosition == npcPosition)
 		return std::list<pair<short, short>>{targetPosition};
-	std::map<int, AstarNode> openListMap;
-	std::map<int, AstarNode> closeListMap;
+	std::unordered_map<int, AstarNode> openListMap;
+	std::unordered_map<int, AstarNode> closeListMap;
 
 	closeListMap.try_emplace(npcPosition.second * 20 + npcPosition.first, npcPosition, npcPosition, 0);
 	auto currentNode = npcPosition;
