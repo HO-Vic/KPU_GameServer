@@ -72,7 +72,7 @@ public:
 	bool IsExistViewList(int playerId);
 	void ClearViewList();
 public:
-	virtual short AttackedDamage(short damage);
+	virtual short AttackedDamage(int attackId, short damage);
 	void ResetLastAttack();
 	virtual bool IsAbleAttack() = 0;
 

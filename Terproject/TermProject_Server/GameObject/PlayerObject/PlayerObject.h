@@ -31,7 +31,7 @@ public:
 	void ConsumeExp(short cExp);
 
 	virtual bool IsAbleAttack() override;
-	virtual short AttackedDamage(short damage) override;
+	virtual short AttackedDamage(int attackId, short damage) override;
 public:	
 	void RecvPacket(int ioByte);
 public:

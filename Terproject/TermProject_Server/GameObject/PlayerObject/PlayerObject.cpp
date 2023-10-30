@@ -116,7 +116,7 @@ void PlayerObject::SendMess(int sendId, wchar_t* mess)
 	PacketManager::SendMessPacket(m_socket, sendId, mess);
 }
 
-short PlayerObject::AttackedDamage(short damage)
+short PlayerObject::AttackedDamage(int attackId, short damage)
 {
 	m_hp -= damage;
 	if (m_hp <= 0) {

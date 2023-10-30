@@ -211,7 +211,7 @@ void GameObject::ClearViewList()
 	m_viewList.clear();
 }
 
-short GameObject::AttackedDamage(short damage)
+short GameObject::AttackedDamage(int attackId, short damage)
 {
 	m_hp -= damage;
 	if (m_hp <= 0) {

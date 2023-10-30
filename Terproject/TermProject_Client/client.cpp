@@ -179,9 +179,7 @@ void client_initialize()
 	texturePlayerAttck->loadFromFile("images/player/Attack.png");
 
 	for (int i = MAX_USER; i < MAX_NPC + MAX_USER; i++) {
-		if (i < MAX_USER + 3)
-			players[i] = PLAYER{ *textureBoss, 0, 0, TILE_WIDTH, TILE_WIDTH,*textureBG_EXPBar };
-		else if (i < MAX_USER + MAX_NPC / 2)
+		if (i < (MAX_USER + MAX_NPC) / 2)
 			players[i] = PLAYER{ *textureDog, 0, 0, TILE_WIDTH, TILE_WIDTH ,*textureBG_EXPBar };
 		else
 			players[i] = PLAYER{ *textureGhost, 0, 0, TILE_WIDTH, TILE_WIDTH ,*textureBG_EXPBar };
@@ -194,7 +192,6 @@ void client_initialize()
 void client_finish()
 {
 	delete textureHouseMap;
-
 }
 
 void ProcessPacket(char* ptr)
@@ -565,7 +562,7 @@ void client_main()
 	EXPBar.a_draw();
 	g_window->draw(HPText);
 	g_window->draw(EXPText);
-	
+
 }
 
 void send_packet(void* packet)

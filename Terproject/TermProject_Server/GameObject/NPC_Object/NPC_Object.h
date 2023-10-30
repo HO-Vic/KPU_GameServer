@@ -5,7 +5,7 @@
 
 class NPC_Object : public GameObject
 {
-private://NPC Data
+protected://NPC Data
 	std::atomic_bool m_isActive = false;
 	std::atomic_bool m_isArrive = true;
 	int m_chaseId = -1;
@@ -24,23 +24,24 @@ public:
 	virtual void AddViewListPlayer(int addPlayerId) override;
 public:
 	virtual S_STATE GetPlayerState() override;
-	void RespawnData();
+	virtual void RespawnData();
 	bool ActiveNPC();
 	bool InActiveNPC();
-
 	bool RespawnNpc();
 	bool GetIsArrive();
-private:
+protected:
 	bool DieNpc();
 	void SetRandPosition();
 public:
-
+	virtual void RandMove() = 0;
+	virtual void ChaseMove(int targetId) = 0;
+public:
 	bool FindRoad(int targetId);
 	bool FindRoad(int targetId, pair<short, short>& targetPosition);
 	bool MoveChaseRoad();
 	bool IsAbleFindRoadTime();
 	void Attacked(int attackPlayerId);
-	virtual short AttackedDamage(short damage) override;
+	virtual short AttackedDamage(int attackId, short damage) override;
 	virtual bool IsAbleAttack() override;
 
 };

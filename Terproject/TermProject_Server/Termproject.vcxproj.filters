@@ -41,6 +41,15 @@
     <Filter Include="Logic\Astar">
       <UniqueIdentifier>{c229dc5a-581c-497e-af9c-a5ecbe0df43e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="GameObject\NPC_Object\Aggro">
+      <UniqueIdentifier>{59fe9a16-47a7-4f80-8aa4-0cb0e67d2730}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GameObject\NPC_Object\Peace">
+      <UniqueIdentifier>{35bf5a12-924f-4d1c-a340-896a292849b1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GameObject\NPC_Object\Boss">
+      <UniqueIdentifier>{502bce68-9f20-4e77-abc5-106e21def845}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DB\DB_OBJ.cpp">
@@ -88,6 +97,12 @@
     <ClCompile Include="Timer\TIMER_EVENT.cpp">
       <Filter>Timer</Filter>
     </ClCompile>
+    <ClCompile Include="GameObject\NPC_Object\AggroNPC.cpp">
+      <Filter>GameObject\NPC_Object\Aggro</Filter>
+    </ClCompile>
+    <ClCompile Include="GameObject\NPC_Object\PeaceNPC.cpp">
+      <Filter>GameObject\NPC_Object\Peace</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DB\DB_OBJ.h">
@@ -134,6 +149,12 @@
     </ClInclude>
     <ClInclude Include="Packet\protocol_2022.h">
       <Filter>Packet</Filter>
+    </ClInclude>
+    <ClInclude Include="GameObject\NPC_Object\AggroNPC.h">
+      <Filter>GameObject\NPC_Object\Aggro</Filter>
+    </ClInclude>
+    <ClInclude Include="GameObject\NPC_Object\PeaceNPC.h">
+      <Filter>GameObject\NPC_Object\Peace</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

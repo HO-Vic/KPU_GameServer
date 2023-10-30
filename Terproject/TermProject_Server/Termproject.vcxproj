@@ -23,7 +23,9 @@
     <ClCompile Include="DB\DB_OBJ.cpp" />
     <ClCompile Include="ExpOver\ExpOver.cpp" />
     <ClCompile Include="GameObject\GameObject.cpp" />
+    <ClCompile Include="GameObject\NPC_Object\AggroNPC.cpp" />
     <ClCompile Include="GameObject\NPC_Object\NPC_Object.cpp" />
+    <ClCompile Include="GameObject\NPC_Object\PeaceNPC.cpp" />
     <ClCompile Include="GameObject\PlayerObject\PlayerObject.cpp" />
     <ClCompile Include="IocpNetwork\IocpNetwork.cpp" />
     <ClCompile Include="Logic\Astar\AstarNode.cpp" />
@@ -45,7 +47,9 @@
     <ClInclude Include="DB\DB_OBJ.h" />
     <ClInclude Include="ExpOver\ExpOver.h" />
     <ClInclude Include="GameObject\GameObject.h" />
+    <ClInclude Include="GameObject\NPC_Object\AggroNPC.h" />
     <ClInclude Include="GameObject\NPC_Object\NPC_Object.h" />
+    <ClInclude Include="GameObject\NPC_Object\PeaceNPC.h" />
     <ClInclude Include="GameObject\PlayerObject\PlayerObject.h" />
     <ClInclude Include="IocpNetwork\IocpNetwork.h" />
     <ClInclude Include="Logic\Astar\AstarNode.h" />

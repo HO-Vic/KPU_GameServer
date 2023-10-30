@@ -37,6 +37,7 @@ private:
 	static void NPC_GetNearList(int playerId, std::unordered_set<int>& newViewList, int mapSessionId_x, int mapSessionId_y);
 	static void ProccessViewList(int objectId, const std::unordered_set<int>& prevViewList, const std::unordered_set<int>& newViewList);
 
+public:
 	static bool ViewInRange(int from, int to);
 	static bool ViewInRange(pair<short, short>& fromPosition, int to);
 	static bool AttackInRange(pair<short, short>& fromPosition, pair<short, short>& toPosition);
@@ -50,7 +51,7 @@ public:
 	static pair<short, short> PlayerPositionToMapSession(pair<short, short> playerPosition);
 	static pair<short, short> PlayerPositionToMapSession(short x, short y);
 	static void InsertObjectIdMapSession(int objId, pair<short, short> mapIdx);
-public:
+public:	
 	static void PlayerAttackExecute(int playerId);
 	static void Attack(int attackObjId, int attackedObjId);
 	static void NPC_Attack(int attackObjId, int attackedObjId);

@@ -1,7 +1,9 @@
 #include "stdafx.h"
 #include "NPC_Object.h"
 #include "../../Logic/Logic.h"
+#include "../../Timer/Timer.h"
 
+extern Timer g_Timer;
 extern random_device g_rd;
 extern default_random_engine g_dre;
 extern uniform_int_distribution<int> g_npcRandDir; // inclusive
@@ -55,6 +57,9 @@ void NPC_Object::AddViewListPlayer(int addPlayerId)
 	m_viewListLock.lock();
 	m_viewList.insert(addPlayerId);
 	m_viewListLock.unlock();
+	if (ActiveNPC()) {
+		g_Timer.InsertTimerQueue(EV_RANDOM_MOVE, m_id, -1, 5ms);
+	}
 }
 
 S_STATE NPC_Object::GetPlayerState()
@@ -154,7 +159,7 @@ void NPC_Object::Attacked(int attackPlayerId)
 	//Logic::Attack(attackPlayerId, m_id);
 }
 
-short NPC_Object::AttackedDamage(short damage)
+short NPC_Object::AttackedDamage(int attackId, short damage)
 {
 	if (!GetIsArrive())return 0;
 	m_hp -= damage;
