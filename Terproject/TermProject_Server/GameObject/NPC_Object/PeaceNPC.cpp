@@ -96,7 +96,7 @@ short PeaceNPC::AttackedDamage(int attackId, short damage)
 		return m_exp;
 	}
 	if (AcitiveAggro()) {
-		g_Timer.InsertTimerQueue(EV_CHASE_MOVE, m_id, attackId, 1ms);
+		g_Timer.InsertTimerQueue(EV_CHASE_MOVE, m_id, attackId, 1000ms);
 	}
 	return 0;
 }

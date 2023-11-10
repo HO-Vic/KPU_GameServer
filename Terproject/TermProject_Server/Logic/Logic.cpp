@@ -48,38 +48,20 @@ void Logic::InitGameObjects()
 void Logic::InitNPC()
 {
 	cout << "NPC intialize begin.\n";
-
-	//g_gameMap[clients[i].myLocalSectionIndex.first][clients[i].myLocalSectionIndex.second].InsertPlayers(clients[i]);
-
-	//random pos같게 해야됨
-	//g_clients[MAX_USER]->InitSetting(MAX_USER, 5000, 5000, 1000, 250);
-
-	for (int i = MAX_USER; i < MAX_USER + 3; ++i) {
-
-		g_clients[i]->InitSetting(i, 5000, 5000, 1000, 250);
-		//g_clients[i].myLua = new LUA_OBJECT(clients[i]._id, "lua_script/boss.lua");
-		//g_clients[i]._state = ST_INGAME;
-		g_clients[i]->SetName(L"boss");
-	}
-	for (int i = MAX_USER + 3; i < MAX_USER + 3 + (MAX_NPC / 2); ++i) {
-		g_clients[i]->InitSetting(i, 250, 250, 70, 70);
-		//g_clients[i].myLua = new LUA_OBJECT(clients[i]._id, "lua_script/boss.lua");
-		//g_clients[i]._state = ST_INGAME;
+	
+	for (int i = MAX_USER; i < MAX_USER + (MAX_NPC / 2); ++i) {
+		g_clients[i]->InitSetting(i, 250, 250, 70, 70);		
 		wstring name = L"AGRO";
 		name.append(std::to_wstring(i));
 		g_clients[i]->SetName(name);
 	}
-	for (int i = MAX_USER + 3 + (MAX_NPC / 2); i < MAX_USER + MAX_NPC; ++i) {
-		g_clients[i]->InitSetting(i, 600, 600, 120, 120);
-		//g_clients[i].myLua = new LUA_OBJECT(clients[i]._id, "lua_script/boss.lua");
-		//g_clients[i]._state = ST_INGAME;
+	for (int i = MAX_USER + (MAX_NPC / 2); i < MAX_USER + MAX_NPC; ++i) {
+		g_clients[i]->InitSetting(i, 600, 600, 120, 120);		
 		wstring name = L"PEACE";
 		name.append(std::to_wstring(i));
 		g_clients[i]->SetName(name);
 	}
-	cout << "NPC initialize end.\n";
-	//TIMER_EVENT ev{ 1, chrono::system_clock::now() + 300s, EV_AUTO_SAVE, 0 };//5분 마다 오토 세이브 시작
-	//eventTimerQueue.push(ev);
+	cout << "NPC initialize end.\n";	
 }
 
 void Logic::InitAstarLoad()

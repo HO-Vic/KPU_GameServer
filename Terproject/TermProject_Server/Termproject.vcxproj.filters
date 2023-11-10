@@ -47,9 +47,6 @@
     <Filter Include="GameObject\NPC_Object\Peace">
       <UniqueIdentifier>{35bf5a12-924f-4d1c-a340-896a292849b1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="GameObject\NPC_Object\Boss">
-      <UniqueIdentifier>{502bce68-9f20-4e77-abc5-106e21def845}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DB\DB_OBJ.cpp">
