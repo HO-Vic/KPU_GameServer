@@ -12,6 +12,10 @@
 
 extern IocpNetwork g_iocpNetwork;
 extern array<GameObject *, MAX_USER + MAX_NPC> g_clients;
+extern random_device g_rd;
+extern default_random_engine g_dre;
+extern uniform_int_distribution<short> g_npcRandDir; // inclusive
+extern uniform_int_distribution<short> g_npcRandPostion; // inclusive
 
 int print_error(SQLHENV    henv,
 								SQLHDBC    hdbc,
@@ -35,7 +39,6 @@ int print_error(SQLHENV    henv,
 
 void DB_OBJ::DB_ThreadFunc(){
 	while(m_isRunning){
-		continue;
 		if(m_eventQueue.empty()){
 			this_thread::yield();
 			continue;
@@ -151,7 +154,7 @@ bool DB_OBJ::GetPlayerInfo(int playerId, wchar_t * PlayerLoginId){
 	storeProcedureString.append(L"\0");
 	retcode = SQLExecDirect(hstmt, (SQLWCHAR *)storeProcedureString.c_str(), SQL_NTS);
 	if(retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO){
-		retcode = SQLBindCol(hstmt, 1, SQL_C_WCHAR, szName, NAME_SIZE, &cbName);
+		retcode = SQLBindCol(hstmt, 1, SQL_C_WCHAR, szName, 2 * NAME_SIZE, &cbName);
 		retcode = SQLBindCol(hstmt, 2, SQL_C_SHORT, &szPos_X, SQL_INTEGER, &cbPos_X);
 		retcode = SQLBindCol(hstmt, 3, SQL_C_SHORT, &szPos_Y, SQL_INTEGER, &cbPos_Y);
 		retcode = SQLBindCol(hstmt, 4, SQL_C_SHORT, &szLevel, SQL_INTEGER, &cbLevel);
@@ -162,6 +165,16 @@ bool DB_OBJ::GetPlayerInfo(int playerId, wchar_t * PlayerLoginId){
 
 		// Fetch and print each row of data. On an error, display a message and exit.
 		retcode = SQLFetch(hstmt); // 다음 행일 가져와라 명령어
+
+		//봇이면 랜덤 좌표 세팅
+		std::wstring tempName = PlayerLoginId;
+		if(tempName.find(L"test_") != std::wstring::npos){
+			if(szPos_X == 0 && szPos_Y == 0){
+				szPos_X = g_npcRandPostion(g_dre);
+				szPos_Y = g_npcRandPostion(g_dre);
+			}
+		}
+
 		if(retcode == SQL_ERROR/* || retcode == SQL_SUCCESS_WITH_INFO*/){
 			HandleDiagnosticRecord(hstmt, SQL_HANDLE_STMT, retcode);
 			SQLCancel(hstmt);///종료
@@ -169,7 +182,7 @@ bool DB_OBJ::GetPlayerInfo(int playerId, wchar_t * PlayerLoginId){
 			return false;
 		}
 		////show_error();
-		else if(retcode == SQL_SUCCESS){
+		if(retcode == SQL_SUCCESS){
 			DB::DB_PlayerInfo dbData{ playerId, PlayerLoginId, szName, (short)szPos_X, (short)szPos_Y, (short)szLevel, (short)szExp, (short)szHp, (short)szMaxHp, (short)szAttackDamage };
 			ExpOver * expOver = ExpOverMgr::CreateExpOverBuffer(OP_DB_GET_PLAYER_INFO, reinterpret_cast<char *>( &dbData ), sizeof(DB::DB_PlayerInfo));
 			PostQueuedCompletionStatus(g_iocpNetwork.GetIocpHandle(), 1, playerId, reinterpret_cast<WSAOVERLAPPED *>( expOver ));
@@ -221,20 +234,22 @@ void DB_OBJ::SavePlayerInfo(wstring PlayerLoginId, short & pos_X, short & pos_Y,
 	oper.append(L"\0");
 	retcode = SQLExecDirect(hstmt, (SQLWCHAR *)oper.c_str(), SQL_NTS);
 	if(retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO){
-
+		//update 성공한 result set은 없으니 fetch는 ㄴㄴ
 		// Fetch and print each row of data. On an error, display a message and exit.
-		retcode = SQLFetch(hstmt); // 다음 행일 가져와라 명령어
-		if(retcode == SQL_ERROR/* || retcode == SQL_SUCCESS_WITH_INFO*/){
-			HandleDiagnosticRecord(hstmt, SQL_HANDLE_STMT, retcode);
-		}
-		////show_error();
-		else if(retcode == SQL_SUCCESS){
+		//retcode = SQLFetch(hstmt); // 다음 행일 가져와라 명령어
+		//if(retcode == SQL_ERROR/* || retcode == SQL_SUCCESS_WITH_INFO*/){
+		//	HandleDiagnosticRecord(hstmt, SQL_HANDLE_STMT, retcode);
+		//}
+		//////show_error();
+		//else if(retcode == SQL_SUCCESS){
 
-		}
-		if(retcode == SQL_SUCCESS_WITH_INFO){
+		//}
+		//if(retcode == SQL_SUCCESS_WITH_INFO){
 
-			HandleDiagnosticRecord(hstmt, SQL_HANDLE_STMT, retcode);
-		}
+		//	HandleDiagnosticRecord(hstmt, SQL_HANDLE_STMT, retcode);
+		//}
+	} else{
+		//실패한 경우 처리해야함
 	}
 	// Process data  
 	if(retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO){
