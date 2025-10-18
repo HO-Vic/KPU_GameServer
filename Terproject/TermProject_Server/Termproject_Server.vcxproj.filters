@@ -47,6 +47,9 @@
     <Filter Include="GameObject\NPC_Object\Peace">
       <UniqueIdentifier>{35bf5a12-924f-4d1c-a340-896a292849b1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Metric">
+      <UniqueIdentifier>{a84772fb-649a-4a97-a0dc-ae1e2244602b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DB\DB_OBJ.cpp">
@@ -100,6 +103,9 @@
     <ClCompile Include="GameObject\NPC_Object\PeaceNPC.cpp">
       <Filter>GameObject\NPC_Object\Peace</Filter>
     </ClCompile>
+    <ClCompile Include="Metric\Metric.cpp">
+      <Filter>Metric</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DB\DB_OBJ.h">
@@ -152,6 +158,9 @@
     </ClInclude>
     <ClInclude Include="GameObject\NPC_Object\PeaceNPC.h">
       <Filter>GameObject\NPC_Object\Peace</Filter>
+    </ClInclude>
+    <ClInclude Include="Metric\Metric.h">
+      <Filter>Metric</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
