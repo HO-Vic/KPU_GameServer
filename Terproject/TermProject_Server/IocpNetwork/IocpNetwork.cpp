@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include <chrono>
 #include "IocpNetwork.h"
 #include "../ExpOver/ExpOver.h"
 #include "../GameObject/PlayerObject/PlayerObject.h"
@@ -8,6 +9,7 @@
 #include "../Packet/PacketManager.h"
 #include "../Logic/Logic.h"
 #include "../DB/DB_Event.h"
+#include "../Metric/Metric.h"
 
 extern array<GameObject *, MAX_USER + MAX_NPC> g_clients;
 extern array < array<MapSession, 100>, 100> g_gameMap;
@@ -64,8 +66,26 @@ void IocpNetwork::Start(){
 	for(int i = 0; i < num_threads; ++i)
 		worker_threads.emplace_back([&](){WorkerThread(); });
 
+	using namespace std::chrono;
+	steady_clock::time_point prevTime = steady_clock::now();
 	while(true){
+		steady_clock::time_point currentTime = steady_clock::now();
+		if(duration_cast<milliseconds>(currentTime - prevTime).count() < 1000){//1초에 한번씩 로깅할 수 있게
+			continue;
+		}
+		prevTime = currentTime;
 
+		auto & metric = Metric::GetInstance().SwapAndLoad();
+		auto total = metric.totalGridElapsedTime.load();
+		auto cnt = metric.totalProcessCnt.load();
+		uint64_t avgTime = 0;
+		if(cnt != 0){
+			avgTime = total / cnt;
+		}
+		auto currentUserCnt = Metric::GetInstance().m_currentUserCnt.load();
+		std::cout << "Grid ElpaseTime: " << avgTime;
+		std::cout << "(micros)\nCnt: " << cnt;
+		std::cout << "\ncurrentUserCnt: " << currentUserCnt << '\n';
 	}
 
 	for(auto & th : worker_threads)
@@ -89,8 +109,10 @@ void IocpNetwork::WorkerThread(){
 		ExpOver * exOver = reinterpret_cast<ExpOver *>( (LPOVERLAPPED)over );
 		OP_CODE currentOpCode = exOver->GetOpCode();
 		if(FALSE == ret){
-			if(currentOpCode == OP_ACCEPT) cout << "Accept Error";
-			cout << "GQCS Error on client[" << key << "]\n";
+			if(currentOpCode == OP_ACCEPT){
+				//cout << "Accept Error";
+			}
+			//cout << "GQCS Error on client[" << key << "]\n";
 			Logic::DisconnectClient(key);
 			ExpOverMgr::DeleteExpOver(exOver);
 			over = nullptr;
@@ -107,7 +129,7 @@ void IocpNetwork::WorkerThread(){
 				} else{
 					closesocket(m_clientSocket);
 					ExecuteAccept();
-					cout << "Max user exceeded.\n";
+					//cout << "Max user exceeded.\n";
 				}
 			}
 			break;
@@ -140,6 +162,7 @@ void IocpNetwork::WorkerThread(){
 			{
 				char * dbData = reinterpret_cast<ExpOverBuffer *>( exOver )->GetBufferData();
 				Logic::PlayerIngameState(dbData);
+				Metric::GetInstance().m_currentUserCnt++;
 				ExpOverMgr::DeleteExpOver(exOver);
 			}
 			break;

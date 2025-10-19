@@ -117,7 +117,6 @@ void PacketManager::SendSkillExecuteTImePacket(SOCKET & socket, int playerId, un
 	p.size = sizeof(SC_ATTACK_PACKET);
 	p.type = SC_ATTACK;
 	p.skillExecuteTime = t;
-	p.id = playerId;
 	if(Logic::IsPlayer(playerId))
 		SendPacket(socket, reinterpret_cast<char *>( &p ));
 	for(const auto & otherId : viewList)
@@ -131,6 +130,13 @@ void PacketManager::SendMessPacket(SOCKET & socket, int sendId, wchar_t * mess){
 	p.size = sizeof(SC_CHAT_PACKET);
 	p.id = sendId;
 	wcscpy_s(p.mess, mess);
+	SendPacket(socket, reinterpret_cast<char *>( &p ));
+}
+
+void PacketManager::SendDelayPacket(SOCKET socket){
+	SC_DELAY_PACKET p;
+	p.type = SC_DELAY;
+	p.size = sizeof(SC_DELAY_PACKET);
 	SendPacket(socket, reinterpret_cast<char *>( &p ));
 }
 
@@ -238,7 +244,13 @@ void PacketManager::ExecutePacket(int playerId, char * packet){
 		Logic::BroadCastMessInViewList(playerId, p->mess);
 	}
 	break;
-
+	case CS_DELAY:
+	{
+		if(playerId < MAX_USER){
+			static_cast<PlayerObject *>(g_clients[playerId])->SendDelayPacket();
+		}
+	}
+	break;
 	default:
 		std::cerr << "recv unknown Packet" << std::endl;
 		break;

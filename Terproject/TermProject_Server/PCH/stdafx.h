@@ -42,19 +42,19 @@ constexpr int BUF_SIZE = 255;
 constexpr int NAME_SIZE = 20;
 constexpr int CHAT_SIZE = 100;
 
-constexpr int MAX_USER = 11000;
+constexpr int MAX_USER = 6000;
 constexpr int MAX_NPC = 200000;
 //constexpr int MAX_NPC = 1;
 
 constexpr int W_WIDTH = 2000;
 constexpr int W_HEIGHT = 2000;
 
-enum S_STATE {
+enum S_STATE{
 	ST_PLAYER_FREE,
 	ST_PLAYER_ALLOC,
-	ST_INGAME	
+	ST_INGAME
 };
-enum OP_CODE {
+enum OP_CODE{
 	OP_ACCEPT,
 	OP_RECV,
 	OP_SEND,
@@ -66,7 +66,7 @@ enum OP_CODE {
 	OP_PLAYER_LOGIN_FAIL
 };
 
-enum EVENT_TYPE {
+enum EVENT_TYPE{
 	EV_NONE,
 	EV_RANDOM_MOVE,
 	EV_CHASE_MOVE,
@@ -74,13 +74,13 @@ enum EVENT_TYPE {
 	EV_RESPAWN_NPC,
 	EV_AUTO_SAVE
 };
-enum DB_EVENT_TYPE {
+enum DB_EVENT_TYPE{
 	EV_GET_PLAYER_INFO,
 	EV_ADD_NEW_USER,
 	EV_SAVE_PLAYER_INFO
 };
 
-enum NPC_TYPE {
+enum NPC_TYPE{
 	PEACE,
 	AGRO,
 	BOSS

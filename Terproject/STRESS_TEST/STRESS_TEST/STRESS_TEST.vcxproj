@@ -128,9 +128,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="DrawModule.cpp" />
+    <ClCompile Include="Metric.cpp" />
     <ClCompile Include="NetworkModule.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Metric.h" />
     <ClInclude Include="NetworkModule.h" />
     <ClInclude Include="protocol_2022.h" />
   </ItemGroup>

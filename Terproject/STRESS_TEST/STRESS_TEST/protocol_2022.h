@@ -3,7 +3,7 @@ constexpr int BUF_SIZE = 200;
 constexpr int NAME_SIZE = 20;
 constexpr int CHAT_SIZE = 100;
 
-constexpr int MAX_USER = 11000;
+constexpr int MAX_USER = 6000;
 constexpr int MAX_NPC = 200000;
 //constexpr int MAX_NPC = 200;
 
@@ -17,6 +17,7 @@ constexpr char CS_CHAT = 2;
 constexpr char CS_ATTACK = 3;			// 4 방향 공격
 constexpr char CS_TELEPORT = 4;			// RANDOM한 위치로 Teleport, Stress Test할 때 Hot Spot현상을 피하기 위해 구현
 constexpr char CS_LOGOUT = 5;			// 클라이언트에서 정상적으로 접속을 종료하는 패킷
+constexpr char CS_DELAY = 6;			// 클라이언트에서 딜레이 체크를 윈한 패킷
 
 constexpr char SC_LOGIN_INFO = 2;
 constexpr char SC_ADD_OBJECT = 3;
@@ -28,39 +29,40 @@ constexpr char SC_LOGIN_FAIL = 8;
 constexpr char SC_STAT_CHANGE = 9;
 constexpr char SC_ATTACK = 10;
 constexpr char SC_ATTACK_COOL = 11;
+constexpr char SC_DELAY = 12;
 
 
 #pragma pack (push, 1)
-struct CS_LOGIN_PACKET {
+struct CS_LOGIN_PACKET{
 	unsigned char size;
 	char	type;
 	char	loginId[NAME_SIZE];
 };
 
-struct CS_MOVE_PACKET {
+struct CS_MOVE_PACKET{
 	unsigned char size;
 	char	type;
 	char	direction;  // 0 : UP, 1 : DOWN, 2 : LEFT, 3 : RIGHT
 	unsigned int move_time;
 };
 
-struct CS_CHAT_PACKET {
+struct CS_CHAT_PACKET{
 	unsigned char size;
 	char	type;
 	wchar_t	mess[CHAT_SIZE];
 };
 
-struct CS_TELEPORT_PACKET {
+struct CS_TELEPORT_PACKET{
 	unsigned char size;
 	char	type;
 };
 
-struct CS_LOGOUT_PACKET {
+struct CS_LOGOUT_PACKET{
 	unsigned char size;
 	char	type;
 };
 
-struct SC_LOGIN_INFO_PACKET {
+struct SC_LOGIN_INFO_PACKET{
 	unsigned char size;
 	char	type;
 	int		id;
@@ -74,7 +76,7 @@ struct SC_LOGIN_INFO_PACKET {
 	wchar_t	name[NAME_SIZE];
 };
 
-struct SC_ADD_OBJECT_PACKET {
+struct SC_ADD_OBJECT_PACKET{
 	unsigned char size;
 	char	type;
 	int		id;
@@ -84,13 +86,13 @@ struct SC_ADD_OBJECT_PACKET {
 	wchar_t	name[NAME_SIZE];
 };
 
-struct SC_REMOVE_OBJECT_PACKET {
+struct SC_REMOVE_OBJECT_PACKET{
 	unsigned char size;
 	char	type;
 	int		id;
 };
 
-struct SC_MOVE_OBJECT_PACKET {
+struct SC_MOVE_OBJECT_PACKET{
 	unsigned char size;
 	char	type;
 	int		id;
@@ -98,25 +100,25 @@ struct SC_MOVE_OBJECT_PACKET {
 	unsigned int move_time;
 };
 
-struct SC_CHAT_PACKET {
+struct SC_CHAT_PACKET{
 	unsigned char size;
 	char	type;
 	int		id;
 	wchar_t	mess[CHAT_SIZE];
 };
 
-struct SC_LOGIN_OK_PACKET {
+struct SC_LOGIN_OK_PACKET{
 	unsigned char size;
 	char	type;
 };
 
-struct SC_LOGIN_FAIL_PACKET {
+struct SC_LOGIN_FAIL_PACKET{
 	unsigned char size;
 	char	type;
 
 };
 
-struct SC_STAT_CHANGEL_PACKET {
+struct SC_STAT_CHANGEL_PACKET{
 	unsigned char size;
 	char	type;
 	int		id;
@@ -128,20 +130,29 @@ struct SC_STAT_CHANGEL_PACKET {
 };
 
 //add
-struct CS_ATTACK_PACKET {
+struct CS_ATTACK_PACKET{
 	unsigned char size;
 	char	type;
 };
 
-struct SC_ATTACK_PACKET {
+struct SC_ATTACK_PACKET{
 	unsigned char size;
 	char	type;
 	system_clock::time_point skillExecuteTime;
 };
 
-struct SC_ATTACK_COOL_PACKET {
+struct SC_ATTACK_COOL_PACKET{
 	unsigned char size;
 	char	type;
 };
 
+struct CS_DELAY_PACKET{
+	unsigned char size;
+	char	type;
+};
+
+struct SS_DELAY_PACKET{
+	unsigned char size;
+	char	type;
+};
 #pragma pack (pop)

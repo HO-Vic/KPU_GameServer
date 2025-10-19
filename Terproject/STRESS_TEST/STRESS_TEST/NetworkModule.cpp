@@ -13,13 +13,14 @@
 #include <queue>
 #include <array>
 #include <memory>
+#include "Metric.h"
 
 using namespace std;
 using namespace chrono;
 
 extern HWND		hWnd;
 
-const static int MAX_TEST = 11000;
+const static int MAX_TEST = 6000;
 const static int MAX_CLIENTS = MAX_TEST * 2;
 const static int INVALID_ID = -1;
 const static int MAX_PACKET_SIZE = 255;
@@ -47,15 +48,19 @@ struct CLIENT{
 	int id;
 	int x;
 	int y;
-	atomic_bool connected;
+	atomic_bool connected = true;
 
-	SOCKET client_socket;
+	SOCKET client_socket = NULL;
 	OverlappedEx recv_over;
-	unsigned char packet_buf[MAX_PACKET_SIZE];
-	int prev_packet_data;
-	int curr_packet_size;
+	unsigned char packet_buf[MAX_PACKET_SIZE] = { 0 };
+	int prev_packet_data = 0;
+	int curr_packet_size = 0;
 	high_resolution_clock::time_point last_move_time;
+	high_resolution_clock::time_point last_delay_time;
+	volatile bool m_isSendAbleDelayCheck = true;
 	int prevLatencyTime = 0;
+
+	CLIENT() : last_move_time(high_resolution_clock::now()), last_delay_time(high_resolution_clock::now()){}
 };
 
 array<int, MAX_CLIENTS> client_map;
@@ -65,6 +70,7 @@ atomic_int client_to_close;
 atomic_int active_clients;
 
 atomic_int			global_delay;				// ms단위, 1000이 넘으면 클라이언트 증가 종료
+volatile uint64_t			avg_delay;				// 평균 딜레이
 
 vector <thread *> worker_threads;
 thread test_thread;
@@ -98,7 +104,7 @@ void DisconnectClient(int ci){
 	bool status = true;
 	if(true == atomic_compare_exchange_strong(&g_clients[ci].connected, &status, false)){
 		closesocket(g_clients[ci].client_socket);
-		global_delay -= g_clients[ci].prevLatencyTime;
+		//global_delay -= g_clients[ci].prevLatencyTime;
 		active_clients--;
 	}
 	// cout << "Client [" << ci << "] Disconnected!\n";
@@ -136,23 +142,23 @@ void ProcessPacket(int ci, unsigned char packet[]){
 			}
 			if(ci == my_id){
 				if(0 != move_packet->move_time){
-					if(!g_clients[ci].connected)return;
+					if(!g_clients[ci].connected.load())return;
 					/*duration_cast<milliseconds>(g_clients[ci].last_move_time.time_since_epoch()).count();
 
 					duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count();*/
-					auto d_ms = duration_cast<milliseconds>( high_resolution_clock::now().time_since_epoch() ).count() - duration_cast<milliseconds>( g_clients[ci].last_move_time.time_since_epoch() ).count();
-					d_ms /= 2;
-					//if (ci == 5) {
-					//	cout << "d_ms: " << d_ms << endl;
-					//	cout << "prevLat: " << g_clients[ci].prevLatencyTime << endl;
-					//}
-					global_delay += ( d_ms - g_clients[ci].prevLatencyTime );
-					if(global_delay < 0)global_delay = 0;
-					/*if (global_delay < d_ms)
-						global_delay++;
-					else if (global_delay > d_ms)
-						global_delay--;*/
-					g_clients[ci].prevLatencyTime = d_ms;
+					//auto d_ms = duration_cast<milliseconds>( high_resolution_clock::now().time_since_epoch() ).count() - duration_cast<milliseconds>( g_clients[ci].last_move_time.time_since_epoch() ).count();
+					////d_ms /= 2;
+					////if (ci == 5) {
+					////	cout << "d_ms: " << d_ms << endl;
+					////	cout << "prevLat: " << g_clients[ci].prevLatencyTime << endl;
+					////}
+					//global_delay += ( d_ms - g_clients[ci].prevLatencyTime );
+					//if(global_delay < 0)global_delay = 0;
+					///*if (global_delay < d_ms)
+					//	global_delay++;
+					//else if (global_delay > d_ms)
+					//	global_delay--;*/
+					//g_clients[ci].prevLatencyTime = d_ms;
 				}
 			}
 		}
@@ -180,6 +186,29 @@ void ProcessPacket(int ci, unsigned char packet[]){
 	case SC_CHAT:
 	case SC_STAT_CHANGE:
 		break;
+	case SC_DELAY:
+	{
+		if(g_clients[ci].connected){
+			auto d_ms = duration_cast<milliseconds>( high_resolution_clock::now() - g_clients[ci].last_delay_time ).count();
+							//d_ms /= 2;
+							//if (ci == 5) {
+							//	cout << "d_ms: " << d_ms << endl;
+							//	cout << "prevLat: " << g_clients[ci].prevLatencyTime << endl;
+							//}
+			auto & currentMetric = Metric::GetInstance().GetCurrentMetric();
+			currentMetric.totalDelayCnt++;
+			currentMetric.totalDelayTime += d_ms;
+			//global_delay += ( d_ms - g_clients[ci].prevLatencyTime );
+			//if(global_delay < 0)global_delay = 0;
+			/*if (global_delay < d_ms)
+				global_delay++;
+			else if (global_delay > d_ms)
+				global_delay--;*/
+			g_clients[ci].prevLatencyTime = d_ms;
+			g_clients[ci].m_isSendAbleDelayCheck = true;
+		}
+	}
+	break;
 	default: MessageBox(hWnd, L"Unknown Packet Type", L"ERROR", 0);
 		while(true);
 	}
@@ -259,44 +288,67 @@ void Worker_Thread(){
 	}
 }
 
-constexpr int DELAY_LIMIT = 100;
+constexpr int DELAY_LIMIT = 50;
 constexpr int DELAY_LIMIT2 = 150;
-constexpr int ACCEPT_DELY = 50;
+constexpr int CONN_DELAY = 50;
 
 void Adjust_Number_Of_Client(){
 	static int delay_multiplier = 1;
 	static int max_limit = MAXINT;
 	static bool increasing = true;
 
+	static high_resolution_clock::time_point metricTime = high_resolution_clock::now();
+
+	auto nowTime = high_resolution_clock::now();
+	if(metricTime + 500ms < nowTime){
+		auto & currentMetric = Metric::GetInstance().SwapAndLoad();
+		auto totalDelay = currentMetric.totalDelayTime.load();
+		auto delayCnt = currentMetric.totalDelayCnt.load();
+		if(delayCnt != 0){
+			avg_delay = totalDelay / delayCnt;
+		}
+		metricTime = nowTime;
+	}
+
+	auto connDuration = duration_cast<milliseconds>(nowTime - last_connect_time).count();
+
+	if(CONN_DELAY * delay_multiplier > connDuration){
+		return;
+	}
+
 	int activeClients = active_clients;
-	if(activeClients >= MAX_TEST) return;
-	if(num_connections >= MAX_CLIENTS) return;
 
-	auto duration = high_resolution_clock::now() - last_connect_time;
-	if(ACCEPT_DELY * delay_multiplier > duration_cast<milliseconds>( duration ).count()) return;
-
-	int t_delay = global_delay;
-	if(DELAY_LIMIT2 * activeClients < t_delay){
+	if(DELAY_LIMIT2 < avg_delay){//평균 딜레이가 150초과
 		if(true == increasing){
 			max_limit = activeClients;
 			increasing = false;
 		}
 		if(100 > activeClients) return;
-		if(ACCEPT_DELY * 10 > duration_cast<milliseconds>( duration ).count()) return;
-		last_connect_time = high_resolution_clock::now();
+
+		if(CONN_DELAY * 3 > connDuration){
+			return;
+		}
+
+		last_connect_time = nowTime;
 		DisconnectClient(client_to_close);
 		client_to_close++;
 		return;
 	} else{
-		if(DELAY_LIMIT * activeClients < t_delay){
-			delay_multiplier = 10;
+		if(DELAY_LIMIT < avg_delay){//100ms초과의 딜레이라면
+			delay_multiplier = 10;//커넥트 속도 줄이기
 			return;
 		}
 	}
-	if(max_limit - ( max_limit / 20 ) < activeClients) return;
+	if(max_limit * 0.8 < activeClients){//아까 전체의 20%덜어내기 전에는 conn못하게
+		return;
+	}
 
 	increasing = true;
-	last_connect_time = high_resolution_clock::now();
+	last_connect_time = nowTime;
+
+	if(activeClients >= MAX_TEST) return;
+	if(num_connections >= MAX_CLIENTS) return;
+
 	g_clients[num_connections].client_socket = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
 
 	SOCKADDR_IN ServerAddr;
@@ -352,19 +404,30 @@ void Test_Thread(){
 
 		for(int i = 0; i < num_connections; ++i){
 			if(false == g_clients[i].connected) continue;
-			if(g_clients[i].last_move_time + 1s > high_resolution_clock::now()) continue;
-			g_clients[i].last_move_time = high_resolution_clock::now();
-			CS_MOVE_PACKET my_packet;
-			my_packet.size = sizeof(my_packet);
-			my_packet.type = CS_MOVE;
-			switch(rand() % 4){
-			case 0: my_packet.direction = 0; break;
-			case 1: my_packet.direction = 1; break;
-			case 2: my_packet.direction = 2; break;
-			case 3: my_packet.direction = 3; break;
+			auto nowTime = high_resolution_clock::now();
+			if(g_clients[i].last_move_time + 1s < nowTime){
+				CS_MOVE_PACKET my_packet;
+				my_packet.size = sizeof(my_packet);
+				my_packet.type = CS_MOVE;
+				switch(rand() % 4){
+				case 0: my_packet.direction = 0; break;
+				case 1: my_packet.direction = 1; break;
+				case 2: my_packet.direction = 2; break;
+				case 3: my_packet.direction = 3; break;
+				}
+				my_packet.move_time = static_cast<unsigned>(duration_cast<milliseconds>(nowTime.time_since_epoch()).count());
+				SendPacket(i, &my_packet);
+				g_clients[i].last_move_time = nowTime;
 			}
-			my_packet.move_time = static_cast<unsigned>( duration_cast<milliseconds>( high_resolution_clock::now().time_since_epoch() ).count() );
-			SendPacket(i, &my_packet);
+			if(g_clients[i].m_isSendAbleDelayCheck && g_clients[i].last_delay_time + 2s < nowTime){
+				g_clients[i].m_isSendAbleDelayCheck = false;
+				CS_DELAY_PACKET delayPacket;
+				delayPacket.size = sizeof(CS_DELAY_PACKET);
+				delayPacket.type = CS_DELAY;
+				g_clients[i].last_delay_time = nowTime;
+				SendPacket(i, &delayPacket);
+			}
+
 		}
 	}
 }

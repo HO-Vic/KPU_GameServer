@@ -7,13 +7,13 @@
 class Metric{
 public:
 	struct MetricSlot{
-		std::atomic_uint64_t totalGridElapsedTime = 0;//그리드 분할 방식에서 사용된 시간
-		std::atomic_uint32_t totalProcessCnt = 0;//그리드 분할 코드를 몇번 탔는지
+		std::atomic_uint64_t totalDelayTime = 0;//딜레이 총합
+		std::atomic_uint32_t totalDelayCnt = 0;//딜레이에 추가된 표본 갯수
 		MetricSlot() = default;
 
 		void Clear(){
-			totalGridElapsedTime = 0;
-			totalProcessCnt = 0;
+			totalDelayTime = 0;
+			totalDelayCnt = 0;
 		}
 	};
 
@@ -46,6 +46,4 @@ public:
 private:
 	MetricSlot m_metrics[2];
 	std::atomic_uint currentIdx = 0;
-public:
-	std::atomic_uint32_t m_currentUserCnt = 0;
 };

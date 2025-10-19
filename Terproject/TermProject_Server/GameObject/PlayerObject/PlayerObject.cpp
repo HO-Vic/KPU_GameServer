@@ -3,26 +3,23 @@
 #include "../../Packet/PacketManager.h"
 #include "../../ExpOver/ExpOver.h"
 #include "../../DB/DB_OBJ.h"
+#include "../../Metric/Metric.h"
 
 extern DB_OBJ g_DB;
 
-PlayerObject::PlayerObject() :GameObject()
-{
+PlayerObject::PlayerObject() :GameObject(){
 	m_recvOver = new RecvExpOverBuffer();
 }
 
-PlayerObject::PlayerObject(int id) :GameObject(id)
-{
+PlayerObject::PlayerObject(int id) :GameObject(id){
 	m_recvOver = new RecvExpOverBuffer();
 }
 
-PlayerObject::~PlayerObject()
-{
+PlayerObject::~PlayerObject(){
 	delete m_recvOver;
 }
 
-void PlayerObject::ClearPlayerObject()
-{
+void PlayerObject::ClearPlayerObject(){
 	m_hp = 0;
 	m_maxHp = 0;
 	m_attackDamage = 0;
@@ -36,90 +33,80 @@ void PlayerObject::ClearPlayerObject()
 	m_state = ST_PLAYER_FREE;
 }
 
-void PlayerObject::RegistSocket(SOCKET& sock)
-{
+void PlayerObject::RegistSocket(SOCKET & sock){
 	m_socket = sock;
 }
 
-void PlayerObject::SetLoginId(char* loginId)
-{
+void PlayerObject::SetLoginId(char * loginId){
 	string str{ loginId };
 	m_loginID.assign(str.begin(), str.end());
 }
 
-void PlayerObject::SetLoginId(wchar_t* loginId)
-{
+void PlayerObject::SetLoginId(wchar_t * loginId){
 	m_loginID = loginId;
 }
 
-wstring PlayerObject::GetLoginId()
-{
+wstring PlayerObject::GetLoginId(){
 	return m_loginID;
 }
 
-void PlayerObject::DoRecv()
-{
+void PlayerObject::DoRecv(){
 	m_recvOver->DoRecv(m_socket);
 }
 
-void PlayerObject::RecvPacket(int ioByte)
-{
+void PlayerObject::RecvPacket(int ioByte){
 	m_recvOver->RecvPacket(m_id, ioByte);
 	DoRecv();
 }
 
-void PlayerObject::SendLoginInfoPacket()
-{
+void PlayerObject::SendLoginInfoPacket(){
 	PacketManager::SendLoginPacket(m_socket, m_inGameName, m_id, m_position, m_hp, m_maxHp, m_level, m_exp);//name ºüÁü.
 	m_state = ST_INGAME;
 }
 
-void PlayerObject::SendLoginFailPacket()
-{
+void PlayerObject::SendLoginFailPacket(){
 	PacketManager::SendLoginFailPacket(m_socket);
 }
 
-void PlayerObject::Disconnect()
-{
-	m_state = ST_PLAYER_ALLOC;
-	SaveData();
-	auto viewList = GetViewList();
-	ClearViewList();
-	PacketManager::RemoveDisconnectClient(m_id, viewList);
-	ClearPlayerObject();
+void PlayerObject::Disconnect(){
+	bool expectedVal = false;
+	if(m_isDisconn.compare_exchange_strong(expectedVal, true)){
+		m_state = ST_PLAYER_ALLOC;
+		SaveData();
+		auto viewList = GetViewList();
+		ClearViewList();
+		PacketManager::RemoveDisconnectClient(m_id, viewList);
+		ClearPlayerObject();
+		Metric::GetInstance().m_currentUserCnt--;
+	}
 }
 
-void PlayerObject::RemoveViewListPlayer(int removePlayerId)
-{
+void PlayerObject::RemoveViewListPlayer(int removePlayerId){
 	m_viewListLock.lock();
 	int existElement = m_viewList.erase(removePlayerId);//exist ret 1, not exist ret 0
 	m_viewListLock.unlock();
-	if (!existElement) return;
+	if(!existElement) return;
 	PacketManager::SendRemoveObjectPacket(m_socket, removePlayerId);
 }
 
-void PlayerObject::MovePlayer(int movePlayerId)
-{
+void PlayerObject::MovePlayer(int movePlayerId){
 	PacketManager::SendMoveObjectPacket(m_socket, movePlayerId);
 }
 
-void PlayerObject::AddViewListPlayer(int addPlayerId)
-{
+void PlayerObject::AddViewListPlayer(int addPlayerId){
 	m_viewListLock.lock();
 	m_viewList.insert(addPlayerId);
 	m_viewListLock.unlock();
 	PacketManager::SendAddObjectPacket(m_socket, addPlayerId);
 }
 
-void PlayerObject::SendMess(int sendId, wchar_t* mess)
-{
+void PlayerObject::SendMess(int sendId, wchar_t * mess){
 	PacketManager::SendMessPacket(m_socket, sendId, mess);
 }
 
-short PlayerObject::AttackedDamage(int attackId, short damage)
-{
+short PlayerObject::AttackedDamage(int attackId, short damage){
 	m_hp -= damage;
-	if (m_hp <= 0) {
+	if(m_hp <= 0){
 		//10, 10À¸·Î ±ÍÈ¯ ½ÃÄÑ¾ßµÊ.
 
 		m_exp = 0;
@@ -128,24 +115,24 @@ short PlayerObject::AttackedDamage(int attackId, short damage)
 	return 0;
 }
 
-bool PlayerObject::IsAbleAttack()
-{
+bool PlayerObject::IsAbleAttack(){
 	return m_lastAttackTime + 1s < std::chrono::system_clock::now();
 }
 
-void PlayerObject::SendPacket(char* data)
-{
+void PlayerObject::SendPacket(char * data){
 	PacketManager::SendPacket(m_socket, data);
 }
 
-void PlayerObject::SendSkillExecutePacket(unordered_set<int>& viewList)
-{
+void PlayerObject::SendSkillExecutePacket(unordered_set<int> & viewList){
 	PacketManager::SendSkillExecuteTImePacket(m_socket, m_id, viewList, m_lastAttackTime);
 }
 
-void PlayerObject::SaveData()
-{
-	DB::DB_PlayerInfo dbData{m_id, m_loginID, m_inGameName,
+void PlayerObject::SendDelayPacket(){
+	PacketManager::SendDelayPacket(m_socket);
+}
+
+void PlayerObject::SaveData(){
+	DB::DB_PlayerInfo dbData{ m_id, m_loginID, m_inGameName,
 		m_position.first, m_position.second,
 		m_level, m_exp, m_hp, m_maxHp, m_attackDamage
 	};
@@ -153,18 +140,16 @@ void PlayerObject::SaveData()
 	g_DB.Insert_DBEvent(dbEv);
 }
 
-S_STATE PlayerObject::GetPlayerState()
-{
+S_STATE PlayerObject::GetPlayerState(){
 	return m_state;
 }
 
-void PlayerObject::ConsumeExp(short cExp)
-{
+void PlayerObject::ConsumeExp(short cExp){
 	m_exp += cExp;
 }
 
-void PlayerObject::RegistGameObject(int id, SOCKET& sock)
-{
+void PlayerObject::RegistGameObject(int id, SOCKET & sock){
+	m_isDisconn = false;
 	m_state = ST_PLAYER_ALLOC;
 	SetId(id);
 	RegistSocket(sock);
